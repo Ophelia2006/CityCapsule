@@ -1,0 +1,149 @@
+# -----------------------------------------------------------------------------
+# CityCapsule repository ignore rules
+# Keep source code, Gradle Wrapper, dependency lock files and project manifests.
+# Ignore generated output, machine-local paths, IDE state and signing material.
+# -----------------------------------------------------------------------------
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# IDEs and editor-local state
+.idea/
+**/.idea/
+.run/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local environment and secrets
+local.properties
+**/local.properties
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+*.credentials
+
+# Signing keys and certificates
+*.jks
+*.keystore
+*.p12
+*.p7b
+*.pfx
+*.cer
+*.pem
+*.key
+
+# Gradle / Kotlin / KSP
+.gradle/
+**/.gradle/
+.kotlin/
+**/.kotlin/
+**/build/
+!buildSrc/src/**
+.konan/
+Kotlin-js-store/
+*.hprof
+
+# Android build output
+captures/
+**/captures/
+.externalNativeBuild/
+**/.externalNativeBuild/
+.cxx/
+**/.cxx/
+*.apk
+*.ap_
+*.aab
+*.aar
+lint-results*.html
+lint-results*.xml
+
+# Native binaries and generated symbols
+*.so
+*.dll
+*.dylib
+*.a
+*.o
+*.obj
+*.dSYM/
+
+# JavaScript / Node
+node_modules/
+**/node_modules/
+.npm/
+.yarn/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+**/dist/
+**/.cache/
+
+# HarmonyOS / DevEco Studio
+oh_modules/
+**/oh_modules/
+.hvigor/
+**/.hvigor/
+.test/
+**/.test/
+.appanalyzer/
+**/.appanalyzer/
+*.hap
+*.har
+*.hsp
+*.abc
+
+# This root profile contains local DevEco signing paths and passwords.
+# Copy build-profile.example.json5 after cloning and configure local signing.
+/ohosApp/build-profile.json5
+/ohosApp/entry/libs/
+/ohosApp/entry/src/main/cpp/libshared_api.h
+/ohosApp/.clangd
+/ohosApp/.clang-format
+/ohosApp/.clang-tidy
+
+# Kotlin Multiplatform / CocoaPods / Xcode
+Pods/
+**/Pods/
+*.podspec
+DerivedData/
+**/DerivedData/
+**/xcuserdata/
+**/*.xcuserdatad/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+*.xcbkptlist
+**/IDEWorkspaceChecks.plist
+
+# Test and coverage reports outside module build directories
+coverage/
+.coverage
+*.exec
+*.ec
+*.profraw
+*.profdata
+
+# Language/tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
