@@ -9,10 +9,50 @@ import { LogAdapter } from '../kuikly/adapter/LogAdapter';
 import { RouterAdapter } from '../kuikly/adapter/RouterAdapter';
 import { HarmonyRouteLogger } from '../navigation/HarmonyRouteLogger';
 import { HarmonyRouteStackCoordinator } from '../navigation/HarmonyRouteStackCoordinator';
+import { HarmonyMmkvStorage } from '../storage/HarmonyMmkvStorage';
+import {
+  HarmonyPreferencesLegacySettingsSource,
+  HarmonyStorageMigrator
+} from '../storage/HarmonyStorageMigration';
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onCreate');
+    const storageInitialization = HarmonyMmkvStorage.shared.initialize(
+      this.context.getApplicationContext()
+    );
+    if (!storageInitialization.success) {
+      hilog.error(
+        0x0000,
+        'CityCapsuleStorage',
+        'Storage initialization failed: %{public}s',
+        storageInitialization.message ?? 'unknown error'
+      );
+    } else {
+      try {
+        const migration = new HarmonyStorageMigrator(
+          HarmonyMmkvStorage.shared,
+          new HarmonyPreferencesLegacySettingsSource(this.context.getApplicationContext())
+        ).migrate();
+        hilog.info(
+          0x0000,
+          'CityCapsuleStorage',
+          'Storage migration outcome=%{public}s, attempt=%{public}d, migratedTheme=%{public}s, reason=%{public}s',
+          migration.outcome,
+          migration.attempt,
+          migration.migratedTheme.toString(),
+          migration.reason ?? ''
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'legacy_source_unavailable';
+        hilog.error(
+          0x0000,
+          'CityCapsuleStorage',
+          'Storage migration skipped safely: %{public}s',
+          message
+        );
+      }
+    }
   }
 
   onDestroy(): void {

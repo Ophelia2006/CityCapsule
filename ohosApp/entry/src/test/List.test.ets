@@ -4,6 +4,8 @@ import harmonyRouteStackCoordinatorTest from './HarmonyRouteStackCoordinator.tes
 import harmonyRouteGuardTest from './HarmonyRouteGuard.test';
 import harmonyRouteLoggerTest from './HarmonyRouteLogger.test';
 import harmonyRouteTransitionsTest from './HarmonyRouteTransitions.test';
+import harmonyStorageDispatcherTest from './HarmonyStorageDispatcher.test';
+import harmonyStorageMigrationTest from './HarmonyStorageMigration.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -12,4 +14,6 @@ export default function testsuite() {
   harmonyRouteGuardTest();
   harmonyRouteLoggerTest();
   harmonyRouteTransitionsTest();
+  harmonyStorageDispatcherTest();
+  harmonyStorageMigrationTest();
 }

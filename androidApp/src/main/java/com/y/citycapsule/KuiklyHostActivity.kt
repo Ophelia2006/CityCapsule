@@ -24,6 +24,7 @@ import com.y.citycapsule.adapter.KRUncaughtExceptionHandlerAdapter
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.module.KRBridgeModule
 import com.y.citycapsule.module.KRShareModule
+import com.y.citycapsule.module.KRStorageModule
 import com.y.citycapsule.navigation.AndroidRouteHost
 import com.y.citycapsule.navigation.AndroidRouteRequest
 import com.y.citycapsule.navigation.AndroidRouteStackCoordinator
@@ -89,6 +90,9 @@ class KuiklyHostActivity :
             }
             moduleExport(KRShareModule.MODULE_NAME) {
                 KRShareModule()
+            }
+            moduleExport(KRStorageModule.MODULE_NAME) {
+                KRStorageModule()
             }
         }
     }
