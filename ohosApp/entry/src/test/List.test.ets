@@ -6,6 +6,7 @@ import harmonyRouteLoggerTest from './HarmonyRouteLogger.test';
 import harmonyRouteTransitionsTest from './HarmonyRouteTransitions.test';
 import harmonyStorageDispatcherTest from './HarmonyStorageDispatcher.test';
 import harmonyStorageMigrationTest from './HarmonyStorageMigration.test';
+import harmonyThemeProtocolTest from './HarmonyThemeProtocol.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -16,4 +17,5 @@ export default function testsuite() {
   harmonyRouteTransitionsTest();
   harmonyStorageDispatcherTest();
   harmonyStorageMigrationTest();
+  harmonyThemeProtocolTest();
 }

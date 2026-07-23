@@ -2,6 +2,7 @@ import AbilityConstant from '@ohos.app.ability.AbilityConstant';
 import hilog from '@ohos.hilog';
 import UIAbility from '@ohos.app.ability.UIAbility';
 import Want from '@ohos.app.ability.Want';
+import { Configuration } from '@kit.AbilityKit';
 import window from '@ohos.window';
 import { KuiklyRenderAdapterManager } from '@kuikly-open/render';
 import { HMRouterMgr } from '@hadss/hmrouter';
@@ -14,6 +15,7 @@ import {
   HarmonyPreferencesLegacySettingsSource,
   HarmonyStorageMigrator
 } from '../storage/HarmonyStorageMigration';
+import { HarmonyThemeHost } from '../designsystem/HarmonyThemeHost';
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
@@ -62,7 +64,9 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     // Main window is created, set main page for this ability
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
-    windowStage.getMainWindowSync().setWindowLayoutFullScreen(true);
+    const mainWindow = windowStage.getMainWindowSync();
+    mainWindow.setWindowLayoutFullScreen(true);
+    HarmonyThemeHost.shared.attach(mainWindow, this.context);
 
     KuiklyRenderAdapterManager.krLogAdapter = new LogAdapter();
     KuiklyRenderAdapterManager.krRouterAdapter = new RouterAdapter();
@@ -87,13 +91,25 @@ export default class EntryAbility extends UIAbility {
   onWindowStageDestroy(): void {
     // Main window is destroyed, release UI related resources
     HarmonyRouteStackCoordinator.shared.clear();
+    HarmonyThemeHost.shared.detach();
     HMRouterMgr.clearDefaultNavigationId();
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageDestroy');
   }
 
   onForeground(): void {
     // Ability has brought to foreground
+    HarmonyThemeHost.shared.refreshAppearance();
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onForeground');
+  }
+
+  onConfigurationUpdate(newConfig: Configuration): void {
+    HarmonyThemeHost.shared.onConfigurationUpdate();
+    hilog.info(
+      0x0000,
+      'CityCapsuleTheme',
+      'Configuration updated, colorMode=%{public}s',
+      newConfig.colorMode?.toString() ?? 'unknown'
+    );
   }
 
   onBackground(): void {

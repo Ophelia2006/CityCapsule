@@ -1,66 +1,82 @@
 package com.y.citycapsule
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import com.tencent.kuikly.compose.foundation.background
-import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.Spacer
-import com.tencent.kuikly.compose.foundation.layout.fillMaxSize
-import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
-import com.tencent.kuikly.compose.foundation.layout.padding
-import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.setContent
-import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
-import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
-import com.tencent.kuikly.compose.ui.unit.dp
-import com.tencent.kuikly.compose.ui.unit.sp
 import com.tencent.kuikly.core.annotations.Page
-import com.tencent.kuikly.core.pager.Pager
+import com.y.citycapsule.app.theme.AppThemeHost
+import com.y.citycapsule.app.theme.KuiklyAppThemeHost
+import com.y.citycapsule.app.theme.RuntimeAppTheme
 import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteKey
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
+import com.y.citycapsule.designsystem.component.AppButton
+import com.y.citycapsule.designsystem.component.AppButtonVariant
+import com.y.citycapsule.designsystem.component.AppScaffold
+import com.y.citycapsule.designsystem.component.AppSection
+import com.y.citycapsule.designsystem.component.AppTopBar
+import com.y.citycapsule.designsystem.theme.AppTheme
 
 /** Developer-only route console. All actions deliberately use the typed navigation API. */
 @Page(AppRouteTable.PAGE_ROUTER_DIAGNOSTICS, supportInLocal = true)
 internal class ComposeRoutePager : BasePager() {
     override fun willInit() {
         super.willInit()
-        setContent { RouteDiagnosticsScreen() }
+        val navigator = KuiklyAppNavigator(this)
+        val themeHost = KuiklyAppThemeHost(this)
+        setContent {
+            RouteDiagnosticsScreen(navigator, themeHost)
+        }
     }
 }
 
 @Composable
-private fun RouteDiagnosticsScreen() {
-    val pager = LocalActivity.current.getPager() as Pager
-    val navigator: AppNavigator = remember { KuiklyAppNavigator(pager) }
+private fun RouteDiagnosticsScreen(
+    navigator: AppNavigator,
+    themeHost: AppThemeHost
+) {
+    val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(Color.White).padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Typed route diagnostics", fontSize = 22.sp, color = Color(0xFF3F4BA8))
-        Spacer(Modifier.height(24.dp))
-        RouteActionButton("Push Home") { navigator.navigate(AppRoute.Home) }
-        RouteActionButton("Push Settings") { navigator.navigate(AppRoute.Settings) }
-        RouteActionButton("Replace with Settings") { navigator.replace(AppRoute.Settings) }
-        RouteActionButton("Back to Home") { navigator.backTo(AppRouteKey.HOME) }
-        RouteActionButton("Back") { navigator.back() }
+    RuntimeAppTheme(themeHost = themeHost) {
+        val dimensions = AppTheme.dimensions
+        AppScaffold(statusBarHeight = statusBarHeight) {
+            AppTopBar(
+                title = "Typed route diagnostics",
+                subtitle = "All actions use AppRoute and AppNavigator."
+            )
+            Spacer(Modifier.height(dimensions.spacingXl))
+            AppSection(
+                title = "Route actions",
+                description = "Use this developer-only page to verify the native route stack."
+            ) {
+                RouteActionButton("Push Home") { navigator.navigate(AppRoute.Home) }
+                RouteActionButton("Push Settings") { navigator.navigate(AppRoute.Settings) }
+                RouteActionButton("Replace with Settings") {
+                    navigator.replace(AppRoute.Settings)
+                }
+                RouteActionButton("Back to Home") { navigator.backTo(AppRouteKey.HOME) }
+                AppButton(
+                    text = "Back",
+                    variant = AppButtonVariant.TEXT,
+                    onClick = navigator::back
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun RouteActionButton(label: String, action: () -> Unit) {
-    Button(
-        onClick = action,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).background(Color(0xFFE9ECF8))
-            .padding(vertical = 14.dp)
-    ) {
-        Text(label, color = Color(0xFF3F4BA8), fontSize = 16.sp)
-    }
+    AppButton(
+        text = label,
+        variant = AppButtonVariant.SECONDARY,
+        onClick = action
+    )
+    Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
 }

@@ -1,16 +1,7 @@
 package com.y.citycapsule.core.storage
 
-enum class ThemeMode(val wireValue: String) {
-    SYSTEM("system"),
-    LIGHT("light"),
-    DARK("dark");
-
-    companion object {
-        fun fromWireValue(value: String): ThemeMode? = entries.firstOrNull {
-            it.wireValue == value
-        }
-    }
-}
+/** Source-compatible alias; the neutral model now lives outside the storage package. */
+typealias ThemeMode = com.y.citycapsule.core.theme.ThemeMode
 
 private object ThemeModeCodec : StorageCodec<ThemeMode> {
     override val valueType: StorageValueType = StorageValueType.STRING
@@ -39,4 +30,3 @@ object AppStorageKeys {
         Settings.THEME_MODE
     )
 }
-

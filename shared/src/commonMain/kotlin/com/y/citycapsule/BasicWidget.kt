@@ -60,13 +60,11 @@ import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.compose.ui.platform.LocalDensity
 import com.tencent.kuikly.compose.ui.text.TextLayoutResult
 import com.tencent.kuikly.compose.ui.text.TextStyle
-import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.text.style.TextAlign
 import com.tencent.kuikly.compose.ui.unit.Dp
 import com.tencent.kuikly.compose.ui.unit.IntSize
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.tencent.kuikly.compose.ui.unit.max
-import com.tencent.kuikly.compose.ui.unit.sp
 import com.tencent.kuikly.compose.ui.window.Dialog
 import com.tencent.kuikly.compose.ui.window.DialogProperties
 import com.tencent.kuikly.core.base.BorderStyle
@@ -75,6 +73,7 @@ import com.tencent.kuikly.core.views.KeyboardParams
 import com.tencent.kuikly.core.views.ModalView
 import com.tencent.kuikly.core.pager.Pager
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
+import com.y.citycapsule.designsystem.theme.AppTheme
 import kotlinx.coroutines.delay
 import kotlin.math.max
 
@@ -365,7 +364,7 @@ internal fun TextField(
     keyboardHeightChange: (KeyboardParams) -> Unit = {},
     textStyle: TextStyle = TextStyle.Default,
     placeholderColor: Color? = null,
-    cursorBrush: Brush = SolidColor(Color.Black),
+    cursorBrush: Brush? = null,
     maxLines: Int = Int.MAX_VALUE,
     onTextLayout: (TextLayoutResult) -> Unit = {},
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
@@ -399,6 +398,7 @@ internal fun TextField(
                 it.placeHolder(placeholder, placeholderColor)
             } else it
         }
+    val resolvedCursorBrush = cursorBrush ?: SolidColor(AppTheme.colors.primary)
     BasicTextField(
         modifier = updatedModifier,
         value = value,
@@ -408,7 +408,7 @@ internal fun TextField(
         onTextLayout = currentOnTextLayout,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
-        cursorBrush = cursorBrush
+        cursorBrush = resolvedCursorBrush
     )
 
     LaunchedEffect(autoFocus) {
@@ -477,27 +477,36 @@ fun ComposeNavigationBar(titleInput: String = "", content: @Composable () -> Uni
     val navigator = KuiklyAppNavigator(localPager)
     val title = localPager.pageData.params.optString("pageTitle", titleInput)
 
+    val colors = AppTheme.colors
+    val typography = AppTheme.typography
+    val dimensions = AppTheme.dimensions
+
     Column {
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(dimensions.spacingXxl + dimensions.spacingXs))
         Box {
             Text(
                 text = "<",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                style = typography.pageTitle,
+                color = colors.primary,
                 modifier = Modifier
-                    .padding(vertical = 12.dp, horizontal = 12.dp)
+                    .padding(
+                        vertical = dimensions.spacingSm,
+                        horizontal = dimensions.spacingSm
+                    )
                     .clickable {
                         navigator.back()
                     }
             )
             Text(
                 title,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                style = typography.pageTitle,
                 textAlign = TextAlign.Center,
-                color = Color(0xFF333333),
+                color = colors.textPrimary,
                 modifier = Modifier
-                    .padding(vertical = 12.dp, horizontal = 12.dp)
+                    .padding(
+                        vertical = dimensions.spacingSm,
+                        horizontal = dimensions.spacingSm
+                    )
                     .fillMaxWidth(),
             )
         }

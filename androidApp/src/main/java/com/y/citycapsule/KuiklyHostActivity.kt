@@ -3,11 +3,9 @@ package com.y.citycapsule
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import com.tencent.kuikly.core.render.android.IKuiklyRenderExport
 import com.tencent.kuikly.core.render.android.adapter.KuiklyRenderAdapterManager
@@ -22,9 +20,12 @@ import com.y.citycapsule.adapter.KRRouterAdapter
 import com.y.citycapsule.adapter.KRThreadAdapter
 import com.y.citycapsule.adapter.KRUncaughtExceptionHandlerAdapter
 import com.y.citycapsule.core.navigation.AppRouteTable
+import com.y.citycapsule.designsystem.AndroidThemeHost
+import com.y.citycapsule.designsystem.AndroidThemePageData
 import com.y.citycapsule.module.KRBridgeModule
 import com.y.citycapsule.module.KRShareModule
 import com.y.citycapsule.module.KRStorageModule
+import com.y.citycapsule.module.KRThemeHostModule
 import com.y.citycapsule.navigation.AndroidRouteHost
 import com.y.citycapsule.navigation.AndroidRouteRequest
 import com.y.citycapsule.navigation.AndroidRouteStackCoordinator
@@ -58,8 +59,8 @@ class KuiklyHostActivity :
         super.onCreate(savedInstanceState)
 
         AndroidRouteStackCoordinator.shared.register(this)
+        AndroidThemeHost.applySystemBars(this, AndroidThemeHost.bootstrap(this).resolvedDark)
         setContentView(R.layout.activity_hr)
-        setupImmersiveMode()
         hrContainerView = findViewById(R.id.hr_container)
         loadingView = findViewById(R.id.hr_loading)
         errorView = findViewById(R.id.hr_error)
@@ -79,6 +80,7 @@ class KuiklyHostActivity :
 
     override fun onResume() {
         super.onResume()
+        AndroidThemeHost.applySystemBars(this, AndroidThemeHost.bootstrap(this).resolvedDark)
         kuiklyRenderViewDelegator.onResume()
     }
 
@@ -93,6 +95,9 @@ class KuiklyHostActivity :
             }
             moduleExport(KRStorageModule.MODULE_NAME) {
                 KRStorageModule()
+            }
+            moduleExport(KRThemeHostModule.MODULE_NAME) {
+                KRThemeHostModule()
             }
         }
     }
@@ -111,6 +116,8 @@ class KuiklyHostActivity :
     private fun createPageData(): Map<String, Any> {
         val param = argsToMap()
         param["appId"] = 1
+        val theme = AndroidThemeHost.bootstrap(this)
+        param.putAll(AndroidThemePageData.create(theme))
         return param
     }
 
@@ -118,18 +125,6 @@ class KuiklyHostActivity :
         val jsonStr = intent.getStringExtra(KEY_PAGE_DATA) ?: return mutableMapOf()
         return runCatching { JSONObject(jsonStr).toMap() }
             .getOrDefault(mutableMapOf())
-    }
-
-    private fun setupImmersiveMode() {
-        window?.apply {
-            addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            window?.statusBarColor = Color.TRANSPARENT
-            window?.decorView?.systemUiVisibility =
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-        }
-
     }
 
     companion object {

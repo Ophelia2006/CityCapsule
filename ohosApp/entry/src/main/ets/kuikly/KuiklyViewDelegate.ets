@@ -7,6 +7,7 @@ import { KRMyView } from './components/KRMyView';
 import { KRBridgeModule } from './modules/KRBridgeModule';
 import { KRMyModule } from './modules/KRMyModule';
 import { KRStorageModule } from './modules/KRStorageModule';
+import { KRThemeHostModule } from './modules/KRThemeHostModule';
 
 export class KuiklyViewDelegate extends IKuiklyViewDelegate {
   getCustomRenderViewCreatorRegisterMap(): Map<string, KRRenderViewExportCreator> {
@@ -20,6 +21,7 @@ export class KuiklyViewDelegate extends IKuiklyViewDelegate {
     map.set(KRBridgeModule.MODULE_NAME, () => new KRBridgeModule());
     map.set(KRMyModule.MODULE_NAME, () => new KRMyModule())
     map.set(KRStorageModule.MODULE_NAME, () => new KRStorageModule())
+    map.set(KRThemeHostModule.MODULE_NAME, () => new KRThemeHostModule())
     return map;
   }
 }
