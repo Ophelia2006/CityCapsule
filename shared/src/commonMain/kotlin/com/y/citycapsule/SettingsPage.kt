@@ -158,6 +158,23 @@ private fun SettingsScreen(
             }
             Spacer(Modifier.height(dimensions.spacingLg))
             AppSection(
+                title = "本地档案与首次引导",
+                description = "档案只保存在当前设备；重新查看引导不会预先清除档案。"
+            ) {
+                AppButton(
+                    text = "打开本地档案",
+                    variant = AppButtonVariant.SECONDARY,
+                    onClick = { navigator.navigate(AppRoute.Profile) }
+                )
+                Spacer(Modifier.height(dimensions.spacingSm))
+                AppButton(
+                    text = "重新查看首次引导",
+                    variant = AppButtonVariant.TEXT,
+                    onClick = { navigator.navigate(AppRoute.Onboarding) }
+                )
+            }
+            Spacer(Modifier.height(dimensions.spacingLg))
+            AppSection(
                 title = "路由验收",
                 description = "以下入口继续使用统一 AppNavigator。"
             ) {

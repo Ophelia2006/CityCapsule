@@ -72,7 +72,13 @@ private fun HomeScreen(
             }
             Spacer(Modifier.height(dimensions.spacingXl))
             AppButton(
+                text = "打开本地档案",
+                onClick = { navigator.navigate(AppRoute.Profile) }
+            )
+            Spacer(Modifier.height(dimensions.spacingSm))
+            AppButton(
                 text = "打开设置",
+                variant = AppButtonVariant.SECONDARY,
                 onClick = { navigator.navigate(AppRoute.Settings) }
             )
             Spacer(Modifier.height(dimensions.spacingSm))

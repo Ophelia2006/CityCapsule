@@ -1,12 +1,12 @@
 # CityCapsule 统一存储协议
 
-> 协议版本：1  
-> 冻结日期：2026-07-22  
-> 实现范围：T17～T44；shared 协议、双端 MMKV、旧设置迁移、容错与业务切换均已落地。
+> 协议版本：1
+> 冻结日期：2026-07-23
+> 实现范围：T17～T44 完成双端 MMKV；T73～T80 新增本地档案与首次引导 shared 数据骨架。
 
 ## 1. 数据边界
 
-当前业务只有 Home、Settings 和路由诊断能力。本阶段使用 MMKV 2.4.0 作为轻量键值存储，不引入数据库；SharedPreferences 与 Harmony Preferences 只作为只读旧数据源参与一次性迁移，不再承接新业务写入。只冻结现有页面能够确认的设置项，不提前创建地点、胶囊等尚未实现的数据 Key。
+当前可运行业务只有 Home、Settings 和路由诊断能力；T73～T80 额外冻结本地档案与首次引导的数据协议，页面仍待后续轮次实现。工程使用 MMKV 2.4.0 作为轻量键值存储，不引入数据库；SharedPreferences 与 Harmony Preferences 只作为只读旧数据源参与一次性迁移，不再承接新业务写入。不提前创建地点、胶囊等尚未实现的数据 Key。
 
 MMKV 只用于小型、可明确键控的数据：
 
@@ -25,6 +25,9 @@ MMKV 只用于小型、可明确键控的数据：
 | Kotlin 常量 | Store | wire key | type | 默认值 | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `AppStorageKeys.Settings.THEME_MODE` | `cc_preferences` | `settings.theme_mode` | `string` | `system` | 主题模式：`system/light/dark` |
+| `AppStorageKeys.Profile.LOCAL_PROFILE` | `cc_preferences` | `profile.local_profile` | `json_object` | 默认本地档案 | 单用户本地档案 v1 |
+| `AppStorageKeys.Onboarding.COMPLETED_VERSION` | `cc_preferences` | `onboarding.completed_version` | `long` | `0` | 已完成的首次引导版本 |
+| `AppStorageKeys.Onboarding.DRAFT` | `cc_cache` | `onboarding.draft` | `json_object` | 空草稿 | 可清理、可重新生成的引导中间状态 |
 
 约束：
 
@@ -83,7 +86,7 @@ MMKV 只用于小型、可明确键控的数据：
 
 ```text
 业务页面
-  -> SettingsRepository
+  -> SettingsRepository / LocalProfileRepository / OnboardingRepository
   -> KeyValueStore
      -> KuiklyKeyValueStore
      -> InMemoryKeyValueStore（测试）
@@ -107,6 +110,8 @@ MMKV 只用于小型、可明确键控的数据：
 - `StorageProtocol.kt`：双端必须镜像的 wire 常量和 JSON envelope。
 - `KuiklyKeyValueStore.kt`：typed API 到 Kuikly Bridge 的转换。
 - `SettingsRepository.kt`：首个业务 Repository，不暴露 Key 和 Bridge。
+- `core/profile/*`：LocalProfile v1、预设头像、校验、Codec 与 Repository。
+- `core/onboarding/*`：草稿、完成版本、启动决策、提交恢复与 Repository。
 - `StorageMigrationContract.kt`：双端迁移必须镜像的 Schema、状态、重试和旧 Key 契约。
 
 ## 6. 平台实现
@@ -237,3 +242,40 @@ MMKV 只用于小型、可明确键控的数据：
 6. 快速连续进入/退出 Settings，确认无闪退、无卡死、无主题被旧值覆盖。
 7. Android Logcat 或 HarmonyOS Hilog 过滤 `CityCapsuleStorage`：首次正常启动应出现 `outcome=completed`，后续启动应出现 `already_completed`。
 8. 全流程不得出现 `NOT_INITIALIZED`、`TYPE_MISMATCH`、`NATIVE_FAILURE`，也不得因旧 Preferences 异常阻塞首屏。
+
+## 12. T73～T80 本地档案与首次引导数据骨架
+
+本轮没有修改 `CCStorageModule`、Bridge 版本或平台 Dispatcher。新 Key 使用现有 `json_object/long/getMany` 能力，Android 与 HarmonyOS 不需要增加协议分支。
+
+完成规则：
+
+1. `LocalProfile` 只保存昵称、预设头像、可选城市和简介，不保存账号、Token、图片、文件路径。
+2. 启动快照通过一次 `getMany` 读取完成版本、档案和草稿。
+3. 引导提交必须先写档案，最后写完成版本；完成后草稿清理为 best effort。
+4. 清除状态必须先删完成版本，再删档案和草稿。
+5. 只有确定性损坏允许自动删除；临时 MMKV 错误不得破坏持久数据。
+6. 三个新 Key 没有旧平台来源，不加入现有主题迁移器。
+
+详细模型、决策矩阵、任务记录和第一轮验收见 `docs/LOCAL_PROFILE_ONBOARDING.md`。
+
+## 13. T81～T89 共享业务闭环
+
+共享页面只通过 Repository 使用既有存储能力：
+
+```text
+OnboardingPage -> OnboardingStateHolder -> OnboardingRepository
+ProfilePage    -> ProfileStateHolder    -> LocalProfileRepository
+                                      -> KuiklyKeyValueStore
+                                      -> CCStorageModule v1
+                                      -> Android/HarmonyOS MMKV
+```
+
+- Onboarding 切换步骤时保存 `onboarding.draft`；保存失败时保留当前内存状态并显示警告，不阻断继续填写。
+- 最终提交仍严格执行“档案 → 完成版本 → best-effort 草稿清理”，UI 不自行改变顺序。
+- Profile 保存前执行相同的 shared 校验和规范化；取消编辑不写存储。
+- 清除确认后执行“完成版本 → 档案 → 草稿”，任一步失败都保留错误状态，不误报清除成功。
+- Android 与 HarmonyOS 没有新增 Bridge 方法或平台协议分支。
+
+2026-07-23 第二轮自动化结果：shared 80/80、Android 27/27、HarmonyOS 34/34。状态测试覆盖存储成功、损坏/缺失快照、保存失败内存降级和安全清除。
+
+T90～T97 已把三个 Key 接入双端实际冷启动，但没有增加 Bridge 方法或平台业务判断：Android/HarmonyOS 都先打开 LaunchGate，再由 shared 一次 `getMany` 读取并决策。第三轮回归结果为 shared 83/83、Android JVM 31/31、Android 设备 4/4、HarmonyOS 本地 38/38；HarmonyOS 设备测试 HAP 包含 5 个用例，设备在线后执行。

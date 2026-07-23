@@ -19,13 +19,13 @@ import com.y.citycapsule.adapter.KRLogAdapter
 import com.y.citycapsule.adapter.KRRouterAdapter
 import com.y.citycapsule.adapter.KRThreadAdapter
 import com.y.citycapsule.adapter.KRUncaughtExceptionHandlerAdapter
-import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.designsystem.AndroidThemeHost
 import com.y.citycapsule.designsystem.AndroidThemePageData
 import com.y.citycapsule.module.KRBridgeModule
 import com.y.citycapsule.module.KRShareModule
 import com.y.citycapsule.module.KRStorageModule
 import com.y.citycapsule.module.KRThemeHostModule
+import com.y.citycapsule.navigation.AndroidLaunchContract
 import com.y.citycapsule.navigation.AndroidRouteHost
 import com.y.citycapsule.navigation.AndroidRouteRequest
 import com.y.citycapsule.navigation.AndroidRouteStackCoordinator
@@ -42,18 +42,16 @@ class KuiklyHostActivity :
 
     private val kuiklyRenderViewDelegator = KuiklyRenderViewBaseDelegator(this)
 
-    private val pageName: String
-        get() {
-            val pn = intent.getStringExtra(KEY_PAGE_NAME) ?: ""
-            return if (pn.isNotEmpty()) {
-                return pn
-            } else {
-                AppRouteTable.PAGE_HOME
-            }
-        }
+    internal val hostedPageName: String
+        get() = AndroidLaunchContract.resolvePageName(
+            intent.getStringExtra(KEY_PAGE_NAME)
+        )
 
     override val routeKey: String
-        get() = intent.getStringExtra(KEY_ROUTE_KEY).orEmpty().ifBlank { pageName }
+        get() = AndroidLaunchContract.resolveRouteKey(
+            requestedRouteKey = intent.getStringExtra(KEY_ROUTE_KEY),
+            resolvedPageName = hostedPageName
+        )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,7 +62,12 @@ class KuiklyHostActivity :
         hrContainerView = findViewById(R.id.hr_container)
         loadingView = findViewById(R.id.hr_loading)
         errorView = findViewById(R.id.hr_error)
-        kuiklyRenderViewDelegator.onAttach(hrContainerView, "", pageName, createPageData())
+        kuiklyRenderViewDelegator.onAttach(
+            hrContainerView,
+            "",
+            hostedPageName,
+            createPageData()
+        )
     }
 
     override fun onDestroy() {

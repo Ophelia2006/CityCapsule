@@ -7,6 +7,10 @@ package com.y.citycapsule.core.navigation
  * HarmonyOS HMRouter, or raw page-name strings.
  */
 sealed interface AppRoute {
+    data object LaunchGate : AppRoute
+
+    data object Onboarding : AppRoute
+
     data object Home : AppRoute
 
     data object PlaceList : AppRoute
@@ -66,6 +70,8 @@ sealed interface AppRoute {
 
 /** Stable, typed targets accepted by [AppNavigator.backTo]. */
 enum class AppRouteKey {
+    LAUNCH_GATE,
+    ONBOARDING,
     HOME,
     PLACE_LIST,
     PLACE_DETAIL,

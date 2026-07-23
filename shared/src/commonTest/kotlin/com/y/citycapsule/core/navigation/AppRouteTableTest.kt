@@ -22,6 +22,29 @@ class AppRouteTableTest {
     }
 
     @Test
+    fun startupAndOnboardingRoutesUseStableKuiklyDestinations() {
+        val launchGate = AppRouteTable.resolve(AppRoute.LaunchGate)
+        val onboarding = AppRouteTable.resolve(AppRoute.Onboarding)
+        val profile = AppRouteTable.resolve(AppRoute.Profile)
+
+        assertEquals(AppRouteTable.ROUTE_LAUNCH_GATE, launchGate.routeKey)
+        assertEquals(
+            RouteDestination.Kuikly(AppRouteTable.PAGE_LAUNCH_GATE),
+            launchGate.destination
+        )
+        assertEquals(AppRouteTable.ROUTE_ONBOARDING, onboarding.routeKey)
+        assertEquals(
+            RouteDestination.Kuikly(AppRouteTable.PAGE_ONBOARDING),
+            onboarding.destination
+        )
+        assertEquals(AppRouteTable.ROUTE_PROFILE, profile.routeKey)
+        assertEquals(
+            RouteDestination.Kuikly(AppRouteTable.PAGE_PROFILE),
+            profile.destination
+        )
+    }
+
+    @Test
     fun detailRouteKeepsOnlyBusinessIdentifier() {
         val request = AppRouteTable.resolve(AppRoute.PlaceDetail("place-42"))
 

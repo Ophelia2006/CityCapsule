@@ -21,6 +21,19 @@ class StorageContractTest {
         assertEquals(addresses.size, addresses.distinct().size)
         assertEquals("settings.theme_mode", AppStorageKeys.Settings.THEME_MODE.wireKey)
         assertEquals(StorageStore.PREFERENCES, AppStorageKeys.Settings.THEME_MODE.store)
+        assertEquals("profile.local_profile", AppStorageKeys.Profile.LOCAL_PROFILE.wireKey)
+        assertEquals(StorageStore.PREFERENCES, AppStorageKeys.Profile.LOCAL_PROFILE.store)
+        assertEquals(
+            "onboarding.completed_version",
+            AppStorageKeys.Onboarding.COMPLETED_VERSION.wireKey
+        )
+        assertEquals(
+            StorageStore.PREFERENCES,
+            AppStorageKeys.Onboarding.COMPLETED_VERSION.store
+        )
+        assertEquals("onboarding.draft", AppStorageKeys.Onboarding.DRAFT.wireKey)
+        assertEquals(StorageStore.CACHE, AppStorageKeys.Onboarding.DRAFT.store)
+        assertEquals(4, AppStorageKeys.all.size)
     }
 
     @Test
@@ -59,4 +72,3 @@ class StorageContractTest {
         assertNull(StorageCodecs.JSON_OBJECT.decode("[]"))
     }
 }
-

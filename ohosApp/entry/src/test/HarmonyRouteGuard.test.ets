@@ -7,7 +7,10 @@ import {
 } from '../main/ets/navigation/HarmonyRouteRequest';
 import {
   KUIKLY_HOST_PAGE,
+  LAUNCH_GATE_PAGE_NAME,
   MAIN_NAVIGATION_ID,
+  ONBOARDING_PAGE_NAME,
+  PROFILE_PAGE_NAME,
   ROUTE_FALLBACK_PAGE
 } from '../main/ets/navigation/HarmonyRoutes';
 
@@ -25,6 +28,23 @@ export default function harmonyRouteGuardTest() {
       ));
 
       expect(result.allowed).assertTrue();
+    });
+
+    it('allowsLocalProfileAndOnboardingPages', 0, () => {
+      [LAUNCH_GATE_PAGE_NAME, ONBOARDING_PAGE_NAME, PROFILE_PAGE_NAME].forEach(
+        (pageName: string) => {
+          const result: HarmonyRouteGuardResult = guard.checkRequest(
+            new HarmonyRouteRequest(
+              HarmonyRouteAction.PUSH,
+              pageName,
+              HarmonyRouteTargetType.KUIKLY,
+              pageName,
+              {}
+            )
+          );
+          expect(result.allowed).assertTrue();
+        }
+      );
     });
 
     it('rejectsKuiklyPageNotBuiltYet', 0, () => {

@@ -1,5 +1,10 @@
 package com.y.citycapsule.core.storage
 
+import com.y.citycapsule.core.onboarding.OnboardingDraft
+import com.y.citycapsule.core.onboarding.OnboardingDraftCodec
+import com.y.citycapsule.core.profile.LocalProfile
+import com.y.citycapsule.core.profile.LocalProfileCodec
+
 /** Source-compatible alias; the neutral model now lives outside the storage package. */
 typealias ThemeMode = com.y.citycapsule.core.theme.ThemeMode
 
@@ -26,7 +31,38 @@ object AppStorageKeys {
         )
     }
 
+    object Profile {
+        val LOCAL_PROFILE = StorageKey(
+            store = StorageStore.PREFERENCES,
+            namespace = "profile",
+            name = "local_profile",
+            defaultValue = LocalProfile.DEFAULT,
+            codec = LocalProfileCodec
+        )
+    }
+
+    object Onboarding {
+        val COMPLETED_VERSION = StorageKey(
+            store = StorageStore.PREFERENCES,
+            namespace = "onboarding",
+            name = "completed_version",
+            defaultValue = 0L,
+            codec = StorageCodecs.LONG
+        )
+
+        val DRAFT = StorageKey(
+            store = StorageStore.CACHE,
+            namespace = "onboarding",
+            name = "draft",
+            defaultValue = OnboardingDraft.EMPTY,
+            codec = OnboardingDraftCodec
+        )
+    }
+
     val all: List<StorageKey<*>> = listOf(
-        Settings.THEME_MODE
+        Settings.THEME_MODE,
+        Profile.LOCAL_PROFILE,
+        Onboarding.COMPLETED_VERSION,
+        Onboarding.DRAFT
     )
 }

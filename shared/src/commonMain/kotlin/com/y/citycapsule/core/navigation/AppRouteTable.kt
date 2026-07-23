@@ -4,6 +4,8 @@ package com.y.citycapsule.core.navigation
  * The single source of truth for stable route keys and platform-neutral destinations.
  */
 object AppRouteTable {
+    const val ROUTE_LAUNCH_GATE = "launch_gate"
+    const val ROUTE_ONBOARDING = "onboarding"
     const val ROUTE_HOME = "home"
     const val ROUTE_PLACE_LIST = "place_list"
     const val ROUTE_PLACE_DETAIL = "place_detail"
@@ -19,6 +21,8 @@ object AppRouteTable {
     const val ROUTE_NATIVE_PERMISSION = "native_permission"
     const val ROUTE_NATIVE_FILE_IMPORT = "native_file_import"
 
+    const val PAGE_LAUNCH_GATE = "launch_gate"
+    const val PAGE_ONBOARDING = "onboarding"
     const val PAGE_HOME = "home"
     const val PAGE_PLACE_LIST = "place_list"
     const val PAGE_PLACE_DETAIL = "place_detail"
@@ -43,6 +47,8 @@ object AppRouteTable {
         route: AppRoute,
         action: RouteAction = RouteAction.PUSH
     ): RouteRequest = when (route) {
+        AppRoute.LaunchGate -> kuikly(action, ROUTE_LAUNCH_GATE, PAGE_LAUNCH_GATE)
+        AppRoute.Onboarding -> kuikly(action, ROUTE_ONBOARDING, PAGE_ONBOARDING)
         AppRoute.Home -> kuikly(action, ROUTE_HOME, PAGE_HOME)
         AppRoute.PlaceList -> kuikly(action, ROUTE_PLACE_LIST, PAGE_PLACE_LIST)
         is AppRoute.PlaceDetail -> kuikly(
@@ -107,6 +113,8 @@ object AppRouteTable {
     }
 
     fun wireRouteKey(routeKey: AppRouteKey): String = when (routeKey) {
+        AppRouteKey.LAUNCH_GATE -> ROUTE_LAUNCH_GATE
+        AppRouteKey.ONBOARDING -> ROUTE_ONBOARDING
         AppRouteKey.HOME -> ROUTE_HOME
         AppRouteKey.PLACE_LIST -> ROUTE_PLACE_LIST
         AppRouteKey.PLACE_DETAIL -> ROUTE_PLACE_DETAIL
@@ -124,6 +132,8 @@ object AppRouteTable {
     }
 
     fun destinationForRouteKey(routeKey: AppRouteKey): RouteDestination = when (routeKey) {
+        AppRouteKey.LAUNCH_GATE -> RouteDestination.Kuikly(PAGE_LAUNCH_GATE)
+        AppRouteKey.ONBOARDING -> RouteDestination.Kuikly(PAGE_ONBOARDING)
         AppRouteKey.HOME -> RouteDestination.Kuikly(PAGE_HOME)
         AppRouteKey.PLACE_LIST -> RouteDestination.Kuikly(PAGE_PLACE_LIST)
         AppRouteKey.PLACE_DETAIL -> RouteDestination.Kuikly(PAGE_PLACE_DETAIL)

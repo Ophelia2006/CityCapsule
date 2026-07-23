@@ -3,12 +3,11 @@ import { ErrorReason, KRRecord, Kuikly } from '@kuikly-open/render';
 import { KuiklyViewDelegate } from '../kuikly/KuiklyViewDelegate';
 import globalNativeManager from '../kuikly/MyNativeManager';
 import { HarmonyKuiklyHostParams } from '../navigation/HarmonyRouteParams';
+import { HarmonyLaunchContract } from '../navigation/HarmonyLaunchContract';
 import { HarmonyRouteStackCoordinator } from '../navigation/HarmonyRouteStackCoordinator';
 import { HarmonyThemeHost } from '../designsystem/HarmonyThemeHost';
 import { HarmonyThemeProtocol } from '../designsystem/HarmonyThemeProtocol';
 import {
-  HOME_PAGE_NAME,
-  HOME_ROUTE_KEY,
   KUIKLY_HOST_PAGE
 } from '../navigation/HarmonyRoutes';
 
@@ -17,9 +16,14 @@ import {
 export struct KuiklyHostPage {
   private readonly routeParams: HarmonyKuiklyHostParams | null =
     HMRouterMgr.getCurrentParam() as HarmonyKuiklyHostParams | null;
-  private readonly pageName: string = this.routeParams?.pageName ?? HOME_PAGE_NAME;
+  private readonly pageName: string = HarmonyLaunchContract.resolvePageName(
+    this.routeParams?.pageName
+  );
   private readonly pageData: KRRecord = this.createPageData();
-  private readonly routeKey: string = this.routeParams?.routeKey ?? HOME_ROUTE_KEY;
+  private readonly routeKey: string = HarmonyLaunchContract.resolveRouteKey(
+    this.routeParams?.routeKey,
+    this.pageName
+  );
   private readonly kuiklyViewDelegate: KuiklyViewDelegate = new KuiklyViewDelegate();
   private routeEntryId: number = -1;
   private themeListenerId: number = -1;

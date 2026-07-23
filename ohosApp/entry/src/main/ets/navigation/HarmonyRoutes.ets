@@ -13,8 +13,14 @@ export const ROUTE_FALLBACK_PAGE: string = 'citycapsule/route-fallback';
 
 export const GLOBAL_ROUTE_INTERCEPTOR: string = 'citycapsule_global_route_interceptor';
 
+export const LAUNCH_GATE_ROUTE_KEY: string = 'launch_gate';
+export const LAUNCH_GATE_PAGE_NAME: string = 'launch_gate';
+export const ONBOARDING_ROUTE_KEY: string = 'onboarding';
+export const ONBOARDING_PAGE_NAME: string = 'onboarding';
 export const HOME_ROUTE_KEY: string = 'home';
 export const HOME_PAGE_NAME: string = 'home';
+export const PROFILE_ROUTE_KEY: string = 'profile';
+export const PROFILE_PAGE_NAME: string = 'profile';
 export const NATIVE_PERMISSION_ROUTE_KEY: string = 'native_permission';
 export const NATIVE_FILE_IMPORT_ROUTE_KEY: string = 'native_file_import';
 export const ROUTE_FALLBACK_KEY: string = 'route_fallback';
@@ -28,7 +34,10 @@ export const IMAGE_ADAPTER_DIAGNOSTICS_PAGE_NAME: string = 'image_adapter';
 export class HarmonyRouteCatalog {
   static isAvailableKuiklyPage(pageName: string): boolean {
     switch (pageName) {
+      case LAUNCH_GATE_PAGE_NAME:
+      case ONBOARDING_PAGE_NAME:
       case HOME_PAGE_NAME:
+      case PROFILE_PAGE_NAME:
       case 'settings':
       case ROUTER_DIAGNOSTICS_PAGE_NAME:
       case IMAGE_ADAPTER_DIAGNOSTICS_PAGE_NAME:

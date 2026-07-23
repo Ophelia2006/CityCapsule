@@ -25,6 +25,7 @@ class DesignTokensTest {
         assertEquals(48.dp, DefaultAppDimensions.minTouchTarget)
         assertEquals(24.dp, DefaultAppDimensions.screenHorizontalPadding)
         assertEquals(14.dp, DefaultAppDimensions.radiusLg)
+        assertEquals(1.dp, DefaultAppDimensions.strokeThin)
         assertEquals(720.dp, DefaultAppDimensions.contentMaxWidth)
     }
 
