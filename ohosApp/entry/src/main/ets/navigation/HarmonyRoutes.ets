@@ -21,6 +21,14 @@ export const HOME_ROUTE_KEY: string = 'home';
 export const HOME_PAGE_NAME: string = 'home';
 export const PROFILE_ROUTE_KEY: string = 'profile';
 export const PROFILE_PAGE_NAME: string = 'profile';
+export const PLACE_LIST_ROUTE_KEY: string = 'place_list';
+export const PLACE_LIST_PAGE_NAME: string = 'place_list';
+export const PLACE_DETAIL_ROUTE_KEY: string = 'place_detail';
+export const PLACE_DETAIL_PAGE_NAME: string = 'place_detail';
+export const PLACE_EDITOR_ROUTE_KEY: string = 'place_editor';
+export const PLACE_EDITOR_PAGE_NAME: string = 'place_editor';
+export const FAVORITES_ROUTE_KEY: string = 'favorites';
+export const FAVORITES_PAGE_NAME: string = 'favorites';
 export const NATIVE_PERMISSION_ROUTE_KEY: string = 'native_permission';
 export const NATIVE_FILE_IMPORT_ROUTE_KEY: string = 'native_file_import';
 export const ROUTE_FALLBACK_KEY: string = 'route_fallback';
@@ -38,6 +46,10 @@ export class HarmonyRouteCatalog {
       case ONBOARDING_PAGE_NAME:
       case HOME_PAGE_NAME:
       case PROFILE_PAGE_NAME:
+      case PLACE_LIST_PAGE_NAME:
+      case PLACE_DETAIL_PAGE_NAME:
+      case PLACE_EDITOR_PAGE_NAME:
+      case FAVORITES_PAGE_NAME:
       case 'settings':
       case ROUTER_DIAGNOSTICS_PAGE_NAME:
       case IMAGE_ADAPTER_DIAGNOSTICS_PAGE_NAME:

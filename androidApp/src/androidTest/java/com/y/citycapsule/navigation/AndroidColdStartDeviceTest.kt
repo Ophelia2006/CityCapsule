@@ -11,8 +11,14 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import com.y.citycapsule.KuiklyHostActivity
+import com.y.citycapsule.core.favorite.FavoritePlaceIds
+import com.y.citycapsule.core.favorite.FavoritePlaceIdsCodec
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.onboarding.OnboardingContract
+import com.y.citycapsule.core.place.Place
+import com.y.citycapsule.core.place.PlaceCatalog
+import com.y.citycapsule.core.place.PlaceCatalogCodec
+import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.profile.LocalProfile
 import com.y.citycapsule.core.profile.LocalProfileCodec
 import com.y.citycapsule.core.storage.AppStorageKeys
@@ -73,6 +79,41 @@ class AndroidColdStartDeviceTest {
         )
 
         launchAndAssert(AppRouteTable.ROUTE_HOME)
+    }
+
+    @Test
+    fun completedProfileColdStartPreservesPlaceCatalogAndFavorites() {
+        val catalog = PlaceCatalog(
+            places = listOf(
+                Place(
+                    id = "cold_start_place",
+                    name = "冷启动地点",
+                    city = "杭州",
+                    category = PlaceCategory.LANDMARK,
+                    tags = listOf("冷启动"),
+                    createdAtEpochMs = 2_000L,
+                    updatedAtEpochMs = 2_000L
+                )
+            )
+        )
+        val favorites = FavoritePlaceIds(placeIds = setOf("cold_start_place"))
+        put(
+            AppStorageKeys.Profile.LOCAL_PROFILE,
+            LocalProfileCodec.encode(LocalProfile.DEFAULT)
+        )
+        put(
+            AppStorageKeys.Onboarding.COMPLETED_VERSION,
+            OnboardingContract.CURRENT_COMPLETED_VERSION.toString()
+        )
+        put(AppStorageKeys.Places.CATALOG, PlaceCatalogCodec.encode(catalog))
+        put(AppStorageKeys.Favorites.PLACE_IDS, FavoritePlaceIdsCodec.encode(favorites))
+        val expectedCatalog = snapshot(AppStorageKeys.Places.CATALOG)
+        val expectedFavorites = snapshot(AppStorageKeys.Favorites.PLACE_IDS)
+
+        launchAndAssert(AppRouteTable.ROUTE_HOME)
+
+        assertEquals(expectedCatalog, snapshot(AppStorageKeys.Places.CATALOG))
+        assertEquals(expectedFavorites, snapshot(AppStorageKeys.Favorites.PLACE_IDS))
     }
 
     private fun launchAndAssert(expectedDestinationRouteKey: String) {
@@ -187,7 +228,9 @@ class AndroidColdStartDeviceTest {
         val STARTUP_KEYS: List<StorageKey<*>> = listOf(
             AppStorageKeys.Onboarding.COMPLETED_VERSION,
             AppStorageKeys.Profile.LOCAL_PROFILE,
-            AppStorageKeys.Onboarding.DRAFT
+            AppStorageKeys.Onboarding.DRAFT,
+            AppStorageKeys.Places.CATALOG,
+            AppStorageKeys.Favorites.PLACE_IDS
         )
     }
 }

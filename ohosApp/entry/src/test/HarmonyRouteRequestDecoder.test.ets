@@ -33,5 +33,19 @@ export default function harmonyRouteRequestDecoderTest(): void {
       expect(request.targetType).assertEqual(HarmonyRouteTargetType.NATIVE);
       expect(request.routeKey).assertEqual('/native/permission');
     });
+
+    it('keepsPlaceIdForSharedDetailPage', 0, () => {
+      const pageData: KRRecord = {};
+      pageData[HarmonyRouteProtocol.PARAM_ACTION] = 'push';
+      pageData[HarmonyRouteProtocol.PARAM_ROUTE_KEY] = 'place_detail';
+      pageData[HarmonyRouteProtocol.PARAM_TARGET_TYPE] = 'kuikly';
+      pageData['placeId'] = 'seed_shanghai_museum';
+
+      const request = HarmonyRouteRequestDecoder.decode('place_detail', pageData);
+
+      expect(request.target).assertEqual('place_detail');
+      expect(request.routeKey).assertEqual('place_detail');
+      expect(request.pageData['placeId']).assertEqual('seed_shanghai_museum');
+    });
   });
 }

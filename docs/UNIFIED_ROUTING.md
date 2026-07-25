@@ -1,6 +1,6 @@
 # CityCapsule 统一路由开发文档
 
-> 更新日期：2026-07-23
+> 更新日期：2026-07-25
 > 代码事实源：`shared/.../core/navigation/AppRoute.kt` 与 `AppRouteTable.kt`
 
 ## 1. 统一路由表
@@ -16,15 +16,15 @@
 | `LaunchGate` | `LAUNCH_GATE` | `launch_gate` | Kuikly | `launch_gate` | 无 | 可运行；系统无参启动默认入口 | 可运行；系统无参启动默认入口 |
 | `Onboarding` | `ONBOARDING` | `onboarding` | Kuikly | `onboarding` | 无 | 可运行 | 可运行 |
 | `Home` | `HOME` | `home` | Kuikly | `home` | 无 | 可运行 | 可运行 |
-| `PlaceList` | `PLACE_LIST` | `place_list` | Kuikly | `place_list` | 无 | 协议占位 | 协议占位 |
-| `PlaceDetail(placeId)` | `PLACE_DETAIL` | `place_detail` | Kuikly | `place_detail` | `placeId: String`，必填、非空白 | 协议占位 | 协议占位 |
-| `PlaceEditor(placeId?)` | `PLACE_EDITOR` | `place_editor` | Kuikly | `place_editor` | `placeId: String?` | 协议占位 | 协议占位 |
+| `PlaceList` | `PLACE_LIST` | `place_list` | Kuikly | `place_list` | 无 | 可运行 | 可运行 |
+| `PlaceDetail(placeId)` | `PLACE_DETAIL` | `place_detail` | Kuikly | `place_detail` | `placeId: String`，必填、非空白 | 可运行 | 可运行 |
+| `PlaceEditor(placeId?)` | `PLACE_EDITOR` | `place_editor` | Kuikly | `place_editor` | `placeId: String?` | 可运行 | 可运行 |
 | `MapExplore` | `MAP_EXPLORE` | `map_explore` | Kuikly | `map_explore` | 无 | 协议占位 | 协议占位 |
 | `CapsuleEditor(capsuleId?, placeId?)` | `CAPSULE_EDITOR` | `capsule_editor` | Kuikly | `capsule_editor` | `capsuleId: String?`、`placeId: String?` | 协议占位 | 协议占位 |
 | `CapsuleDetail(capsuleId)` | `CAPSULE_DETAIL` | `capsule_detail` | Kuikly | `capsule_detail` | `capsuleId: String`，必填、非空白 | 协议占位 | 协议占位 |
 | `Timeline` | `TIMELINE` | `timeline` | Kuikly | `timeline` | 无 | 协议占位 | 协议占位 |
 | `Gallery` | `GALLERY` | `gallery` | Kuikly | `gallery` | 无 | 协议占位 | 协议占位 |
-| `Favorites` | `FAVORITES` | `favorites` | Kuikly | `favorites` | 无 | 协议占位 | 协议占位 |
+| `Favorites` | `FAVORITES` | `favorites` | Kuikly | `favorites` | 无 | 可运行 | 可运行 |
 | `Profile` | `PROFILE` | `profile` | Kuikly | `profile` | 无 | 可运行 | 可运行 |
 | `Settings` | `SETTINGS` | `settings` | Kuikly | `settings` | 无 | 可运行 | 可运行 |
 | `NativePermission(permissionType)` | `NATIVE_PERMISSION` | `native_permission` | Native | `/native/permission` | `permissionType: String`，必填、非空白 | 协议占位：Launcher 未注册 | 骨架可达：权限申请待实现 |
@@ -166,3 +166,43 @@ Android/HarmonyOS 已把 `LaunchGate` 设为系统无参启动根页。全新安
 ```
 
 平台 Launcher 不得直接读取 `profile.local_profile` 或 `onboarding.completed_version`；启动目的地只能由 shared `OnboardingStartupDecider` 产生。
+
+## 8. T98～T107 地点路由冻结状态
+
+`PlaceList`、`PlaceDetail(placeId)`、`PlaceEditor(placeId?)` 和 `Favorites` 的 shared
+routeKey、pageName、参数及 `AppRouteKey` 映射已经通过协议测试，统一路由表状态仍为
+“协议占位”，因为本轮没有创建 `@Page`。
+
+HarmonyOS 已镜像：
+
+```text
+PLACE_LIST_ROUTE_KEY / PLACE_LIST_PAGE_NAME
+PLACE_DETAIL_ROUTE_KEY / PLACE_DETAIL_PAGE_NAME
+PLACE_EDITOR_ROUTE_KEY / PLACE_EDITOR_PAGE_NAME
+FAVORITES_ROUTE_KEY / FAVORITES_PAGE_NAME
+```
+
+该段是 T107 的历史冻结状态。T119 已创建四个 shared `@Page`，T120 已将目标加入
+`HarmonyRouteCatalog.isAvailableKuiklyPage`，统一路由表状态更新为双端“可运行”。
+Guard 现在要求四个已注册页面必须放行，未知 Kuikly pageName 仍必须拦截。
+
+参数约束：
+
+- `PlaceDetail(placeId)`：`placeId` 必填且不能是空白字符串。
+- `PlaceEditor(null)`：新建模式，不发送 `placeId`。
+- `PlaceEditor(placeId)`：编辑模式，发送非空白 `placeId`。
+- `PlaceList/Favorites`：无业务参数。
+- 带参数详情页不得依赖缺栈 `backTo` 重建；必须使用完整 typed route。
+
+T121～T130 的地点栈回归已覆盖：
+
+```text
+[home] -> push(PlaceList)
+       -> push(PlaceDetail(placeId))
+       -> push(PlaceEditor(placeId))
+       -> back() -> PlaceDetail
+       -> backTo(PLACE_LIST) -> PlaceList
+```
+
+Android 与 HarmonyOS Request Decoder 都验证 `placeId` 原样进入 pageData；业务页面只构造
+`AppRoute.PlaceDetail/PlaceEditor`，不直接传 `place_detail`、`place_editor` 或平台 URL。

@@ -82,6 +82,20 @@ export default function harmonyRouteStackCoordinatorTest(): void {
       expect(coordinator.snapshotRouteKeys().join(',')).assertEqual('home,settings');
     });
 
+    it('placeListDetailAndEditorReturnWithoutDuplicatePages', 0, () => {
+      const coordinator = new HarmonyRouteStackCoordinator();
+      coordinator.register('home');
+      coordinator.register('place_list');
+      coordinator.register('place_detail');
+      const editorId: number = coordinator.register('place_editor');
+
+      coordinator.unregister(editorId);
+      expect(coordinator.snapshotRouteKeys().join(','))
+        .assertEqual('home,place_list,place_detail');
+      expect(coordinator.backTo('place_list')).assertEqual(1);
+      expect(coordinator.snapshotRouteKeys().join(',')).assertEqual('home,place_list');
+    });
+
     it('unregisterAndClearAreIdempotent', 0, () => {
       const coordinator = new HarmonyRouteStackCoordinator();
       const homeId: number = coordinator.register('home');

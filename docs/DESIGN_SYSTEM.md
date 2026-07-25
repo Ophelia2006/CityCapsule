@@ -322,3 +322,23 @@ shared 业务页面、公共组件和路由诊断页不得直接声明物理视�
 2026-07-23 自动化门禁结果：shared 80/80、Android 27/27、HarmonyOS 34/34；`DesignSystemHardcodingGuardTest` 通过，未增加视觉白名单。Android debug APK 构建成功；HarmonyOS arm64 shared 重链并同步后，debug signed HAP 构建成功。
 
 T90～T97 把 `LaunchGatePage` 接入双端真实冷启动根页，没有新增视觉常量或平台专属加载 UI。LaunchGate 继续由 `RuntimeAppTheme` 和语义令牌渲染，冷启动主题页数据仍由既有 Android/HarmonyOS ThemeHost 注入。
+
+## 12. T108～T130 地点共享页面
+
+地点业务继续使用 shared 设计系统，没有新增 Android View 或 ArkUI 业务页面。
+
+| 组件/页面 | 作用 | 设计约束 |
+| --- | --- | --- |
+| `AppChoiceChip` | 分类、城市和收藏筛选的可切换选项 | 语义颜色、圆角、间距和最小触控区域 |
+| `PlaceSummaryCard` | 列表/收藏共用地点摘要与收藏动作 | `AppCard`、共享文字和按钮组件 |
+| `PlaceListPage` / `FavoritesPage` | 搜索、筛选、结果、空状态和错误状态 | `RuntimeAppTheme` + `AppScaffold` |
+| `PlaceDetailPage` | 详情、收藏、编辑、删除 | 语义 danger/success/error 状态 |
+| `PlaceEditorPage` | 新建/编辑、字段校验、分类、未保存确认 | `AppTextField`、`AppChoiceChip`、`AppConfirmDialog` |
+
+`PlaceArchitectureGuardTest` 禁止地点 feature 直接引用 MMKV、`openPage()`、原始 pageName
+和 `places.catalog/favorites.place_ids` wire key。`DesignSystemHardcodingGuardTest` 继续禁止业务
+页面直接声明物理颜色、非零裸 `.dp/.sp`；本轮没有新增白名单。
+
+2026-07-25 门禁结果：shared 114/114、Android JVM 34/34、HarmonyOS 本地 40/40；
+Android 模拟器与 HarmonyOS 真机设备测试均 6/6。Light/Dark 下的 Chip、卡片、输入、
+确认弹窗、空状态、只读恢复和错误提示仍需按地点验收文档进行最终视觉走查。

@@ -122,6 +122,28 @@ class AndroidRouteStackCoordinatorTest {
     }
 
     @Test
+    fun placeListDetailAndEditorReturnWithoutDuplicateHosts() {
+        val coordinator = AndroidRouteStackCoordinator()
+        val home = FakeRouteHost("home")
+        val list = FakeRouteHost("place_list")
+        val detail = FakeRouteHost("place_detail")
+        val editor = FakeRouteHost("place_editor")
+        coordinator.register(home)
+        coordinator.register(list)
+        coordinator.register(detail)
+        coordinator.register(editor)
+
+        coordinator.unregister(editor)
+        assertEquals(
+            listOf("home", "place_list", "place_detail"),
+            coordinator.snapshotRouteKeys()
+        )
+        assertEquals(1, coordinator.backTo("place_list"))
+        assertEquals(listOf("home", "place_list"), coordinator.snapshotRouteKeys())
+        assertEquals(1, detail.finishCount)
+    }
+
+    @Test
     fun unregisterAndClearAreIdempotent() {
         val coordinator = AndroidRouteStackCoordinator()
         val home = FakeRouteHost("home")

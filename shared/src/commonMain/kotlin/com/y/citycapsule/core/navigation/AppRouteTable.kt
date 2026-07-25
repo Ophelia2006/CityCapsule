@@ -4,6 +4,8 @@ package com.y.citycapsule.core.navigation
  * The single source of truth for stable route keys and platform-neutral destinations.
  */
 object AppRouteTable {
+    const val PARAM_PLACE_ID = "placeId"
+
     const val ROUTE_LAUNCH_GATE = "launch_gate"
     const val ROUTE_ONBOARDING = "onboarding"
     const val ROUTE_HOME = "home"
@@ -55,14 +57,14 @@ object AppRouteTable {
             action = action,
             routeKey = ROUTE_PLACE_DETAIL,
             pageName = PAGE_PLACE_DETAIL,
-            params = mapOf("placeId" to route.placeId)
+            params = mapOf(PARAM_PLACE_ID to route.placeId)
         )
 
         is AppRoute.PlaceEditor -> kuikly(
             action = action,
             routeKey = ROUTE_PLACE_EDITOR,
             pageName = PAGE_PLACE_EDITOR,
-            params = optionalParams("placeId" to route.placeId)
+            params = optionalParams(PARAM_PLACE_ID to route.placeId)
         )
 
         AppRoute.MapExplore -> kuikly(action, ROUTE_MAP_EXPLORE, PAGE_MAP_EXPLORE)
@@ -72,7 +74,7 @@ object AppRouteTable {
             pageName = PAGE_CAPSULE_EDITOR,
             params = optionalParams(
                 "capsuleId" to route.capsuleId,
-                "placeId" to route.placeId
+                PARAM_PLACE_ID to route.placeId
             )
         )
 

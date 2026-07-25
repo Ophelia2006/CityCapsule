@@ -2,11 +2,14 @@
 
 > 协议版本：1
 > 冻结日期：2026-07-23
-> 实现范围：T17～T44 完成双端 MMKV；T73～T80 新增本地档案与首次引导 shared 数据骨架。
+> 实现更新：2026-07-25
+> 实现范围：T17～T44 完成双端 MMKV；T73～T97 完成本地档案与首次引导；T98～T130 完成有上限的地点目录、收藏、双端持久化与容错。
 
 ## 1. 数据边界
 
-当前可运行业务只有 Home、Settings 和路由诊断能力；T73～T80 额外冻结本地档案与首次引导的数据协议，页面仍待后续轮次实现。工程使用 MMKV 2.4.0 作为轻量键值存储，不引入数据库；SharedPreferences 与 Harmony Preferences 只作为只读旧数据源参与一次性迁移，不再承接新业务写入。不提前创建地点、胶囊等尚未实现的数据 Key。
+当前可运行业务包括 Home、Settings、本地档案、首次引导、离线地点目录、搜索筛选和收藏。
+地点目录最多 500 条，继续使用 MMKV 2.4.0 作为轻量键值存储，不引入数据库；
+SharedPreferences 与 Harmony Preferences 只作为只读旧数据源参与一次性迁移，不再承接新业务写入。
 
 MMKV 只用于小型、可明确键控的数据：
 
@@ -16,8 +19,8 @@ MMKV 只用于小型、可明确键控的数据：
 
 以下数据不得直接写入本协议：
 
-- 图片、视频、文件内容和大型列表。
-- 地点、胶囊等需要查询和关系约束的主数据。
+- 图片、视频、文件内容和无明确数量上限的大型列表。
+- 超过 500 条、需要关系约束、地理空间查询或并发写入的地点/胶囊主数据；这类数据必须迁移到后续数据库方案。
 - Token、密码、密钥以及其他需要 Keystore/HUKS 保护的敏感信息。
 
 ## 2. 已冻结 Key 表
@@ -28,6 +31,8 @@ MMKV 只用于小型、可明确键控的数据：
 | `AppStorageKeys.Profile.LOCAL_PROFILE` | `cc_preferences` | `profile.local_profile` | `json_object` | 默认本地档案 | 单用户本地档案 v1 |
 | `AppStorageKeys.Onboarding.COMPLETED_VERSION` | `cc_preferences` | `onboarding.completed_version` | `long` | `0` | 已完成的首次引导版本 |
 | `AppStorageKeys.Onboarding.DRAFT` | `cc_cache` | `onboarding.draft` | `json_object` | 空草稿 | 可清理、可重新生成的引导中间状态 |
+| `AppStorageKeys.Places.CATALOG` | `cc_preferences` | `places.catalog` | `json_object` | 空目录 v1 | 最多 500 条的离线地点目录 |
+| `AppStorageKeys.Favorites.PLACE_IDS` | `cc_preferences` | `favorites.place_ids` | `json_object` | 空集合 v1 | 与地点目录分离的收藏 ID |
 
 约束：
 
@@ -87,6 +92,7 @@ MMKV 只用于小型、可明确键控的数据：
 ```text
 业务页面
   -> SettingsRepository / LocalProfileRepository / OnboardingRepository
+     / PlaceRepository / FavoriteRepository
   -> KeyValueStore
      -> KuiklyKeyValueStore
      -> InMemoryKeyValueStore（测试）
@@ -112,6 +118,8 @@ MMKV 只用于小型、可明确键控的数据：
 - `SettingsRepository.kt`：首个业务 Repository，不暴露 Key 和 Bridge。
 - `core/profile/*`：LocalProfile v1、预设头像、校验、Codec 与 Repository。
 - `core/onboarding/*`：草稿、完成版本、启动决策、提交恢复与 Repository。
+- `core/place/*`：Place v1、目录 Codec、校验、Repository 契约及纯搜索筛选。
+- `core/favorite/*`：收藏 ID Codec 与 Repository 契约。
 - `StorageMigrationContract.kt`：双端迁移必须镜像的 Schema、状态、重试和旧 Key 契约。
 
 ## 6. 平台实现
@@ -279,3 +287,59 @@ ProfilePage    -> ProfileStateHolder    -> LocalProfileRepository
 2026-07-23 第二轮自动化结果：shared 80/80、Android 27/27、HarmonyOS 34/34。状态测试覆盖存储成功、损坏/缺失快照、保存失败内存降级和安全清除。
 
 T90～T97 已把三个 Key 接入双端实际冷启动，但没有增加 Bridge 方法或平台业务判断：Android/HarmonyOS 都先打开 LaunchGate，再由 shared 一次 `getMany` 读取并决策。第三轮回归结果为 shared 83/83、Android JVM 31/31、Android 设备 4/4、HarmonyOS 本地 38/38；HarmonyOS 设备测试 HAP 包含 5 个用例，设备在线后执行。
+
+## 14. T98～T107 地点与收藏数据骨架
+
+本轮新增 `places.catalog` 和 `favorites.place_ids` 两个 `cc_preferences` Key，继续使用
+`json_object`、`storageGet/storagePut/storageRemove` 和当前 Bridge 协议，不修改 Android
+或 HarmonyOS Dispatcher。
+
+边界：
+
+1. `places.catalog` 只承载最多 500 条的离线小目录，不承载图片、地图对象或关系查询。
+2. `favorites.place_ids` 与目录分离，收藏切换不得重写地点目录。
+3. 两个 Key 没有旧平台来源，不加入主题迁移器。
+4. Codec 拒绝未来 Schema、未知分类、重复地点 ID 和非法字段，但忽略未知可选字段。
+5. 平台层不得解析 Place JSON；搜索、筛选和业务校验只在 shared 执行。
+6. T107 只冻结 Repository 接口；T108～T130 已完成种子初始化、MMKV 读写、共享页面、容错和设备验证。
+
+完整字段、搜索排序和筛选规则见 `docs/PLACES_SEARCH_FAVORITES.md`。
+
+## 15. T108～T130 地点持久化与恢复语义
+
+地点与收藏没有旧平台数据源，不执行“首次迁移”；它们从 Missing 状态开始，由 shared
+Repository 使用现有 Bridge 协议初始化：
+
+```text
+LocalPlaceRepository / LocalFavoriteRepository
+  -> KuiklyKeyValueStore
+  -> storageGet / storagePut / storageRemove
+  -> AndroidStorageDispatcher / HarmonyStorageDispatcher
+  -> cc_preferences
+     -> places.catalog
+     -> __cc_type__.places.catalog = json_object
+     -> favorites.place_ids
+     -> __cc_type__.favorites.place_ids = json_object
+```
+
+恢复规则：
+
+1. `places.catalog` Missing：写入稳定的 8 条种子；写成功才标记 `INITIALIZED`。
+2. 初始化写失败：返回内存种子和 `MEMORY_FALLBACK`，不伪造持久化成功。
+3. 类型不匹配或 JSON 解码失败：返回空的 `RECOVERY_READ_ONLY` 快照，不覆盖坏值。
+4. 临时 native 读取失败：返回内存种子并带 warning，允许稍后重新加载。
+5. 地点 CRUD 只在完整目录成功写入后回调成功；写失败保持旧目录。
+6. 收藏写入与目录写入分离；不存在的地点不能加入收藏。
+7. 删除地点后收藏清理是尽力执行；读取收藏时会隐藏并再次清理过期 ID。
+8. 确定性损坏、临时失败和 Missing 是三种不同状态，不得互相降格。
+
+2026-07-25 回归结果：
+
+- shared JVM 114/114、Android JVM 34/34。
+- Android 模拟器设备测试 6/6；`places.catalog`、`favorites.place_ids`、类型元数据、
+  完成态冷启动和主题旧数据迁移均通过。
+- HarmonyOS USB 真机测试 6/6；相同 MMKV 重开、完成态标记、地点/收藏和迁移均通过。
+- Android APK/androidTest APK 与 HarmonyOS 主 HAP/ohosTest HAP 构建成功。
+
+设备测试会在写入前保存原始值并在 `finally/catch` 路径恢复，避免验收用例污染开发设备数据。
+完整人工流程与容错注入矩阵见 `docs/PLACES_SEARCH_FAVORITES.md` 第 14 节。

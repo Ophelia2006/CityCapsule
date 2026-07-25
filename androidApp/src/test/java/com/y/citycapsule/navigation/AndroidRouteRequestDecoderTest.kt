@@ -53,6 +53,24 @@ class AndroidRouteRequestDecoderTest {
     }
 
     @Test
+    fun placeDetailKeepsTypedBusinessIdentifierInPageData() {
+        val request = AndroidRouteRequestDecoder.decodeValues(
+            pageName = "place_detail",
+            actionValue = "push",
+            routeKeyValue = "place_detail",
+            targetTypeValue = "kuikly",
+            pageDataJson = """{"placeId":"seed_shanghai_museum"}"""
+        )
+
+        assertEquals(AndroidRouteTargetType.KUIKLY, request.targetType)
+        assertEquals("place_detail", request.routeKey)
+        assertEquals(
+            """{"placeId":"seed_shanghai_museum"}""",
+            request.pageDataJson
+        )
+    }
+
+    @Test
     fun unsupportedActionIsRejected() {
         assertThrows(IllegalArgumentException::class.java) {
             AndroidRouteRequestDecoder.decodeValues(

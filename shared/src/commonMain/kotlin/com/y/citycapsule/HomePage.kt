@@ -72,6 +72,17 @@ private fun HomeScreen(
             }
             Spacer(Modifier.height(dimensions.spacingXl))
             AppButton(
+                text = "浏览地点",
+                onClick = { navigator.navigate(AppRoute.PlaceList) }
+            )
+            Spacer(Modifier.height(dimensions.spacingSm))
+            AppButton(
+                text = "我的收藏",
+                variant = AppButtonVariant.SECONDARY,
+                onClick = { navigator.navigate(AppRoute.Favorites) }
+            )
+            Spacer(Modifier.height(dimensions.spacingSm))
+            AppButton(
                 text = "打开本地档案",
                 onClick = { navigator.navigate(AppRoute.Profile) }
             )

@@ -10,7 +10,11 @@ import {
   LAUNCH_GATE_PAGE_NAME,
   MAIN_NAVIGATION_ID,
   ONBOARDING_PAGE_NAME,
+  PLACE_DETAIL_PAGE_NAME,
+  PLACE_EDITOR_PAGE_NAME,
+  PLACE_LIST_PAGE_NAME,
   PROFILE_PAGE_NAME,
+  FAVORITES_PAGE_NAME,
   ROUTE_FALLBACK_PAGE
 } from '../main/ets/navigation/HarmonyRoutes';
 
@@ -47,17 +51,23 @@ export default function harmonyRouteGuardTest() {
       );
     });
 
-    it('rejectsKuiklyPageNotBuiltYet', 0, () => {
-      const result: HarmonyRouteGuardResult = guard.checkRequest(new HarmonyRouteRequest(
-        HarmonyRouteAction.PUSH,
-        'place_detail',
-        HarmonyRouteTargetType.KUIKLY,
-        'place_detail',
-        {}
-      ));
+    it('allowsRegisteredPlacePages', 0, () => {
+      [
+        PLACE_LIST_PAGE_NAME,
+        PLACE_DETAIL_PAGE_NAME,
+        PLACE_EDITOR_PAGE_NAME,
+        FAVORITES_PAGE_NAME
+      ].forEach((pageName: string) => {
+        const result: HarmonyRouteGuardResult = guard.checkRequest(new HarmonyRouteRequest(
+          HarmonyRouteAction.PUSH,
+          pageName,
+          HarmonyRouteTargetType.KUIKLY,
+          pageName,
+          {}
+        ));
 
-      expect(result.allowed).assertFalse();
-      expect(result.reason).assertContain('not available');
+        expect(result.allowed).assertTrue();
+      });
     });
 
     it('allowsRegisteredHmRouterPages', 0, () => {

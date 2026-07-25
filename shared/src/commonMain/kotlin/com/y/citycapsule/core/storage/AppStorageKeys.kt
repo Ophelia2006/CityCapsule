@@ -2,6 +2,10 @@ package com.y.citycapsule.core.storage
 
 import com.y.citycapsule.core.onboarding.OnboardingDraft
 import com.y.citycapsule.core.onboarding.OnboardingDraftCodec
+import com.y.citycapsule.core.favorite.FavoritePlaceIds
+import com.y.citycapsule.core.favorite.FavoritePlaceIdsCodec
+import com.y.citycapsule.core.place.PlaceCatalog
+import com.y.citycapsule.core.place.PlaceCatalogCodec
 import com.y.citycapsule.core.profile.LocalProfile
 import com.y.citycapsule.core.profile.LocalProfileCodec
 
@@ -59,10 +63,32 @@ object AppStorageKeys {
         )
     }
 
+    object Places {
+        val CATALOG = StorageKey(
+            store = StorageStore.PREFERENCES,
+            namespace = "places",
+            name = "catalog",
+            defaultValue = PlaceCatalog.EMPTY,
+            codec = PlaceCatalogCodec
+        )
+    }
+
+    object Favorites {
+        val PLACE_IDS = StorageKey(
+            store = StorageStore.PREFERENCES,
+            namespace = "favorites",
+            name = "place_ids",
+            defaultValue = FavoritePlaceIds.EMPTY,
+            codec = FavoritePlaceIdsCodec
+        )
+    }
+
     val all: List<StorageKey<*>> = listOf(
         Settings.THEME_MODE,
         Profile.LOCAL_PROFILE,
         Onboarding.COMPLETED_VERSION,
-        Onboarding.DRAFT
+        Onboarding.DRAFT,
+        Places.CATALOG,
+        Favorites.PLACE_IDS
     )
 }

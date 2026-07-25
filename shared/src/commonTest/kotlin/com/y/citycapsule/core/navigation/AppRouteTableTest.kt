@@ -53,6 +53,27 @@ class AppRouteTableTest {
     }
 
     @Test
+    fun placeListEditorAndFavoritesUseFrozenDestinations() {
+        val placeList = AppRouteTable.resolve(AppRoute.PlaceList)
+        val newPlace = AppRouteTable.resolve(AppRoute.PlaceEditor())
+        val editPlace = AppRouteTable.resolve(AppRoute.PlaceEditor("place-7"))
+        val favorites = AppRouteTable.resolve(AppRoute.Favorites)
+
+        assertEquals(AppRouteTable.ROUTE_PLACE_LIST, placeList.routeKey)
+        assertEquals(
+            RouteDestination.Kuikly(AppRouteTable.PAGE_PLACE_LIST),
+            placeList.destination
+        )
+        assertEquals(emptyMap(), newPlace.params)
+        assertEquals(mapOf("placeId" to "place-7"), editPlace.params)
+        assertEquals(AppRouteTable.ROUTE_FAVORITES, favorites.routeKey)
+        assertEquals(
+            RouteDestination.Kuikly(AppRouteTable.PAGE_FAVORITES),
+            favorites.destination
+        )
+    }
+
+    @Test
     fun optionalArgumentsAreOmittedWhenNull() {
         val request = AppRouteTable.resolve(
             AppRoute.CapsuleEditor(capsuleId = null, placeId = "place-1")
@@ -77,6 +98,9 @@ class AppRouteTableTest {
     fun blankRequiredArgumentIsRejected() {
         assertFailsWith<IllegalArgumentException> {
             AppRoute.PlaceDetail(" ")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AppRoute.PlaceEditor(" ")
         }
     }
 
