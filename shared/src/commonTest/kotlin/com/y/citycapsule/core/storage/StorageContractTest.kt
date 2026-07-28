@@ -40,7 +40,11 @@ class StorageContractTest {
             StorageStore.PREFERENCES,
             AppStorageKeys.Favorites.PLACE_IDS.store
         )
-        assertEquals(6, AppStorageKeys.all.size)
+        assertEquals("capsules.catalog", AppStorageKeys.Capsules.CATALOG.wireKey)
+        assertEquals(StorageStore.PREFERENCES, AppStorageKeys.Capsules.CATALOG.store)
+        assertEquals("capsules.draft", AppStorageKeys.Capsules.DRAFT.wireKey)
+        assertEquals(StorageStore.CACHE, AppStorageKeys.Capsules.DRAFT.store)
+        assertEquals(8, AppStorageKeys.all.size)
     }
 
     @Test

@@ -25,6 +25,9 @@ import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
+import com.y.citycapsule.core.capsule.CapsuleRepository
+import com.y.citycapsule.core.capsule.LocalCapsuleRepository
+import com.y.citycapsule.feature.capsule.CapsuleFeatureRuntime
 import com.y.citycapsule.designsystem.component.AppBodyText
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
@@ -52,6 +55,7 @@ internal class PlaceDetailPager : BasePager() {
                 navigator,
                 placeRepository,
                 favoriteRepository,
+                LocalCapsuleRepository(storage),
                 themeHost
             )
         }
@@ -64,22 +68,25 @@ private fun PlaceDetailScreen(
     navigator: AppNavigator,
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
+    capsuleRepository: CapsuleRepository,
     themeHost: AppThemeHost
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
     var uiState by remember { mutableStateOf(PlaceDetailUiState()) }
-    val holder = remember(placeId, placeRepository, favoriteRepository) {
+    val holder = remember(placeId, placeRepository, favoriteRepository, capsuleRepository) {
         PlaceDetailStateHolder(
             placeId = placeId,
             placeRepository = placeRepository,
             favoriteRepository = favoriteRepository,
+            capsuleRepository = capsuleRepository,
             onDataChanged = PlaceFeatureRuntime::invalidate,
             onStateChanged = { uiState = it }
         )
     }
     val catalogRevision = PlaceFeatureRuntime.revision
+    val capsuleRevision = CapsuleFeatureRuntime.revision
 
-    LaunchedEffect(holder, catalogRevision) {
+    LaunchedEffect(holder, catalogRevision, capsuleRevision) {
         holder.load()
     }
 
@@ -87,7 +94,7 @@ private fun PlaceDetailScreen(
         AppScaffold(statusBarHeight = statusBarHeight) {
             AppTopBar(
                 title = "地点详情",
-                subtitle = "地点与收藏均只保存在当前设备。"
+                subtitle = "发现地点，也留下属于你的城市片段。"
             )
             uiState.notice?.let {
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
@@ -107,17 +114,46 @@ private fun PlaceDetailScreen(
                 PlaceDetails(place)
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
                 AppButton(
-                    text = if (uiState.favorite) "取消收藏" else "加入收藏",
+                    text = if (uiState.favorite) "移出想去" else "想去",
                     onClick = holder::toggleFavorite,
+                    variant = AppButtonVariant.SECONDARY,
                     enabled = !uiState.isBusy,
                     loading = uiState.togglingFavorite,
                     loadingText = "正在更新…"
                 )
-                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+                Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+                AppSection(
+                    title = "我的城市记忆",
+                    description = if (uiState.memoryCount == 0) {
+                        "你还没有在这里留下记录。"
+                    } else {
+                        "已经在这里留下 ${uiState.memoryCount} 条城市碎片。"
+                    }
+                ) {
+                    if (uiState.memoryCount > 0) {
+                        AppButton(
+                            text = "在时间轴中回看",
+                            onClick = { navigator.navigate(AppRoute.Timeline) },
+                            variant = AppButtonVariant.TEXT,
+                            enabled = !uiState.isBusy
+                        )
+                    } else {
+                        AppSecondaryText("一张照片、一句话，也可以成为以后想起这里的入口。")
+                    }
+                }
+                Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+                AppButton(
+                    text = "在这里留下城市碎片",
+                    onClick = { navigator.navigate(AppRoute.CapsuleEditor(placeId = place.id)) },
+                    enabled = !uiState.isBusy
+                )
+                Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+                AppSecondaryText("地点管理")
+                Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
                 AppButton(
                     text = "编辑地点",
                     onClick = { navigator.navigate(AppRoute.PlaceEditor(place.id)) },
-                    variant = AppButtonVariant.SECONDARY,
+                    variant = AppButtonVariant.TEXT,
                     enabled = !uiState.isBusy
                 )
                 Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
@@ -129,12 +165,6 @@ private fun PlaceDetailScreen(
                     loading = uiState.status == PlaceDetailUiStatus.DELETING
                 )
                 Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-                AppButton(
-                    text = "刷新详情",
-                    onClick = holder::load,
-                    variant = AppButtonVariant.TEXT,
-                    enabled = !uiState.isBusy
-                )
             }
             Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
             AppButton(
@@ -148,7 +178,7 @@ private fun PlaceDetailScreen(
         if (uiState.showDeleteConfirmation) {
             AppConfirmDialog(
                 title = "删除这个地点？",
-                message = "地点和对应收藏状态会从当前设备删除，此操作无法撤销。",
+                message = "地点和对应想去状态会从当前设备删除，已有城市碎片会保留，此操作无法撤销。",
                 confirmText = "确认删除",
                 onConfirm = {
                     holder.delete {

@@ -84,6 +84,21 @@ class AppRouteTableTest {
     }
 
     @Test
+    fun recordRoutesUseStablePagesAndOnlyPassIdentifiers() {
+        val editor = AppRouteTable.resolve(
+            AppRoute.CapsuleEditor(capsuleId = "capsule-1", placeId = "place-1")
+        )
+        val detail = AppRouteTable.resolve(AppRoute.CapsuleDetail("capsule-1"))
+        val timeline = AppRouteTable.resolve(AppRoute.Timeline)
+        val gallery = AppRouteTable.resolve(AppRoute.Gallery)
+
+        assertEquals(mapOf("capsuleId" to "capsule-1", "placeId" to "place-1"), editor.params)
+        assertEquals(mapOf("capsuleId" to "capsule-1"), detail.params)
+        assertEquals(RouteDestination.Kuikly(AppRouteTable.PAGE_TIMELINE), timeline.destination)
+        assertEquals(RouteDestination.Kuikly(AppRouteTable.PAGE_GALLERY), gallery.destination)
+    }
+
+    @Test
     fun nativeRouteResolvesToRegisteredPath() {
         val request = AppRouteTable.resolve(
             AppRoute.NativePermission("location")

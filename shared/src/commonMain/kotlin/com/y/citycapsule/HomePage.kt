@@ -77,9 +77,15 @@ private fun HomeScreen(
             )
             Spacer(Modifier.height(dimensions.spacingSm))
             AppButton(
-                text = "我的收藏",
+                text = "想去",
                 variant = AppButtonVariant.SECONDARY,
                 onClick = { navigator.navigate(AppRoute.Favorites) }
+            )
+            Spacer(Modifier.height(dimensions.spacingSm))
+            AppButton(
+                text = "我的城市记忆",
+                variant = AppButtonVariant.SECONDARY,
+                onClick = { navigator.navigate(AppRoute.Timeline) }
             )
             Spacer(Modifier.height(dimensions.spacingSm))
             AppButton(

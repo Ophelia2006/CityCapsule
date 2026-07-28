@@ -24,7 +24,9 @@ data class AppDimensions(
     val iconSm: Dp,
     val iconMd: Dp,
     val iconLg: Dp,
-    val iconXl: Dp
+    val iconXl: Dp,
+    val mediaPreviewHeight: Dp,
+    val mediaThumbnailSize: Dp
 )
 
 val DefaultAppDimensions = AppDimensions(
@@ -47,5 +49,7 @@ val DefaultAppDimensions = AppDimensions(
     iconSm = 16.dp,
     iconMd = 20.dp,
     iconLg = 24.dp,
-    iconXl = 32.dp
+    iconXl = 32.dp,
+    mediaPreviewHeight = 220.dp,
+    mediaThumbnailSize = 104.dp
 )

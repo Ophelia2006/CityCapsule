@@ -342,3 +342,11 @@ T90～T97 把 `LaunchGatePage` 接入双端真实冷启动根页，没有新增�
 2026-07-25 门禁结果：shared 114/114、Android JVM 34/34、HarmonyOS 本地 40/40；
 Android 模拟器与 HarmonyOS 真机设备测试均 6/6。Light/Dark 下的 Chip、卡片、输入、
 确认弹窗、空状态、只读恢复和错误提示仍需按地点验收文档进行最终视觉走查。
+
+## 13. 2026-07-27 Record Flow 组件
+
+本轮新增 `AppSegmentedControl`，用于“时间轴 / 相册”两种同级内容视图切换；选中态、容器、圆角、字体和最小触控区域全部来自语义 token。`CapsulePhoto`/`CapsulePhotoList` 位于 Capsule feature，只负责业务照片的加载、裁切、失败降级与可选移除，不承担平台选图或文件存储。
+
+`AppDimensions` 新增 `mediaPreviewHeight` 与 `mediaThumbnailSize`，分别用于碎片详情/时间轴大图和相册网格。Gallery 使用两列真实照片 Grid，Editor 的心情选项使用两列布局；Record 页面未引入裸色值、字号、间距或圆角，Android hardcoding guard 已通过。
+
+本轮没有修改全局颜色方案。暖白/中性灰/暖琥珀视觉迁移仍是独立 Design System 任务，不能因 Record 页面使用现有 token 就标记为完成。

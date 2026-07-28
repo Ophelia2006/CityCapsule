@@ -15,6 +15,10 @@ import {
   PLACE_LIST_PAGE_NAME,
   PROFILE_PAGE_NAME,
   FAVORITES_PAGE_NAME,
+  CAPSULE_EDITOR_PAGE_NAME,
+  CAPSULE_DETAIL_PAGE_NAME,
+  TIMELINE_PAGE_NAME,
+  GALLERY_PAGE_NAME,
   ROUTE_FALLBACK_PAGE
 } from '../main/ets/navigation/HarmonyRoutes';
 
@@ -57,6 +61,25 @@ export default function harmonyRouteGuardTest() {
         PLACE_DETAIL_PAGE_NAME,
         PLACE_EDITOR_PAGE_NAME,
         FAVORITES_PAGE_NAME
+      ].forEach((pageName: string) => {
+        const result: HarmonyRouteGuardResult = guard.checkRequest(new HarmonyRouteRequest(
+          HarmonyRouteAction.PUSH,
+          pageName,
+          HarmonyRouteTargetType.KUIKLY,
+          pageName,
+          {}
+        ));
+
+        expect(result.allowed).assertTrue();
+      });
+    });
+
+    it('allowsRegisteredRecordPages', 0, () => {
+      [
+        CAPSULE_EDITOR_PAGE_NAME,
+        CAPSULE_DETAIL_PAGE_NAME,
+        TIMELINE_PAGE_NAME,
+        GALLERY_PAGE_NAME
       ].forEach((pageName: string) => {
         const result: HarmonyRouteGuardResult = guard.checkRequest(new HarmonyRouteRequest(
           HarmonyRouteAction.PUSH,

@@ -107,7 +107,7 @@ class PlaceListStateHolder(
                 }
                 val favoriteNotice = if (favoriteResult is StorageResult.Failure) {
                     PlaceFeatureNotice(
-                        "收藏状态暂不可用，地点目录仍可浏览。",
+                        "想去状态暂不可用，地点目录仍可浏览。",
                         PlaceNoticeTone.WARNING
                     )
                 } else {
@@ -194,7 +194,7 @@ class PlaceListStateHolder(
                             favoriteIds = ids,
                             busyFavoriteId = null,
                             notice = PlaceFeatureNotice(
-                                if (result.value) "已加入收藏。" else "已取消收藏。",
+                                if (result.value) "已加入想去。" else "已移出想去。",
                                 PlaceNoticeTone.SUCCESS
                             )
                         ).withSearchResults()
@@ -206,7 +206,7 @@ class PlaceListStateHolder(
                     state.copy(
                         busyFavoriteId = null,
                         notice = PlaceFeatureNotice(
-                            "收藏操作失败，页面状态已保持不变。",
+                            "想去操作失败，页面状态已保持不变。",
                             PlaceNoticeTone.ERROR
                         )
                     )

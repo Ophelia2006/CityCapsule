@@ -48,7 +48,7 @@ internal fun PlaceSummaryCard(
         )
         Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
         AppButton(
-            text = if (favorite) "取消收藏" else "加入收藏",
+            text = if (favorite) "移出想去" else "想去",
             onClick = onToggleFavorite,
             variant = AppButtonVariant.TEXT,
             enabled = !favoriteBusy,
