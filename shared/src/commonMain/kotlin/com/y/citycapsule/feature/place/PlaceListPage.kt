@@ -109,9 +109,9 @@ private fun PlaceListScreen(
     RuntimeAppTheme(themeHost = themeHost) {
         AppScaffold(statusBarHeight = statusBarHeight) {
             AppTopBar(
-                title = if (mode == PlaceListMode.FAVORITES) "我的收藏" else "地点",
+                title = if (mode == PlaceListMode.FAVORITES) "想去的地方" else "地点",
                 subtitle = if (mode == PlaceListMode.FAVORITES) {
-                    "收藏只保存在当前设备。"
+                    "想去清单只保存在当前设备。"
                 } else {
                     "离线搜索、筛选和维护自己的地点目录。"
                 }
@@ -197,7 +197,7 @@ private fun PlaceFilters(
         if (state.mode == PlaceListMode.ALL) {
             Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
             AppChoiceChip(
-                text = "只看收藏",
+                text = "只看想去",
                 selected = state.filter.favoritesOnly,
                 onClick = holder::toggleFavoritesOnly,
                 enabled = state.status == PlaceListUiStatus.READY
@@ -226,7 +226,7 @@ private fun PlaceListContent(
         PlaceListContentState.EMPTY_CATALOG ->
             AppSecondaryText("当前没有地点，可以新建第一条记录。")
         PlaceListContentState.EMPTY_FAVORITES ->
-            AppSecondaryText("还没有收藏地点。")
+            AppSecondaryText("还没有想去的地方。")
         PlaceListContentState.NO_MATCHES ->
             AppSecondaryText("没有符合当前搜索和筛选条件的地点。")
         PlaceListContentState.STORAGE_ERROR ->

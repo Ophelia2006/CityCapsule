@@ -15,8 +15,8 @@ import com.y.citycapsule.storage.AndroidMmkvStorage
 
 /** Android boundary for system appearance, persisted bootstrap data and system bars. */
 internal object AndroidThemeHost {
-    private val darkNavigationBarColor = Color.rgb(17, 19, 26)
-    private val lightNavigationBarColor = Color.rgb(245, 246, 250)
+    private val darkNavigationBarColor = Color.rgb(21, 20, 17)
+    private val lightNavigationBarColor = Color.rgb(248, 246, 241)
 
     fun bootstrap(context: Context): ThemeBootstrap {
         val systemDark = context.resources.configuration.uiMode and

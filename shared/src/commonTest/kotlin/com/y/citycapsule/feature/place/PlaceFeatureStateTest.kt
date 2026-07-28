@@ -1,5 +1,8 @@
 package com.y.citycapsule.feature.place
 
+import com.y.citycapsule.core.capsule.CapsuleDraft
+import com.y.citycapsule.core.capsule.CapsuleIdGenerator
+import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.favorite.FavoritePlaceIds
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.place.LocalPlaceRepository
@@ -14,6 +17,7 @@ import com.y.citycapsule.core.storage.StorageResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -93,7 +97,8 @@ class PlaceFeatureStateTest {
         val holder = PlaceDetailStateHolder(
             "seed_shanghai_museum",
             fixture.placeRepository,
-            fixture.favoriteRepository
+            fixture.favoriteRepository,
+            fixture.capsuleRepository
         )
         var deleted = false
 
@@ -108,6 +113,35 @@ class PlaceFeatureStateTest {
         assertTrue(deleted)
         assertTrue(fixture.favoriteIds().placeIds.isEmpty())
         assertEquals(StorageResult.Missing, fixture.place("seed_shanghai_museum"))
+    }
+
+    @Test
+    fun detailRefusesToDeleteAPlaceThatStillOwnsCityMemories() {
+        val fixture = fixture()
+        fixture.capsuleRepository.publish(
+            CapsuleDraft(
+                content = "这条记忆仍然需要它的地点。",
+                placeId = "seed_shanghai_museum"
+            )
+        ) {}
+        val holder = PlaceDetailStateHolder(
+            "seed_shanghai_museum",
+            fixture.placeRepository,
+            fixture.favoriteRepository,
+            fixture.capsuleRepository
+        )
+        var deleted = false
+
+        holder.load()
+        assertEquals(1, holder.state.memoryCount)
+        holder.requestDelete()
+        holder.delete { deleted = true }
+
+        assertFalse(deleted)
+        assertFalse(holder.state.showDeleteConfirmation)
+        assertEquals(PlaceDetailUiStatus.READY, holder.state.status)
+        assertIs<StorageResult.Success<Place>>(fixture.place("seed_shanghai_museum"))
+        assertTrue(holder.state.notice?.message?.contains("请先处理这些记忆") == true)
     }
 
     @Test
@@ -185,14 +219,19 @@ class PlaceFeatureStateTest {
             idGenerator = PlaceIdGenerator { "local_${clockValue++}" }
         )
         val favoriteRepository = LocalFavoriteRepository(storage, placeRepository)
-        return Fixture(storage, placeRepository, favoriteRepository)
+        val capsuleRepository = LocalCapsuleRepository(
+            storage = storage,
+            idGenerator = CapsuleIdGenerator { "capsule_for_place_test" }
+        )
+        return Fixture(storage, placeRepository, favoriteRepository, capsuleRepository)
     }
 }
 
 private data class Fixture(
     val storage: InMemoryKeyValueStore,
     val placeRepository: LocalPlaceRepository,
-    val favoriteRepository: LocalFavoriteRepository
+    val favoriteRepository: LocalFavoriteRepository,
+    val capsuleRepository: LocalCapsuleRepository
 ) {
     fun place(id: String): StorageResult<Place> {
         var captured: StorageResult<Place>? = null

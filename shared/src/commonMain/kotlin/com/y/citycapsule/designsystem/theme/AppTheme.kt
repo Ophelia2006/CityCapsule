@@ -7,10 +7,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.y.citycapsule.core.theme.ThemeMode
 import com.y.citycapsule.designsystem.tokens.AppColorScheme
 import com.y.citycapsule.designsystem.tokens.AppDimensions
+import com.y.citycapsule.designsystem.tokens.AppElevation
 import com.y.citycapsule.designsystem.tokens.AppMotion
 import com.y.citycapsule.designsystem.tokens.AppTypography
 import com.y.citycapsule.designsystem.tokens.DarkAppColorScheme
 import com.y.citycapsule.designsystem.tokens.DefaultAppDimensions
+import com.y.citycapsule.designsystem.tokens.DefaultAppElevation
 import com.y.citycapsule.designsystem.tokens.DefaultAppMotion
 import com.y.citycapsule.designsystem.tokens.DefaultAppTypography
 import com.y.citycapsule.designsystem.tokens.LightAppColorScheme
@@ -19,6 +21,7 @@ private val LocalAppColorScheme = staticCompositionLocalOf { LightAppColorScheme
 private val LocalAppTypography = staticCompositionLocalOf { DefaultAppTypography }
 private val LocalAppDimensions = staticCompositionLocalOf { DefaultAppDimensions }
 private val LocalAppMotion = staticCompositionLocalOf { DefaultAppMotion }
+private val LocalAppElevation = staticCompositionLocalOf { DefaultAppElevation }
 
 /** Read-only access to the active design tokens from shared composables. */
 object AppTheme {
@@ -41,6 +44,11 @@ object AppTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalAppMotion.current
+
+    val elevation: AppElevation
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalAppElevation.current
 
     val isDark: Boolean
         @Composable
@@ -66,6 +74,7 @@ fun AppTheme(
         LocalAppTypography provides DefaultAppTypography,
         LocalAppDimensions provides DefaultAppDimensions,
         LocalAppMotion provides DefaultAppMotion,
+        LocalAppElevation provides DefaultAppElevation,
         content = content
     )
 }

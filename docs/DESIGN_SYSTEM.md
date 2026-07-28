@@ -342,3 +342,21 @@ T90～T97 把 `LaunchGatePage` 接入双端真实冷启动根页，没有新增�
 2026-07-25 门禁结果：shared 114/114、Android JVM 34/34、HarmonyOS 本地 40/40；
 Android 模拟器与 HarmonyOS 真机设备测试均 6/6。Light/Dark 下的 Chip、卡片、输入、
 确认弹窗、空状态、只读恢复和错误提示仍需按地点验收文档进行最终视觉走查。
+
+## 13. 2026-07-27 Record Flow 组件
+
+本轮新增 `AppSegmentedControl`，用于“时间轴 / 相册”两种同级内容视图切换；选中态、容器、圆角、字体和最小触控区域全部来自语义 token。`CapsulePhoto`/`CapsulePhotoList` 位于 Capsule feature，只负责业务照片的加载、裁切、失败降级与可选移除，不承担平台选图或文件存储。
+
+`AppDimensions` 新增 `mediaPreviewHeight` 与 `mediaThumbnailSize`，分别用于碎片详情/时间轴大图和相册网格。Gallery 使用两列真实照片 Grid，Editor 的心情选项使用两列布局；Record 页面未引入裸色值、字号、间距或圆角，Android hardcoding guard 已通过。
+
+本轮没有修改全局颜色方案。暖白/中性灰/暖琥珀视觉迁移仍是独立 Design System 任务，不能因 Record 页面使用现有 token 就标记为完成。
+
+## 14. 2026-07-28 Design System v2 最小产品化
+
+浅色方案迁移到暖白画布 `#F8F6F1`、近黑正文 `#1D1B18`、中性灰辅助文字 `#6F6A62`、暖灰分隔线 `#E3DED4` 与琥珀 Accent `#C97824`。深色方案同步为暖中性色与低饱和琥珀，`ThemeMode` 的 `system/light/dark` wire value、`settings.theme_mode` key 和 Theme Protocol v1 均未修改。Android/HarmonyOS 系统栏颜色与新画布同步。
+
+本轮只建立 Home/Explore/Record 后续会消费的最小组件：`AppIcon/AppIconButton`、`AppBottomNavigation`、Hero/Compact `PlaceCard`、Timeline/Recent `CapsuleCard`、`PhotoGrid`、`SearchField`、`EmptyState/LoadingState/ErrorState`、`AppOverflowMenu`、`AppBottomSheet` 与 `AppElevation`。组件保持纯展示/回调边界，不依赖 Repository、路由、MMKV 或平台 API。地点列表已消费 Compact PlaceCard；时间轴已消费 CapsuleCard 和三种产品状态；相册已消费 PhotoGrid。
+
+当前地点 schema 没有照片字段，仓库也没有获准用于产品的地点摄影。因此 PlaceCard 默认展示克制的 `PlaceMediaFallback` 类别图形；`sample.png` 继续只属于图片适配诊断页。所有未来产品资产必须先登记到 `ASSET_ATTRIBUTION.md`。
+
+`AppElevation` 目前冻结 flat/raised/overlay 语义值；Kuikly 双端阴影渲染效果仍以设备视觉验收为准，组件不得依赖阴影作为唯一层级信号。`AppIcon` 建立统一调用入口和有限图标词汇，业务页面不得混用 emoji、Material 图标、PNG 与文本符号；当前首版图形仍需进行 Android/HarmonyOS 字体渲染走查。

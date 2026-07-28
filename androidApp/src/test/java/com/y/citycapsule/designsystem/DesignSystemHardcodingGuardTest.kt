@@ -41,6 +41,7 @@ class DesignSystemHardcodingGuardTest {
             setOf(
                 "designsystem/tokens/AppColors.kt",
                 "designsystem/tokens/AppDimensions.kt",
+                "designsystem/tokens/AppElevation.kt",
                 "designsystem/tokens/AppTypography.kt",
                 "ImageAdapterBenchmarks.kt"
             ),
@@ -65,6 +66,7 @@ class DesignSystemHardcodingGuardTest {
             // Single sources of truth for production visual values.
             "designsystem/tokens/AppColors.kt",
             "designsystem/tokens/AppDimensions.kt",
+            "designsystem/tokens/AppElevation.kt",
             "designsystem/tokens/AppTypography.kt",
             // Fixed geometry and RGB overlays are assertions of the image-adapter benchmark.
             "ImageAdapterBenchmarks.kt"

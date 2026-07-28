@@ -2,8 +2,8 @@
 
 > 协议版本：1
 > 冻结日期：2026-07-23
-> 实现更新：2026-07-25
-> 实现范围：T17～T44 完成双端 MMKV；T73～T97 完成本地档案与首次引导；T98～T130 完成有上限的地点目录、收藏、双端持久化与容错。
+> 实现更新：2026-07-27
+> 实现范围：双端 MMKV、本地档案与首次引导、有上限地点/想去目录，以及城市碎片 catalog/草稿。
 
 ## 1. 数据边界
 
@@ -33,6 +33,8 @@ MMKV 只用于小型、可明确键控的数据：
 | `AppStorageKeys.Onboarding.DRAFT` | `cc_cache` | `onboarding.draft` | `json_object` | 空草稿 | 可清理、可重新生成的引导中间状态 |
 | `AppStorageKeys.Places.CATALOG` | `cc_preferences` | `places.catalog` | `json_object` | 空目录 v1 | 最多 500 条的离线地点目录 |
 | `AppStorageKeys.Favorites.PLACE_IDS` | `cc_preferences` | `favorites.place_ids` | `json_object` | 空集合 v1 | 与地点目录分离的收藏 ID |
+| `AppStorageKeys.Capsules.CATALOG` | `cc_preferences` | `capsules.catalog` | `json_object` | 空目录 v1 | 最多 500 条城市碎片，含媒体路径 |
+| `AppStorageKeys.Capsules.DRAFT` | `cc_cache` | `capsules.draft` | `json_object` | 空草稿 v1 | 单个可恢复的新建/编辑草稿 |
 
 约束：
 
@@ -92,7 +94,7 @@ MMKV 只用于小型、可明确键控的数据：
 ```text
 业务页面
   -> SettingsRepository / LocalProfileRepository / OnboardingRepository
-     / PlaceRepository / FavoriteRepository
+     / PlaceRepository / FavoriteRepository / CapsuleRepository
   -> KeyValueStore
      -> KuiklyKeyValueStore
      -> InMemoryKeyValueStore（测试）
@@ -120,6 +122,7 @@ MMKV 只用于小型、可明确键控的数据：
 - `core/onboarding/*`：草稿、完成版本、启动决策、提交恢复与 Repository。
 - `core/place/*`：Place v1、目录 Codec、校验、Repository 契约及纯搜索筛选。
 - `core/favorite/*`：收藏 ID Codec 与 Repository 契约。
+- `core/capsule/*`：城市碎片/草稿模型、校验、Codec、日期标签与 Repository。
 - `StorageMigrationContract.kt`：双端迁移必须镜像的 Schema、状态、重试和旧 Key 契约。
 
 ## 6. 平台实现
@@ -343,3 +346,13 @@ LocalPlaceRepository / LocalFavoriteRepository
 
 设备测试会在写入前保存原始值并在 `finally/catch` 路径恢复，避免验收用例污染开发设备数据。
 完整人工流程与容错注入矩阵见 `docs/PLACES_SEARCH_FAVORITES.md` 第 14 节。
+
+## 15. 2026-07-27 城市碎片与草稿
+
+`capsules.catalog` 继续使用现有 `json_object` Bridge，不增加平台协议分支。Catalog schema 为 1，最多 500 条；单条包含 ID、正文、可选心情、最多 8 个标签、地点 ID、最多 9 个应用沙箱图片 URI、创建和更新时间。Codec 拒绝未来 schema、重复 ID、非法时间和超限字段，并兼容无 `imagePaths` 的 schema 1 payload。
+
+`capsules.draft` 位于 `cc_cache`，只保存一个可恢复草稿。编辑器只恢复 capsuleId/新建 placeId 与当前上下文一致的草稿；发布或放弃只清理匹配草稿，不得误删其他地点/碎片草稿。发布与删除由 Repository 实例内队列串行化；更新不存在的 capsuleId 返回 `Missing`，不会新建替代记录。
+
+照片文件不进入本存储协议。Android/HarmonyOS 平台媒体模块负责复制到应用沙箱，catalog/draft 只存 `file://` 路径。删除引用暂未联动删除文件，详见 `TODO.md`。
+
+本轮 Gradle shared/Android 单测通过；HarmonyOS HAP 复编被 Hvigor 依赖安装超时阻断，不能把平台媒体模块写成已完成真机验收。

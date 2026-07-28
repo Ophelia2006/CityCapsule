@@ -29,6 +29,10 @@ export const PLACE_EDITOR_ROUTE_KEY: string = 'place_editor';
 export const PLACE_EDITOR_PAGE_NAME: string = 'place_editor';
 export const FAVORITES_ROUTE_KEY: string = 'favorites';
 export const FAVORITES_PAGE_NAME: string = 'favorites';
+export const CAPSULE_EDITOR_PAGE_NAME: string = 'capsule_editor';
+export const CAPSULE_DETAIL_PAGE_NAME: string = 'capsule_detail';
+export const TIMELINE_PAGE_NAME: string = 'timeline';
+export const GALLERY_PAGE_NAME: string = 'gallery';
 export const NATIVE_PERMISSION_ROUTE_KEY: string = 'native_permission';
 export const NATIVE_FILE_IMPORT_ROUTE_KEY: string = 'native_file_import';
 export const ROUTE_FALLBACK_KEY: string = 'route_fallback';
@@ -50,6 +54,10 @@ export class HarmonyRouteCatalog {
       case PLACE_DETAIL_PAGE_NAME:
       case PLACE_EDITOR_PAGE_NAME:
       case FAVORITES_PAGE_NAME:
+      case CAPSULE_EDITOR_PAGE_NAME:
+      case CAPSULE_DETAIL_PAGE_NAME:
+      case TIMELINE_PAGE_NAME:
+      case GALLERY_PAGE_NAME:
       case 'settings':
       case ROUTER_DIAGNOSTICS_PAGE_NAME:
       case IMAGE_ADAPTER_DIAGNOSTICS_PAGE_NAME:

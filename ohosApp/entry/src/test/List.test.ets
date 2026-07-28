@@ -8,6 +8,8 @@ import harmonyStorageDispatcherTest from './HarmonyStorageDispatcher.test';
 import harmonyStorageMigrationTest from './HarmonyStorageMigration.test';
 import harmonyThemeProtocolTest from './HarmonyThemeProtocol.test';
 import harmonyLaunchContractTest from './HarmonyLaunchContract.test';
+import harmonyLocaleModuleTest from './HarmonyLocaleModule.test';
+import harmonyMediaModuleTest from './HarmonyMediaModule.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -20,4 +22,6 @@ export default function testsuite() {
   harmonyStorageMigrationTest();
   harmonyThemeProtocolTest();
   harmonyLaunchContractTest();
+  harmonyLocaleModuleTest();
+  harmonyMediaModuleTest();
 }

@@ -6,13 +6,10 @@ import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.ui.Modifier
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
-import com.y.citycapsule.designsystem.component.AppBodyText
-import com.y.citycapsule.designsystem.component.AppButton
-import com.y.citycapsule.designsystem.component.AppButtonVariant
-import com.y.citycapsule.designsystem.component.AppCard
-import com.y.citycapsule.designsystem.component.AppSecondaryText
-import com.y.citycapsule.designsystem.component.AppSectionTitle
-import com.y.citycapsule.designsystem.theme.AppTheme
+import com.y.citycapsule.designsystem.component.PlaceCard
+import com.y.citycapsule.designsystem.component.PlaceCardModel
+import com.y.citycapsule.designsystem.component.PlaceCardVariant
+import com.y.citycapsule.designsystem.component.PlaceFallbackKind
 
 @Composable
 internal fun PlaceSummaryCard(
@@ -22,40 +19,28 @@ internal fun PlaceSummaryCard(
     onOpen: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
-    AppCard {
-        AppSectionTitle(text = place.name)
-        Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-        AppSecondaryText(
-            text = listOfNotNull(
-                place.city,
-                place.district,
-                place.category.displayName()
-            ).joinToString(" · ")
-        )
-        place.address?.let {
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-            AppBodyText(text = it)
-        }
-        if (place.tags.isNotEmpty()) {
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-            AppSecondaryText(text = place.tags.joinToString("  #", prefix = "#"))
-        }
-        Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-        AppButton(
-            text = "查看详情",
-            onClick = onOpen,
-            variant = AppButtonVariant.SECONDARY
-        )
-        Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-        AppButton(
-            text = if (favorite) "取消收藏" else "加入收藏",
-            onClick = onToggleFavorite,
-            variant = AppButtonVariant.TEXT,
-            enabled = !favoriteBusy,
-            loading = favoriteBusy,
-            loadingText = "正在更新…"
-        )
-    }
+    PlaceCard(
+        model = PlaceCardModel(
+            name = place.name,
+            metadata = listOfNotNull(place.city, place.district, place.category.displayName()).joinToString(" · "),
+            supportingText = place.address ?: place.tags.takeIf { it.isNotEmpty() }?.joinToString("  ") { "#$it" },
+            favorite = favorite,
+            fallbackKind = place.category.toFallbackKind()
+        ),
+        onOpen = onOpen,
+        onToggleFavorite = onToggleFavorite,
+        variant = PlaceCardVariant.COMPACT,
+        favoriteEnabled = !favoriteBusy
+    )
+}
+
+private fun PlaceCategory.toFallbackKind(): PlaceFallbackKind = when (this) {
+    PlaceCategory.LANDMARK -> PlaceFallbackKind.LANDMARK
+    PlaceCategory.CULTURE -> PlaceFallbackKind.CULTURE
+    PlaceCategory.FOOD -> PlaceFallbackKind.FOOD
+    PlaceCategory.NATURE -> PlaceFallbackKind.NATURE
+    PlaceCategory.SHOPPING -> PlaceFallbackKind.SHOPPING
+    PlaceCategory.OTHER -> PlaceFallbackKind.OTHER
 }
 
 internal fun PlaceCategory.displayName(): String = when (this) {

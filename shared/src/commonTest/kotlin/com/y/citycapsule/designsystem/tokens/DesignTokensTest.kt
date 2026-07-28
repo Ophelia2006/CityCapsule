@@ -14,8 +14,11 @@ class DesignTokensTest {
     fun colorSchemesExposeStableSemanticBrandAndSurfaceValues() {
         assertFalse(LightAppColorScheme.isDark)
         assertTrue(DarkAppColorScheme.isDark)
-        assertEquals(Color(0xFF5A67D8), LightAppColorScheme.primary)
-        assertEquals(Color(0xFFF5F6FA), LightAppColorScheme.background)
+        assertEquals(Color(0xFFC97824), LightAppColorScheme.primary)
+        assertEquals(Color(0xFFF8F6F1), LightAppColorScheme.background)
+        assertEquals(Color(0xFF1D1B18), LightAppColorScheme.textPrimary)
+        assertEquals(Color(0xFF6F6A62), LightAppColorScheme.textSecondary)
+        assertEquals(Color(0xFFE3DED4), LightAppColorScheme.divider)
         assertNotEquals(LightAppColorScheme.background, DarkAppColorScheme.background)
         assertNotEquals(LightAppColorScheme.textPrimary, DarkAppColorScheme.textPrimary)
     }
@@ -47,5 +50,12 @@ class DesignTokensTest {
             DefaultAppMotion.transitionDurationMillis <
                 DefaultAppMotion.emphasizedDurationMillis
         )
+    }
+
+    @Test
+    fun elevationLevelsStayOrdered() {
+        assertEquals(0.dp, DefaultAppElevation.flat)
+        assertTrue(DefaultAppElevation.flat < DefaultAppElevation.raised)
+        assertTrue(DefaultAppElevation.raised < DefaultAppElevation.overlay)
     }
 }

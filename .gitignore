@@ -108,6 +108,7 @@ oh_modules/
 /ohosApp/build-profile.json5
 /ohosApp/entry/libs/
 /ohosApp/entry/src/main/cpp/libshared_api.h
+/ohosApp/entry/src/main/cpp/include/libshared_api.h
 /ohosApp/.clangd
 /ohosApp/.clang-format
 /ohosApp/.clang-tidy

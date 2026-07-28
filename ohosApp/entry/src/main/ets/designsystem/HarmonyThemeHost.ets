@@ -86,9 +86,9 @@ export class HarmonyThemeHost {
     }
     this.mainWindow.setWindowSystemBarProperties({
       statusBarColor: '#00000000',
-      navigationBarColor: isDark ? '#FF11131A' : '#FFF5F6FA',
-      statusBarContentColor: isDark ? '#FFFFFFFF' : '#FF1F2430',
-      navigationBarContentColor: isDark ? '#FFFFFFFF' : '#FF1F2430'
+      navigationBarColor: isDark ? '#FF151411' : '#FFF8F6F1',
+      statusBarContentColor: isDark ? '#FFF4F0E8' : '#FF1D1B18',
+      navigationBarContentColor: isDark ? '#FFF4F0E8' : '#FF1D1B18'
     }).catch((error: Error) => {
       hilog.warn(
         0x0000,

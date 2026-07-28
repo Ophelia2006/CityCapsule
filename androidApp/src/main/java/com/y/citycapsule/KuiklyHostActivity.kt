@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import com.tencent.kuikly.core.render.android.IKuiklyRenderExport
 import com.tencent.kuikly.core.render.android.adapter.KuiklyRenderAdapterManager
 import com.tencent.kuikly.core.render.android.css.ktx.toMap
@@ -23,6 +24,8 @@ import com.y.citycapsule.designsystem.AndroidThemeHost
 import com.y.citycapsule.designsystem.AndroidThemePageData
 import com.y.citycapsule.module.KRBridgeModule
 import com.y.citycapsule.module.KRShareModule
+import com.y.citycapsule.module.KRMediaModule
+import com.y.citycapsule.module.KRLocaleModule
 import com.y.citycapsule.module.KRStorageModule
 import com.y.citycapsule.module.KRThemeHostModule
 import com.y.citycapsule.navigation.AndroidLaunchContract
@@ -30,6 +33,8 @@ import com.y.citycapsule.navigation.AndroidRouteHost
 import com.y.citycapsule.navigation.AndroidRouteRequest
 import com.y.citycapsule.navigation.AndroidRouteStackCoordinator
 import org.json.JSONObject
+import android.webkit.MimeTypeMap
+import java.io.File
 
 class KuiklyHostActivity :
     AppCompatActivity(),
@@ -41,6 +46,56 @@ class KuiklyHostActivity :
     private lateinit var errorView: View
 
     private val kuiklyRenderViewDelegator = KuiklyRenderViewBaseDelegator(this)
+    private var pendingImageLimit: Int = 0
+    private var pendingImageCallback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback? = null
+    private val imagePicker = registerForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        val callback = pendingImageCallback ?: return@registerForActivityResult
+        pendingImageCallback = null
+        val selected = uris.take(pendingImageLimit)
+        pendingImageLimit = 0
+        if (selected.isEmpty()) {
+            callback.invoke(KRMediaModule.response(KRMediaModule.STATUS_CANCELLED))
+            return@registerForActivityResult
+        }
+        val createdFiles = mutableListOf<File>()
+        val copied = runCatching {
+            selected.mapIndexed { index, uri ->
+                val mime = contentResolver.getType(uri).orEmpty()
+                val extension = MimeTypeMap.getSingleton()
+                    .getExtensionFromMimeType(mime)
+                    ?.takeIf(String::isNotBlank)
+                    ?: "jpg"
+                val directory = File(filesDir, "images/original").apply { mkdirs() }
+                val target = File(
+                    directory,
+                    "capsule_${System.currentTimeMillis()}_${index}.$extension"
+                )
+                createdFiles += target
+                requireNotNull(contentResolver.openInputStream(uri)).use { input ->
+                    target.outputStream().use(input::copyTo)
+                }
+                "file://${target.absolutePath}"
+            }
+        }
+        copied.fold(
+            onSuccess = { paths ->
+                callback.invoke(
+                    KRMediaModule.response(KRMediaModule.STATUS_SUCCESS, paths = paths)
+                )
+            },
+            onFailure = {
+                createdFiles.forEach { file -> file.delete() }
+                callback.invoke(
+                    KRMediaModule.response(
+                        KRMediaModule.STATUS_FAILURE,
+                        "无法复制所选照片，请重试。"
+                    )
+                )
+            }
+        )
+    }
 
     internal val hostedPageName: String
         get() = AndroidLaunchContract.resolvePageName(
@@ -99,6 +154,12 @@ class KuiklyHostActivity :
             moduleExport(KRStorageModule.MODULE_NAME) {
                 KRStorageModule()
             }
+            moduleExport(KRMediaModule.MODULE_NAME) {
+                KRMediaModule()
+            }
+            moduleExport(KRLocaleModule.MODULE_NAME) {
+                KRLocaleModule()
+            }
             moduleExport(KRThemeHostModule.MODULE_NAME) {
                 KRThemeHostModule()
             }
@@ -114,6 +175,24 @@ class KuiklyHostActivity :
 
     override fun finishRoute() {
         finish()
+    }
+
+    internal fun pickImages(
+        maxCount: Int,
+        callback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback
+    ) {
+        if (pendingImageCallback != null) {
+            callback.invoke(
+                KRMediaModule.response(
+                    KRMediaModule.STATUS_FAILURE,
+                    "已有照片选择操作正在进行。"
+                )
+            )
+            return
+        }
+        pendingImageLimit = maxCount.coerceIn(1, 9)
+        pendingImageCallback = callback
+        imagePicker.launch(arrayOf("image/*"))
     }
 
     private fun createPageData(): Map<String, Any> {

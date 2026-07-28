@@ -6,6 +6,10 @@ import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
 import com.tencent.kuikly.core.reactive.handler.*
 import com.y.citycapsule.app.theme.AppThemeRuntime
 import com.y.citycapsule.app.theme.KuiklyThemeHostModule
+import com.y.citycapsule.core.capsule.KuiklyLocalCapsuleDateFormatter
+import com.y.citycapsule.core.capsule.KuiklyLocaleModule
+import com.y.citycapsule.core.media.KuiklyMediaModule
+import com.y.citycapsule.core.media.KuiklyPhotoPicker
 import com.y.citycapsule.core.storage.KuiklyStorageModule
 import com.y.citycapsule.core.storage.StorageProtocol
 import com.y.citycapsule.core.theme.ThemeBootstrapContract
@@ -20,6 +24,8 @@ internal abstract class BasePager : ComposeContainer() {
         externalModules[BridgeModule.MODULE_NAME] = BridgeModule()
         externalModules[StorageProtocol.MODULE_NAME] = KuiklyStorageModule()
         externalModules[ThemeHostProtocol.MODULE_NAME] = KuiklyThemeHostModule()
+        externalModules[KuiklyPhotoPicker.MODULE_NAME] = KuiklyMediaModule()
+        externalModules[KuiklyLocalCapsuleDateFormatter.MODULE_NAME] = KuiklyLocaleModule()
         return externalModules
     }
 

@@ -1,6 +1,6 @@
 # CityCapsule 统一路由开发文档
 
-> 更新日期：2026-07-25
+> 更新日期：2026-07-27
 > 代码事实源：`shared/.../core/navigation/AppRoute.kt` 与 `AppRouteTable.kt`
 
 ## 1. 统一路由表
@@ -20,10 +20,10 @@
 | `PlaceDetail(placeId)` | `PLACE_DETAIL` | `place_detail` | Kuikly | `place_detail` | `placeId: String`，必填、非空白 | 可运行 | 可运行 |
 | `PlaceEditor(placeId?)` | `PLACE_EDITOR` | `place_editor` | Kuikly | `place_editor` | `placeId: String?` | 可运行 | 可运行 |
 | `MapExplore` | `MAP_EXPLORE` | `map_explore` | Kuikly | `map_explore` | 无 | 协议占位 | 协议占位 |
-| `CapsuleEditor(capsuleId?, placeId?)` | `CAPSULE_EDITOR` | `capsule_editor` | Kuikly | `capsule_editor` | `capsuleId: String?`、`placeId: String?` | 协议占位 | 协议占位 |
-| `CapsuleDetail(capsuleId)` | `CAPSULE_DETAIL` | `capsule_detail` | Kuikly | `capsule_detail` | `capsuleId: String`，必填、非空白 | 协议占位 | 协议占位 |
-| `Timeline` | `TIMELINE` | `timeline` | Kuikly | `timeline` | 无 | 协议占位 | 协议占位 |
-| `Gallery` | `GALLERY` | `gallery` | Kuikly | `gallery` | 无 | 协议占位 | 协议占位 |
+| `CapsuleEditor(capsuleId?, placeId?)` | `CAPSULE_EDITOR` | `capsule_editor` | Kuikly | `capsule_editor` | `capsuleId: String?`、`placeId: String?` | 可运行 | 代码已注册，待 HAP 复编验证 |
+| `CapsuleDetail(capsuleId)` | `CAPSULE_DETAIL` | `capsule_detail` | Kuikly | `capsule_detail` | `capsuleId: String`，必填、非空白 | 可运行 | 代码已注册，待 HAP 复编验证 |
+| `Timeline` | `TIMELINE` | `timeline` | Kuikly | `timeline` | 无 | 可运行 | 代码已注册，待 HAP 复编验证 |
+| `Gallery` | `GALLERY` | `gallery` | Kuikly | `gallery` | 无 | 可运行 | 代码已注册，待 HAP 复编验证 |
 | `Favorites` | `FAVORITES` | `favorites` | Kuikly | `favorites` | 无 | 可运行 | 可运行 |
 | `Profile` | `PROFILE` | `profile` | Kuikly | `profile` | 无 | 可运行 | 可运行 |
 | `Settings` | `SETTINGS` | `settings` | Kuikly | `settings` | 无 | 可运行 | 可运行 |
@@ -183,8 +183,9 @@ FAVORITES_ROUTE_KEY / FAVORITES_PAGE_NAME
 ```
 
 该段是 T107 的历史冻结状态。T119 已创建四个 shared `@Page`，T120 已将目标加入
-`HarmonyRouteCatalog.isAvailableKuiklyPage`，统一路由表状态更新为双端“可运行”。
-Guard 现在要求四个已注册页面必须放行，未知 Kuikly pageName 仍必须拦截。
+`HarmonyRouteCatalog.isAvailableKuiklyPage`。Android 已通过本轮编译与测试；HarmonyOS 代码已完成注册，
+但尚未完成本轮 HAP 复编，因此不能标为已验证可运行。Guard 现在要求四个已注册页面必须放行，未知 Kuikly
+pageName 仍必须拦截。
 
 参数约束：
 
@@ -206,3 +207,11 @@ T121～T130 的地点栈回归已覆盖：
 
 Android 与 HarmonyOS Request Decoder 都验证 `placeId` 原样进入 pageData；业务页面只构造
 `AppRoute.PlaceDetail/PlaceEditor`，不直接传 `place_detail`、`place_editor` 或平台 URL。
+
+## 15. 2026-07-27 Record Flow 路由接入
+
+四个原先的协议占位页已注册为真实 Kuikly 页面：`capsule_editor`、`capsule_detail`、`timeline`、`gallery`。共享路由仍只传 `placeId` / `capsuleId`，不传 Capsule 或图片对象。HarmonyRouteCatalog 和 Guard 测试资产已同步四个 pageName。
+
+主链路的栈动作是：Place Detail `push` Editor → 发布后 `replace` Capsule Detail → Detail `push` Timeline → Timeline/Gallery 之间 `replace` 切换 → 内容卡 `push` Capsule Detail。删除详情后用 `replace(Timeline)`，避免返回已删除页面。
+
+本轮 shared/Android 路由与页面编译通过；HarmonyOS `assembleHap` 被 Hvigor 的项目依赖安装超时阻断，尚未用本轮源码完成 HAP 复编，状态边界以 `CURRENT_STATE.md` 为准。
