@@ -8,8 +8,10 @@
 - `[UI/UX Redesign][DONE 2026-07-28]` Design System v2 最小基础：暖白/中性灰/暖琥珀 token、配套深色、elevation 语义、统一 Icon 入口、类别 fallback、加载/空/错误状态及核心 Flow 组件 API；主题持久化协议未改变。
 - `[UI/UX Redesign]` 在 Android/HarmonyOS 设备走查新 Light/Dark 调色、系统栏、AppIcon 字形与 elevation/shadow；若字形不一致，保持 `AppIcon` API 并替换为跨端稳定的代码矢量实现。
 - `[Code Scan]` 新增真实地点摄影前，逐项完成 `docs/ASSET_ATTRIBUTION.md` 的来源、许可证、用途和署名登记；未登记素材不得进入正式 UI。
-- `[UI/UX Redesign]` 建立手机“探索 / 记录 / 我的”应用壳和正式导航；未实现页不得成为空壳 Tab。
-- `[Initial Plan][UI/UX Redesign]` 重新设计 Home，以本地规则展示今日地点、附近/分类内容、真实最近城市记忆和一个快速记录 CTA；空数据使用诚实 empty state，不伪造推荐算法。
+- `[UI/UX Redesign][DONE 2026-07-29]` P0-3A 单一 AppShell：唯一 Bottom Navigation、Home/Record/Profile 常驻根 Pager、点击 `animateScrollToPage`、根 `userScrollEnabled=false`、重复点击 no-op、独立滚动/页面状态保留；二级 typed route 隐藏底栏，Debug 不入壳；shared/Android/HarmonyOS 自动化与双端包构建通过。
+- `[UI/UX Redesign][PARTIAL 2026-07-29]` Record Container：Timeline/Gallery 已合并为同一 RecordRootContent 的点击切换视图并共享 catalog/底栏/RecordRootView；P0-3B 再实现内部 HorizontalPager 与左右滑动，补同轴手势、状态恢复和双端手势测试；独立 Gallery route 暂留兼容。
+- `[UI/UX Redesign][Code Scan]` 使用 2026-07-29 修复后重新生成的 signed HAP 覆盖安装 HarmonyOS 真机；先确认完成首次引导后进入 `app_shell`，再检查 Tab 动画方向、快速连点、三个根滚动位置、Record 视图、Profile 编辑草稿、详情返回、系统返回键和底栏安全区。平台 guard 已有“允许 `app_shell`、拒绝退役 `home/timeline/profile` Page”的回归测试。
+- `[Initial Plan][UI/UX Redesign][Decision 2026-07-29]` 重新设计 Home：重点地点整卡为 Primary；seed 与用户自建地点允许混合参与可解释本地排序；展示分类与至多一条真实最近城市记忆；空数据使用诚实 empty state，不伪造推荐算法或摄影。
 - `[Code Scan][BLOCKED]` 按 `docs/P0_RECORD_FLOW_ACCEPTANCE.md` 完成 Android/HarmonyOS 真机的选图成功、取消、复制失败、重启读取和引用清理；Android 模拟器已完成真实选图回传和沙箱复制，Android 真机未连接；HarmonyOS 的模块未注册崩溃与媒体 URI 直接按路径复制问题均已修复，Hypium 测试及 signed HAP 构建通过，仍须在 HED-AL00 覆盖安装后完成真机复验。
 - `[Initial Plan]` 补相机 capability（如本阶段确认需要）和缩略图生成；正常删除/移除/丢弃的媒体引用清理已经完成，后续可评估崩溃遗留文件扫描。
 - `[UI/UX Redesign]` 真机可用后继续 Record Flow 视觉走查，检查图片渲染、返回栈和大字体问题。
@@ -21,7 +23,7 @@
 - `[Initial Plan]` 实现 Location capability、坐标字段迁移、距离和权限降级。
 - `[Initial Plan][UI/UX Redesign]` 接入双端真实地图 Native View、Marker、列表/地图切换和外部导航；地图不可用时降级为列表。
 - `[Code Scan]` 如需“按想去时间排序”，新增有迁移方案的数据模型，不能从现有 Set 伪造加入时间；用户文案已经统一为“想去”，底层继续保留 `Favorite*`。
-- `[UI/UX Redesign]` 将 Profile 重构为“我的城市档案”：头像/昵称/城市、真实统计、城市足迹、想去内容、数据与设置入口；编辑与危险操作下沉。
+- `[UI/UX Redesign][Decision 2026-07-29]` 将 Profile 重构为“我的城市档案”：头像/昵称/城市、碎片数、关联地点数、想去数三项精确统计、想去与设置入口；编辑与危险操作下沉，不虚构里程或足迹地图。
 - `[Initial Plan]` 完成设置中的缓存清理、存储占用、隐私/关于与二次确认重置。
 - `[Initial Plan]` 实现备份导出、导入验证/预览、导入前备份和媒体恢复；补齐 Android launcher 与 Harmony 文件选择器。
 - `[Code Scan]` 实现 RouteResult/requestId 结果通道；原生取消/失败/不支持必须回传，不得仅展示参数。

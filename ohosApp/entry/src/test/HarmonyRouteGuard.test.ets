@@ -6,6 +6,7 @@ import {
   HarmonyRouteTargetType
 } from '../main/ets/navigation/HarmonyRouteRequest';
 import {
+  APP_SHELL_PAGE_NAME,
   KUIKLY_HOST_PAGE,
   LAUNCH_GATE_PAGE_NAME,
   MAIN_NAVIGATION_ID,
@@ -13,11 +14,9 @@ import {
   PLACE_DETAIL_PAGE_NAME,
   PLACE_EDITOR_PAGE_NAME,
   PLACE_LIST_PAGE_NAME,
-  PROFILE_PAGE_NAME,
   FAVORITES_PAGE_NAME,
   CAPSULE_EDITOR_PAGE_NAME,
   CAPSULE_DETAIL_PAGE_NAME,
-  TIMELINE_PAGE_NAME,
   GALLERY_PAGE_NAME,
   ROUTE_FALLBACK_PAGE
 } from '../main/ets/navigation/HarmonyRoutes';
@@ -38,8 +37,8 @@ export default function harmonyRouteGuardTest() {
       expect(result.allowed).assertTrue();
     });
 
-    it('allowsLocalProfileAndOnboardingPages', 0, () => {
-      [LAUNCH_GATE_PAGE_NAME, ONBOARDING_PAGE_NAME, PROFILE_PAGE_NAME].forEach(
+    it('allowsLaunchOnboardingAndAppShellPages', 0, () => {
+      [LAUNCH_GATE_PAGE_NAME, ONBOARDING_PAGE_NAME, APP_SHELL_PAGE_NAME].forEach(
         (pageName: string) => {
           const result: HarmonyRouteGuardResult = guard.checkRequest(
             new HarmonyRouteRequest(
@@ -78,7 +77,6 @@ export default function harmonyRouteGuardTest() {
       [
         CAPSULE_EDITOR_PAGE_NAME,
         CAPSULE_DETAIL_PAGE_NAME,
-        TIMELINE_PAGE_NAME,
         GALLERY_PAGE_NAME
       ].forEach((pageName: string) => {
         const result: HarmonyRouteGuardResult = guard.checkRequest(new HarmonyRouteRequest(
@@ -90,6 +88,20 @@ export default function harmonyRouteGuardTest() {
         ));
 
         expect(result.allowed).assertTrue();
+      });
+    });
+
+    it('rejectsRetiredStandaloneRootPages', 0, () => {
+      ['home', 'timeline', 'profile'].forEach((pageName: string) => {
+        const result: HarmonyRouteGuardResult = guard.checkRequest(new HarmonyRouteRequest(
+          HarmonyRouteAction.PUSH,
+          pageName,
+          HarmonyRouteTargetType.KUIKLY,
+          pageName,
+          {}
+        ));
+
+        expect(result.allowed).assertFalse();
       });
     });
 

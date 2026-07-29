@@ -19,7 +19,6 @@ import com.y.citycapsule.app.theme.RuntimeAppTheme
 import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
-import com.y.citycapsule.core.navigation.AppRouteKey
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
@@ -133,7 +132,7 @@ private fun SettingsScreen(
         AppScaffold(statusBarHeight = statusBarHeight) {
             AppTopBar(
                 title = "设置",
-                subtitle = "主题偏好由 shared 设计系统统一渲染并通过 MMKV 持久化。"
+                subtitle = "调整城市胶囊在当前设备上的使用体验。"
             )
             Spacer(Modifier.height(dimensions.spacingLg))
             AppSection(
@@ -158,44 +157,21 @@ private fun SettingsScreen(
             }
             Spacer(Modifier.height(dimensions.spacingLg))
             AppSection(
-                title = "本地档案与首次引导",
-                description = "档案只保存在当前设备；重新查看引导不会预先清除档案。"
+                title = "首次引导",
+                description = "重新查看引导不会清除已有的本地档案。"
             ) {
                 AppButton(
-                    text = "打开本地档案",
-                    variant = AppButtonVariant.SECONDARY,
-                    onClick = { navigator.navigate(AppRoute.Profile) }
-                )
-                Spacer(Modifier.height(dimensions.spacingSm))
-                AppButton(
                     text = "重新查看首次引导",
-                    variant = AppButtonVariant.TEXT,
+                    variant = AppButtonVariant.SECONDARY,
                     onClick = { navigator.navigate(AppRoute.Onboarding) }
                 )
             }
             Spacer(Modifier.height(dimensions.spacingLg))
-            AppSection(
-                title = "路由验收",
-                description = "以下入口继续使用统一 AppNavigator。"
-            ) {
-                AppButton(
-                    text = "返回首页",
-                    variant = AppButtonVariant.SECONDARY,
-                    onClick = { navigator.backTo(AppRouteKey.HOME) }
-                )
-                Spacer(Modifier.height(dimensions.spacingSm))
-                AppButton(
-                    text = "Push another Settings",
-                    variant = AppButtonVariant.SECONDARY,
-                    onClick = { navigator.navigate(AppRoute.Settings) }
-                )
-                Spacer(Modifier.height(dimensions.spacingSm))
-                AppButton(
-                    text = "返回上一页",
-                    variant = AppButtonVariant.TEXT,
-                    onClick = navigator::back
-                )
-            }
+            AppButton(
+                text = "返回上一页",
+                variant = AppButtonVariant.TEXT,
+                onClick = navigator::back
+            )
         }
     }
 }

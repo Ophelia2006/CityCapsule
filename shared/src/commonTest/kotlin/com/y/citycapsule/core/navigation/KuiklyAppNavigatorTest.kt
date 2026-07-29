@@ -60,10 +60,10 @@ class KuiklyAppNavigatorTest {
         val pageData = assertNotNull(transport.openedPageData)
         assertEquals("backTo", pageData.optString(RouteProtocol.PARAM_ACTION))
         assertEquals(
-            AppRouteTable.ROUTE_HOME,
+            AppRouteTable.ROUTE_APP_SHELL,
             pageData.optString(RouteProtocol.PARAM_ROUTE_KEY)
         )
-        assertEquals(AppRouteTable.PAGE_HOME, transport.openedPageName)
+        assertEquals(AppRouteTable.PAGE_APP_SHELL, transport.openedPageName)
     }
 }
 

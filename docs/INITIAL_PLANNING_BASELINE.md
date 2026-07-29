@@ -53,6 +53,7 @@ Kuikly Page
 
 | 主题 | 原计划 | 当前代码 | 可确认原因 |
 | --- | --- | --- | --- |
+| 一级导航 | 初始规划描述基础版首页与核心流程，未明确固定三个 Bottom Tab | 单一 AppShell 常驻 Home/Record/Profile 与一个 Bottom Navigation；点击驱动无手势根 Pager，typed root 只决定初始 Tab | P0-2 曾批准 typed replace；用户于 P0-3A 明确批准并取代该切换方式 |
 | 分层 | Store → UseCase → Repository → DataSource | Page → StateHolder/Repository → KeyValueStore；无 UseCase/DataSource 层 | 未发现设计原因记录 |
 | 地点存储 | 实体独立 Key + 索引 | `places.catalog` 单 JSON，硬上限 500 | 当前专题文档明确选择“有上限的离线目录”；为何改变存储形态未记录 |
 | Place 字段 | source、坐标、封面等 | 无 source、坐标、封面；有 city/district/tags/note | `Place.kt` 注释明确当前协议刻意排除平台 URI、地图对象、坐标和远端 ID；更改动机未完整记录 |

@@ -15,6 +15,8 @@ import com.tencent.kuikly.core.annotations.Page
 import com.y.citycapsule.app.theme.AppThemeHost
 import com.y.citycapsule.app.theme.KuiklyAppThemeHost
 import com.y.citycapsule.app.theme.RuntimeAppTheme
+import com.y.citycapsule.app.navigation.AppRootTab
+import com.y.citycapsule.app.navigation.backToRoot
 import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.navigation.AppNavigator
@@ -133,7 +135,7 @@ private fun PlaceDetailScreen(
                     if (uiState.memoryCount > 0) {
                         AppButton(
                             text = "在时间轴中回看",
-                            onClick = { navigator.navigate(AppRoute.Timeline) },
+                    onClick = { navigator.backToRoot(AppRootTab.RECORD) },
                             variant = AppButtonVariant.TEXT,
                             enabled = !uiState.isBusy
                         )

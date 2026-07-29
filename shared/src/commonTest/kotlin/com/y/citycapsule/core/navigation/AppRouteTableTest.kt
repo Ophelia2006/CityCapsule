@@ -9,16 +9,19 @@ import kotlin.test.assertIs
 class AppRouteTableTest {
 
     @Test
-    fun homeResolvesToStableKuiklyDestination() {
+    fun homeResolvesToExploreInsideTheSingleAppShell() {
         val request = AppRouteTable.resolve(AppRoute.Home)
 
         assertEquals(RouteAction.PUSH, request.action)
-        assertEquals(AppRouteTable.ROUTE_HOME, request.routeKey)
+        assertEquals(AppRouteTable.ROUTE_APP_SHELL, request.routeKey)
         assertEquals(
-            RouteDestination.Kuikly(AppRouteTable.PAGE_HOME),
+            RouteDestination.Kuikly(AppRouteTable.PAGE_APP_SHELL),
             request.destination
         )
-        assertEquals(emptyMap(), request.params)
+        assertEquals(
+            mapOf(AppRouteTable.PARAM_INITIAL_ROOT_TAB to AppRouteTable.ROUTE_HOME),
+            request.params
+        )
     }
 
     @Test
@@ -37,11 +40,12 @@ class AppRouteTableTest {
             RouteDestination.Kuikly(AppRouteTable.PAGE_ONBOARDING),
             onboarding.destination
         )
-        assertEquals(AppRouteTable.ROUTE_PROFILE, profile.routeKey)
+        assertEquals(AppRouteTable.ROUTE_APP_SHELL, profile.routeKey)
         assertEquals(
-            RouteDestination.Kuikly(AppRouteTable.PAGE_PROFILE),
+            RouteDestination.Kuikly(AppRouteTable.PAGE_APP_SHELL),
             profile.destination
         )
+        assertEquals(AppRouteTable.ROUTE_PROFILE, profile.params[AppRouteTable.PARAM_INITIAL_ROOT_TAB])
     }
 
     @Test
@@ -94,7 +98,9 @@ class AppRouteTableTest {
 
         assertEquals(mapOf("capsuleId" to "capsule-1", "placeId" to "place-1"), editor.params)
         assertEquals(mapOf("capsuleId" to "capsule-1"), detail.params)
-        assertEquals(RouteDestination.Kuikly(AppRouteTable.PAGE_TIMELINE), timeline.destination)
+        assertEquals(RouteDestination.Kuikly(AppRouteTable.PAGE_APP_SHELL), timeline.destination)
+        assertEquals(AppRouteTable.ROUTE_APP_SHELL, timeline.routeKey)
+        assertEquals(AppRouteTable.ROUTE_TIMELINE, timeline.params[AppRouteTable.PARAM_INITIAL_ROOT_TAB])
         assertEquals(RouteDestination.Kuikly(AppRouteTable.PAGE_GALLERY), gallery.destination)
     }
 
@@ -128,5 +134,17 @@ class AppRouteTableTest {
             assertEquals(AppRouteTable.wireRouteKey(routeKey), request.routeKey)
             assertEquals(AppRouteTable.destinationForRouteKey(routeKey), request.destination)
         }
+    }
+
+    @Test
+    fun rootBackToFallbackCarriesTheRequestedInitialTab() {
+        val timeline = AppRouteTable.resolveBackTo(AppRouteKey.TIMELINE)
+
+        assertEquals(AppRouteTable.ROUTE_APP_SHELL, timeline.routeKey)
+        assertEquals(RouteDestination.Kuikly(AppRouteTable.PAGE_APP_SHELL), timeline.destination)
+        assertEquals(
+            AppRouteTable.ROUTE_TIMELINE,
+            timeline.params[AppRouteTable.PARAM_INITIAL_ROOT_TAB]
+        )
     }
 }

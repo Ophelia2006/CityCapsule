@@ -24,7 +24,9 @@ import {
 import { HarmonyRouteStackCoordinator } from './HarmonyRouteStackCoordinator';
 import { HarmonyRouteTransitions } from './HarmonyRouteTransitions';
 import {
-  HOME_PAGE_NAME,
+  APP_SHELL_INITIAL_ROOT_TAB_PARAM,
+  APP_SHELL_PAGE_NAME,
+  APP_SHELL_ROUTE_KEY,
   HOME_ROUTE_KEY,
   KUIKLY_HOST_PAGE,
   MAIN_NAVIGATION_ID,
@@ -80,15 +82,17 @@ export class HarmonyRouteDispatcher {
 
   recoverHome(): boolean {
     if (!HMRouterMgr.isInit) {
-      return this.fail(HarmonyRouteAction.REPLACE, HOME_ROUTE_KEY, HOME_PAGE_NAME,
+      return this.fail(HarmonyRouteAction.REPLACE, APP_SHELL_ROUTE_KEY, APP_SHELL_PAGE_NAME,
         'HMRouter is not initialized.');
     }
+    const pageData: KRRecord = {};
+    pageData[APP_SHELL_INITIAL_ROOT_TAB_PARAM] = HOME_ROUTE_KEY;
     return this.openKuikly(new HarmonyRouteRequest(
       HarmonyRouteAction.REPLACE,
-      HOME_ROUTE_KEY,
+      APP_SHELL_ROUTE_KEY,
       HarmonyRouteTargetType.KUIKLY,
-      HOME_PAGE_NAME,
-      {}
+      APP_SHELL_PAGE_NAME,
+      pageData
     ));
   }
 

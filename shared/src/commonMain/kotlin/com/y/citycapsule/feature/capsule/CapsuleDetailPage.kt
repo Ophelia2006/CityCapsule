@@ -8,6 +8,8 @@ import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.core.annotations.Page
 import com.y.citycapsule.app.theme.*
+import com.y.citycapsule.app.navigation.AppRootTab
+import com.y.citycapsule.app.navigation.backToRoot
 import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.capsule.*
 import com.y.citycapsule.core.navigation.*
@@ -91,13 +93,18 @@ private fun CapsuleDetailScreen(
                 AppButton("删除", holder::requestDelete, variant = AppButtonVariant.TEXT)
             }
             Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-            AppButton("查看全部城市记忆", { navigator.navigate(AppRoute.Timeline) }, variant = AppButtonVariant.SECONDARY)
+            AppButton(
+                "查看全部城市记忆",
+                            { navigator.backToRoot(AppRootTab.RECORD) },
+                variant = AppButtonVariant.SECONDARY
+            )
             Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
             AppButton("返回上一页", navigator::back, variant = AppButtonVariant.TEXT)
         }
         if (state.showDeleteConfirmation) AppConfirmDialog(
             "删除这条城市记忆？", "删除后无法恢复。", "确认删除",
-            onConfirm = { holder.delete { navigator.replace(AppRoute.Timeline) } }, onDismiss = holder::dismissDelete
+            onConfirm = { holder.delete { navigator.backToRoot(AppRootTab.RECORD) } },
+            onDismiss = holder::dismissDelete
         )
     }
 }

@@ -20,6 +20,7 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 fun AppScaffold(
     statusBarHeight: Float,
     modifier: Modifier = Modifier,
+    bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = AppTheme.colors
@@ -31,23 +32,30 @@ fun AppScaffold(
             .background(colors.background),
         contentAlignment = Alignment.TopCenter
     ) {
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .widthIn(max = dimensions.contentMaxWidth)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = dimensions.screenHorizontalPadding,
-                top = statusBarHeight.dp + dimensions.spacingXxl,
-                end = dimensions.screenHorizontalPadding,
-                bottom = dimensions.spacingXl
-            )
+                .fillMaxSize()
         ) {
-            item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    content = content
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(
+                    start = dimensions.screenHorizontalPadding,
+                    top = statusBarHeight.dp + dimensions.spacingXxl,
+                    end = dimensions.screenHorizontalPadding,
+                    bottom = dimensions.spacingXl
                 )
+            ) {
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        content = content
+                    )
+                }
             }
+            bottomBar?.invoke()
         }
     }
 }

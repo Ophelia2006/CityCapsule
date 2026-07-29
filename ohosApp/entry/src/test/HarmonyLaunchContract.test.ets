@@ -1,10 +1,10 @@
 import { describe, expect, it } from '@ohos/hypium';
 import { HarmonyLaunchContract } from '../main/ets/navigation/HarmonyLaunchContract';
 import {
+  APP_SHELL_PAGE_NAME,
+  APP_SHELL_ROUTE_KEY,
   LAUNCH_GATE_PAGE_NAME,
-  LAUNCH_GATE_ROUTE_KEY,
-  PROFILE_PAGE_NAME,
-  PROFILE_ROUTE_KEY
+  LAUNCH_GATE_ROUTE_KEY
 } from '../main/ets/navigation/HarmonyRoutes';
 
 export default function harmonyLaunchContractTest(): void {
@@ -23,15 +23,15 @@ export default function harmonyLaunchContractTest(): void {
     });
 
     it('explicitBusinessRouteRemainsUnchanged', 0, () => {
-      expect(HarmonyLaunchContract.resolvePageName(PROFILE_PAGE_NAME))
-        .assertEqual(PROFILE_PAGE_NAME);
-      expect(HarmonyLaunchContract.resolveRouteKey(PROFILE_ROUTE_KEY, PROFILE_PAGE_NAME))
-        .assertEqual(PROFILE_ROUTE_KEY);
+      expect(HarmonyLaunchContract.resolvePageName(APP_SHELL_PAGE_NAME))
+        .assertEqual(APP_SHELL_PAGE_NAME);
+      expect(HarmonyLaunchContract.resolveRouteKey(APP_SHELL_ROUTE_KEY, APP_SHELL_PAGE_NAME))
+        .assertEqual(APP_SHELL_ROUTE_KEY);
     });
 
     it('missingRouteKeyFallsBackToResolvedPage', 0, () => {
-      expect(HarmonyLaunchContract.resolveRouteKey(undefined, PROFILE_PAGE_NAME))
-        .assertEqual(PROFILE_PAGE_NAME);
+      expect(HarmonyLaunchContract.resolveRouteKey(undefined, APP_SHELL_PAGE_NAME))
+        .assertEqual(APP_SHELL_PAGE_NAME);
     });
   });
 }

@@ -2,7 +2,7 @@
 
 ## 范围
 
-本文只描述 2026-07-27 仓库中真实存在的架构。初始目标见 `INITIAL_PLANNING_BASELINE.md`；目标架构不会被写成当前事实。
+本文只描述 2026-07-28 仓库中真实存在的架构。初始目标见 `INITIAL_PLANNING_BASELINE.md`；目标架构不会被写成当前事实。
 
 ## 工程与模块
 
@@ -52,7 +52,8 @@ Capsule Editor
 - `core/media`：平台无关 Photo Picker 协议与 `CCMediaModule` transport；不依赖 Android/ArkTS 类型。
 - `designsystem`：语义颜色、Typography、Spacing/Radius/Motion token 及共享组件。
 - `feature/onboarding`、`feature/profile`、`feature/place`、`feature/capsule`：页面与 callback 型 StateHolder；Capsule 包含编辑、详情、时间轴、相册和共享照片组件。
-- shared 顶层 `HomePage`、`SettingsPage`：仍为早期结构；Home 是开发菜单，Settings 混合产品设置与路由验收。
+- `app/navigation`：`AppShellPager/AppShellPage` 是唯一产品根壳；`AppRootScaffold` 只创建一个 Bottom Navigation，根 `HorizontalPager` 常驻 Home、Record、Profile 三个内容树。`AppRootTab` 提供稳定 id、typed 入口别名和 Pager index。
+- shared 顶层 `HomePage`、`SettingsPage`：Home 已接正式一级导航但内容仍是早期探索入口；Settings 保留真实主题偏好、首次引导与返回操作，不再承载路由验收入口。
 - `RouterPage`、`ImageAdapterBenchmarks`：明确的开发诊断页，不是产品功能。
 
 ## 主要业务调用链
@@ -159,7 +160,42 @@ Feature Page
                   → HMRouter → KuiklyHostPage / 原生骨架页
 ```
 
-业务页面没有直接调用 HMRouter。路由参数传 `placeId`、`capsuleId`、`requestId` 等 ID。CapsuleEditor、CapsuleDetail、Timeline、Gallery 已有真实 `@Page` 并加入 Harmony 可用目录；MapExplore 仍只有协议，没有页面实现。
+业务页面没有直接调用 HMRouter。路由参数传 `placeId`、`capsuleId`、`requestId` 等 ID。AppShell、CapsuleEditor、CapsuleDetail、Gallery 已有真实 `@Page`；Timeline/Profile/Home 已迁为 AppShell 内部内容。MapExplore 仍只有协议，没有页面实现。
+
+### 正式一级导航
+
+```text
+AppRoute.Home / Timeline / Profile
+  → 同一 routeKey/pageName: app_shell
+  → initialRootTab: home / timeline / profile
+  → AppShellPage
+     ├─ HorizontalPager(userScrollEnabled = false, beyondViewportPageCount = 2)
+     │  ├─ HomeRootContent + 独立 LazyListState
+     │  ├─ RecordRootContent + 独立 LazyListState + RecordRootView
+     │  └─ ProfileRootContent + 独立 LazyListState
+     └─ 唯一 AppBottomNavigation
+        → 点击其他 Tab：animateScrollToPage(index)
+        → 重复点击当前 Tab：no-op
+
+二级页面 typed push → 独立 Page/AppScaffold（无底栏）→ back 返回同一 AppShell 实例
+```
+
+根 Tab 切换不再调用平台 dispatcher，因此不会产生三个原生根 host 或独立 Tab 路由栈。三个 typed 根 route 仍可用于冷启动、外部入口和兼容调用，但统一解析到 `app_shell` 并携带初始 Tab。Android/HarmonyOS 测试覆盖根 Tab 切换不增加原生栈项，以及 push 详情后 back 保留同一 AppShell host。
+
+二级页若要回到指定根目标，调用 `backToRoot(AppRootTab)`：`AppShellRuntime` 先把目标 Tab 交给仍存活的壳，再执行 typed `backTo`；若壳已不在原生栈中，`resolveBackTo` 的 fallback request 也携带对应 `initialRootTab`。直接对 HOME/TIMELINE/PROFILE 调用普通 `backTo` 会丢失“返回后选中哪个 Tab”的语义，业务代码不得这样使用。
+
+### Record Container 当前实现
+
+```text
+AppShellPage / RecordRootContent
+  → AppSegmentedControl + RecordRootView
+    ├─ TIMELINE: Timeline content
+    └─ GALLERY: Gallery content
+  → 两种视图共享 Capsule catalog 加载结果
+  → CapsuleDetail 仍通过 AppNavigator.navigate(typed route)
+```
+
+时间轴/相册点击切换已在同一 Record 内容树内实现，切换后底栏和 Record 视图状态保留。Record 内部 `HorizontalPager` 与手指左右滑动尚未实现；独立 `GalleryPage` / `AppRoute.Gallery` 仍作为兼容入口存在，但正式一级 UI 不进入它。
 
 ## 数据与缓存
 
@@ -176,7 +212,7 @@ Feature Page
 | `cc_preferences` | `capsules.catalog` | JSON object，最多 500 条碎片 | LocalCapsuleRepository | 详情/时间轴/相册/地点记忆计数；发布、更新、删除时整体重写 |
 | `cc_cache` | `capsules.draft` | JSON object，单个可恢复草稿 | CapsuleEditor 经 Repository | 同一新建/编辑上下文恢复；匹配的发布或明确放弃时删除 |
 
-`cc_meta` 只供平台迁移层使用，保存 schema/migration 状态与 type metadata。业务原图位于双端应用沙箱 `images/original`，MMKV 只保存 `file://` 路径；当前没有缩略图、媒体引用清理、导出包或网络缓存。
+`cc_meta` 只供平台迁移层使用，保存 schema/migration 状态与 type metadata。业务原图位于双端应用沙箱 `images/original`，MMKV 只保存 `file://` 路径；正常删除、移除和丢弃流程已有全引用保护清理，当前没有全目录垃圾扫描、缩略图、导出包或网络缓存。
 
 ## 平台与网络能力
 

@@ -39,6 +39,15 @@ CityCapsule / 城市胶囊是“城市探索 + 个人城市记录工具”，核
 - 新路由必须同时登记共享路由表、平台可用目录、dispatcher/原生注册和测试。
 - 原生能力必须有失败、取消、拒绝权限和不支持状态；不得用模拟成功掩盖错误。
 
+## 正式一级导航规则
+
+- 基础阶段只有三个真实根目标：探索 → `AppRoute.Home`，记录 → `AppRoute.Timeline`，我的 → `AppRoute.Profile`；三个 typed route 都进入同一个 `AppShellPage`，只通过 `initialRootTab` 选择初始页。
+- `AppShellPage` 只创建一个 Bottom Navigation，并以根 `HorizontalPager` 常驻 Home / Record / Profile 三个内容树。点击底栏调用 `pagerState.animateScrollToPage()`；重复点击当前 Tab 必须是 no-op。根 Pager 当前 `userScrollEnabled = false`，不得提前开放手指横滑。
+- 三个根内容分别持有自己的滚动与页面状态；切换 Tab 不得重建平台页面。Record 内部“时间轴 / 相册”使用 Compose 状态切换并共享 catalog，内部切换不执行 `push`、`replace` 或 `back`；内部左右滑动 Pager 属于后续 Feature。
+- Place/Capsule Detail、Editor、Settings 等二级页面继续使用 typed route 并位于 AppShell 之外，因此不显示底栏。现有独立 Gallery route/page 只作兼容入口，不是正式产品层级。
+- 二级页需要返回指定根 Tab 时必须调用共享 `backToRoot(AppRootTab)`；不要直接 `backTo(HOME/TIMELINE/PROFILE)`，否则 canonical `app_shell` 虽能返回，但常驻壳无法得知应选中的 Tab。
+- Debug、Router Diagnostics、Image Benchmark 可以保留为开发诊断页，但不得从正式产品 UI 进入。
+
 ## UI/UX 规则
 
 - 正式页面不得出现 AppTheme、Repository、MMKV、Kuikly、HMRouter、路由验收、Replace、Debug 状态或“已接入”等开发信息。
@@ -57,7 +66,8 @@ CityCapsule / 城市胶囊是“城市探索 + 个人城市记录工具”，核
 
 1. 本文件；
 2. `docs/ARCHITECTURE.md`、`docs/DECISIONS.md`、`docs/CURRENT_STATE.md`、`docs/TODO.md`；
-3. `docs/INITIAL_PLANNING_BASELINE.md` 中与 Feature 对应的部分；
-4. 该 Feature 当前实际代码和测试。
+3. UI Feature 还需阅读 `docs/INFORMATION_ARCHITECTURE.md`、`docs/USER_FLOWS.md`、`docs/WIREFRAMES.md`、`docs/DESIGN_SYSTEM_PROPOSAL.md`、`docs/UI_REFACTOR_PLAN.md` 中相关部分；
+4. `docs/INITIAL_PLANNING_BASELINE.md` 中与 Feature 对应的部分；
+5. 该 Feature 当前实际代码和测试。
 
 一次只处理一个可验收 Feature。先明确允许/禁止修改范围、输入输出、状态、平台依赖、失败降级和验收步骤，再实现。不得顺手重构无关模块，不得覆盖用户已有改动。完成后运行相应 shared 单测、Android 单测、HarmonyOS 测试/构建（环境允许时）和必要的双端手工验收，并更新状态文档。Record Flow 已获准进入 Phase 2；其他大规模 UI 重构仍需按用户确认的 Feature 范围推进。

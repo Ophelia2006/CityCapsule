@@ -92,6 +92,36 @@ commonMain 不自行维护时区数据库。Android/HarmonyOS 的 `CCLocaleModul
 
 地点是城市碎片的业务上下文。当前产品入口在请求删除和确认执行前分别查询关联碎片；只要存在历史记忆，或关系读取失败，就阻止删除并提示先处理记忆。原有“删除地点后保留碎片并显示曾经到访的地点”只保留为旧数据/异常数据的读取降级，不再是允许的正常用户操作。
 
+## ADR-016：基础阶段采用三个真实根页与 typed replace
+
+状态：Superseded by ADR-019（保留为 P0-2 历史记录）。
+
+用户明确批准基础阶段一级导航为“探索 / 记录 / 我的”，分别落到 `Home`、`Record`、`Profile` typed root；Record 当前暂由 `Timeline` route 承担。选择其他根 Tab 使用 `AppNavigator.replace`，重复点击当前 Tab 不发路由请求；详情、编辑和设置等二级页不显示底栏。该阶段复用双端现有 dispatcher 与 route stack，不为根 Tab 重写路由系统，也不提供根 Tab 左右滑动。Debug、Router Diagnostics、Image Benchmark 不提供正式产品入口。
+
+## ADR-017：时间轴与相册合并为 Record 根容器内部视图
+
+状态：Partially implemented。
+
+用户确认 Timeline/Gallery 应重构为同一个 Record 根容器内的两种视图。当前 P0-3A 已让两者共享 Capsule catalog、底栏和 `RecordRootView`，点击 segmented control 不执行 `push`、`replace` 或 `back`；进入 Capsule Detail 才使用 typed route。Record 内部 `HorizontalPager`/左右滑动尚未实现。现有独立 `Gallery` route/page 作为兼容入口保留，但不再是正式产品层级。
+
+ADR-019 已取代 ADR-016 的根级 typed replace；Record 内部的二级 Pager 仍应作为独立 Feature 验收，不能和根 Pager 手势混为一谈。
+
+## ADR-019：单一 AppShell 与分阶段根 Pager
+
+状态：Accepted and implemented in P0-3A。
+
+用户明确批准现在建立单一 `AppShellPage`：只创建一个 Bottom Navigation，把 Home/Record/Profile 放入同一 `HorizontalPager`，点击底栏调用 `animateScrollToPage()`，根 Pager 暂设 `userScrollEnabled = false`。三个根内容持续组合并分别保留滚动与页面状态；重复点击当前 Tab 为 no-op。`AppRoute.Home/Timeline/Profile` 保留为 typed 入口别名，但都解析到 canonical `app_shell` route/page，并用 `initialRootTab` 指定初始页。
+
+详情、Editor、Settings 仍使用 typed route，位于 AppShell 之外并隐藏底栏；Debug 页面不进入 AppShell。未来是否开放根 Pager 手指横滑需结合 Record 内部横向 Pager 的同轴手势冲突另行验收。
+
+由于三个根目标共享 canonical `app_shell` route key，二级页返回指定根目标时使用 `backToRoot(AppRootTab)` 同时传递壳内目标状态与 typed backTo；缺失壳时的 replace fallback 通过 `initialRootTab` 恢复正确根页。
+
+## ADR-018：首页内容与无摄影阶段展示规则
+
+状态：Accepted for next UI features，尚未实现。
+
+探索首页以重点地点整卡作为 Primary。seed 与用户自建地点允许混合参与可解释的本地排序；由于当前模型没有 source，不伪装成能够按来源区分。Profile Overview 允许展示由当前数据精确计算的碎片数、关联地点数和想去数。地点摄影能力完成来源授权、资产登记、模型/迁移与双端验收前，所有地点内容统一使用代码生成的类别 fallback。
+
 ## 尚无决策依据的议题
 
 - 为什么 Place 删除 source/坐标/封面、为何所有 seed 地点允许删除。

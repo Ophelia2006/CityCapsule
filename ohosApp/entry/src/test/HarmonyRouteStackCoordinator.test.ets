@@ -96,6 +96,26 @@ export default function harmonyRouteStackCoordinatorTest(): void {
       expect(coordinator.snapshotRouteKeys().join(',')).assertEqual('home,place_list');
     });
 
+    it('appShellTabChangeThenDetailBackKeepsTheSameShellHost', 0, () => {
+      const coordinator = new HarmonyRouteStackCoordinator();
+      coordinator.register('app_shell');
+      // Root-tab changes are internal pager state and do not register another route host.
+      const detailId: number = coordinator.register('capsule_detail');
+      coordinator.unregister(detailId); // system/AppNavigator back
+
+      expect(coordinator.snapshotRouteKeys().join(',')).assertEqual('app_shell');
+    });
+
+    it('repeatedRootTabChangesNeverAddNativeStackEntries', 0, () => {
+      const coordinator = new HarmonyRouteStackCoordinator();
+      coordinator.register('app_shell');
+      // Explore -> Record -> Profile -> Profile all happen inside this host.
+
+      expect(coordinator.snapshotRouteKeys().join(',')).assertEqual('app_shell');
+      expect(coordinator.backTo('app_shell')).assertEqual(0);
+      expect(coordinator.snapshotRouteKeys().join(',')).assertEqual('app_shell');
+    });
+
     it('unregisterAndClearAreIdempotent', 0, () => {
       const coordinator = new HarmonyRouteStackCoordinator();
       const homeId: number = coordinator.register('home');

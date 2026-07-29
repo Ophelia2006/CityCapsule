@@ -44,12 +44,12 @@ class AndroidLaunchContractTest {
     }
 
     @Test
-    fun missingExplicitRouteKeyFallsBackToResolvedPage() {
+    fun explicitAppShellUsesItsCanonicalRouteKey() {
         assertEquals(
-            AppRouteTable.PAGE_PROFILE,
+            AppRouteTable.ROUTE_APP_SHELL,
             AndroidLaunchContract.resolveRouteKey(
-                requestedRouteKey = null,
-                resolvedPageName = AppRouteTable.PAGE_PROFILE
+                requestedRouteKey = AppRouteTable.ROUTE_APP_SHELL,
+                resolvedPageName = AppRouteTable.PAGE_APP_SHELL
             )
         )
     }

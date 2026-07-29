@@ -5,9 +5,11 @@ package com.y.citycapsule.core.navigation
  */
 object AppRouteTable {
     const val PARAM_PLACE_ID = "placeId"
+    const val PARAM_INITIAL_ROOT_TAB = "initialRootTab"
 
     const val ROUTE_LAUNCH_GATE = "launch_gate"
     const val ROUTE_ONBOARDING = "onboarding"
+    const val ROUTE_APP_SHELL = "app_shell"
     const val ROUTE_HOME = "home"
     const val ROUTE_PLACE_LIST = "place_list"
     const val ROUTE_PLACE_DETAIL = "place_detail"
@@ -25,6 +27,7 @@ object AppRouteTable {
 
     const val PAGE_LAUNCH_GATE = "launch_gate"
     const val PAGE_ONBOARDING = "onboarding"
+    const val PAGE_APP_SHELL = "app_shell"
     const val PAGE_HOME = "home"
     const val PAGE_PLACE_LIST = "place_list"
     const val PAGE_PLACE_DETAIL = "place_detail"
@@ -51,7 +54,7 @@ object AppRouteTable {
     ): RouteRequest = when (route) {
         AppRoute.LaunchGate -> kuikly(action, ROUTE_LAUNCH_GATE, PAGE_LAUNCH_GATE)
         AppRoute.Onboarding -> kuikly(action, ROUTE_ONBOARDING, PAGE_ONBOARDING)
-        AppRoute.Home -> kuikly(action, ROUTE_HOME, PAGE_HOME)
+        AppRoute.Home -> appShell(action, ROUTE_HOME)
         AppRoute.PlaceList -> kuikly(action, ROUTE_PLACE_LIST, PAGE_PLACE_LIST)
         is AppRoute.PlaceDetail -> kuikly(
             action = action,
@@ -85,10 +88,10 @@ object AppRouteTable {
             params = mapOf("capsuleId" to route.capsuleId)
         )
 
-        AppRoute.Timeline -> kuikly(action, ROUTE_TIMELINE, PAGE_TIMELINE)
+        AppRoute.Timeline -> appShell(action, ROUTE_TIMELINE)
         AppRoute.Gallery -> kuikly(action, ROUTE_GALLERY, PAGE_GALLERY)
         AppRoute.Favorites -> kuikly(action, ROUTE_FAVORITES, PAGE_FAVORITES)
-        AppRoute.Profile -> kuikly(action, ROUTE_PROFILE, PAGE_PROFILE)
+        AppRoute.Profile -> appShell(action, ROUTE_PROFILE)
         AppRoute.Settings -> kuikly(action, ROUTE_SETTINGS, PAGE_SETTINGS)
         is AppRoute.NativePermission -> native(
             action = action,
@@ -110,24 +113,25 @@ object AppRouteTable {
         return RouteRequest(
             action = RouteAction.BACK_TO,
             routeKey = wireRouteKey,
-            destination = destinationForRouteKey(routeKey)
+            destination = destinationForRouteKey(routeKey),
+            params = rootShellParams(routeKey)
         )
     }
 
     fun wireRouteKey(routeKey: AppRouteKey): String = when (routeKey) {
         AppRouteKey.LAUNCH_GATE -> ROUTE_LAUNCH_GATE
         AppRouteKey.ONBOARDING -> ROUTE_ONBOARDING
-        AppRouteKey.HOME -> ROUTE_HOME
+        AppRouteKey.HOME -> ROUTE_APP_SHELL
         AppRouteKey.PLACE_LIST -> ROUTE_PLACE_LIST
         AppRouteKey.PLACE_DETAIL -> ROUTE_PLACE_DETAIL
         AppRouteKey.PLACE_EDITOR -> ROUTE_PLACE_EDITOR
         AppRouteKey.MAP_EXPLORE -> ROUTE_MAP_EXPLORE
         AppRouteKey.CAPSULE_EDITOR -> ROUTE_CAPSULE_EDITOR
         AppRouteKey.CAPSULE_DETAIL -> ROUTE_CAPSULE_DETAIL
-        AppRouteKey.TIMELINE -> ROUTE_TIMELINE
+        AppRouteKey.TIMELINE -> ROUTE_APP_SHELL
         AppRouteKey.GALLERY -> ROUTE_GALLERY
         AppRouteKey.FAVORITES -> ROUTE_FAVORITES
-        AppRouteKey.PROFILE -> ROUTE_PROFILE
+        AppRouteKey.PROFILE -> ROUTE_APP_SHELL
         AppRouteKey.SETTINGS -> ROUTE_SETTINGS
         AppRouteKey.NATIVE_PERMISSION -> ROUTE_NATIVE_PERMISSION
         AppRouteKey.NATIVE_FILE_IMPORT -> ROUTE_NATIVE_FILE_IMPORT
@@ -136,17 +140,17 @@ object AppRouteTable {
     fun destinationForRouteKey(routeKey: AppRouteKey): RouteDestination = when (routeKey) {
         AppRouteKey.LAUNCH_GATE -> RouteDestination.Kuikly(PAGE_LAUNCH_GATE)
         AppRouteKey.ONBOARDING -> RouteDestination.Kuikly(PAGE_ONBOARDING)
-        AppRouteKey.HOME -> RouteDestination.Kuikly(PAGE_HOME)
+        AppRouteKey.HOME -> RouteDestination.Kuikly(PAGE_APP_SHELL)
         AppRouteKey.PLACE_LIST -> RouteDestination.Kuikly(PAGE_PLACE_LIST)
         AppRouteKey.PLACE_DETAIL -> RouteDestination.Kuikly(PAGE_PLACE_DETAIL)
         AppRouteKey.PLACE_EDITOR -> RouteDestination.Kuikly(PAGE_PLACE_EDITOR)
         AppRouteKey.MAP_EXPLORE -> RouteDestination.Kuikly(PAGE_MAP_EXPLORE)
         AppRouteKey.CAPSULE_EDITOR -> RouteDestination.Kuikly(PAGE_CAPSULE_EDITOR)
         AppRouteKey.CAPSULE_DETAIL -> RouteDestination.Kuikly(PAGE_CAPSULE_DETAIL)
-        AppRouteKey.TIMELINE -> RouteDestination.Kuikly(PAGE_TIMELINE)
+        AppRouteKey.TIMELINE -> RouteDestination.Kuikly(PAGE_APP_SHELL)
         AppRouteKey.GALLERY -> RouteDestination.Kuikly(PAGE_GALLERY)
         AppRouteKey.FAVORITES -> RouteDestination.Kuikly(PAGE_FAVORITES)
-        AppRouteKey.PROFILE -> RouteDestination.Kuikly(PAGE_PROFILE)
+        AppRouteKey.PROFILE -> RouteDestination.Kuikly(PAGE_APP_SHELL)
         AppRouteKey.SETTINGS -> RouteDestination.Kuikly(PAGE_SETTINGS)
         AppRouteKey.NATIVE_PERMISSION -> RouteDestination.Native(NATIVE_PERMISSION)
         AppRouteKey.NATIVE_FILE_IMPORT -> RouteDestination.Native(NATIVE_FILE_IMPORT)
@@ -163,6 +167,23 @@ object AppRouteTable {
         destination = RouteDestination.Kuikly(pageName),
         params = params
     )
+
+    private fun appShell(
+        action: RouteAction,
+        initialRootTab: String
+    ): RouteRequest = kuikly(
+        action = action,
+        routeKey = ROUTE_APP_SHELL,
+        pageName = PAGE_APP_SHELL,
+        params = mapOf(PARAM_INITIAL_ROOT_TAB to initialRootTab)
+    )
+
+    private fun rootShellParams(routeKey: AppRouteKey): Map<String, Any?> = when (routeKey) {
+        AppRouteKey.HOME -> mapOf(PARAM_INITIAL_ROOT_TAB to ROUTE_HOME)
+        AppRouteKey.TIMELINE -> mapOf(PARAM_INITIAL_ROOT_TAB to ROUTE_TIMELINE)
+        AppRouteKey.PROFILE -> mapOf(PARAM_INITIAL_ROOT_TAB to ROUTE_PROFILE)
+        else -> emptyMap()
+    }
 
     private fun native(
         action: RouteAction,

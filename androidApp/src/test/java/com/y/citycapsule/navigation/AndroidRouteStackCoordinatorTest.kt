@@ -144,6 +144,34 @@ class AndroidRouteStackCoordinatorTest {
     }
 
     @Test
+    fun appShellTabChangeThenDetailBackKeepsTheSameShellHost() {
+        val coordinator = AndroidRouteStackCoordinator()
+        val appShell = FakeRouteHost("app_shell")
+        val detail = FakeRouteHost("capsule_detail")
+
+        coordinator.register(appShell)
+        // Root-tab changes are internal pager state and do not register another route host.
+        coordinator.register(detail) // push a secondary page
+        coordinator.unregister(detail) // system/AppNavigator back
+
+        assertEquals(listOf("app_shell"), coordinator.snapshotRouteKeys())
+        assertEquals(0, appShell.finishCount)
+    }
+
+    @Test
+    fun repeatedRootTabChangesNeverAddNativeStackEntries() {
+        val coordinator = AndroidRouteStackCoordinator()
+        val appShell = FakeRouteHost("app_shell")
+
+        coordinator.register(appShell)
+        // Explore -> Record -> Profile -> Profile all happen inside this host.
+
+        assertEquals(listOf("app_shell"), coordinator.snapshotRouteKeys())
+        assertEquals(0, coordinator.backTo("app_shell"))
+        assertEquals(listOf("app_shell"), coordinator.snapshotRouteKeys())
+    }
+
+    @Test
     fun unregisterAndClearAreIdempotent() {
         val coordinator = AndroidRouteStackCoordinator()
         val home = FakeRouteHost("home")

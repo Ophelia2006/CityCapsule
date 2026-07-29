@@ -15,9 +15,10 @@ import com.tencent.kuikly.core.annotations.Page
 import com.y.citycapsule.app.theme.AppThemeHost
 import com.y.citycapsule.app.theme.KuiklyAppThemeHost
 import com.y.citycapsule.app.theme.RuntimeAppTheme
+import com.y.citycapsule.app.navigation.AppRootTab
+import com.y.citycapsule.app.navigation.backToRoot
 import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.navigation.AppNavigator
-import com.y.citycapsule.core.navigation.AppRouteKey
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.onboarding.OnboardingRepository
@@ -69,7 +70,7 @@ private fun OnboardingScreen(
     }
 
     fun finishOnboarding() {
-        navigator.backTo(AppRouteKey.HOME)
+                    navigator.backToRoot(AppRootTab.EXPLORE)
     }
 
     RuntimeAppTheme(themeHost = themeHost) {

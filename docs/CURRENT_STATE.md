@@ -2,7 +2,7 @@
 
 ## 总体判断
 
-项目处于基础版中期：跨端宿主、统一路由、双端 MMKV、本地档案/首次引导、离线地点，以及“地点详情 → 城市碎片 → 时间轴/相册 → 回忆”已经形成代码闭环。Record Flow 已进入 Phase 2 并完成首版实现；但 Home、一级导航、Explore/Profile 视觉以及地图/定位仍未产品化，所以整个 App 仍不是完整基础版。
+项目处于基础版中期：跨端宿主、统一路由、双端 MMKV、本地档案/首次引导、离线地点，以及“地点详情 → 城市碎片 → 时间轴/相册 → 回忆”已经形成代码闭环。Record Flow 已进入 Phase 2 并完成首版实现，正式“探索 / 记录 / 我的”一级导航已经接通；但 Home 内容、Explore/Profile 视觉以及地图/定位仍未产品化，所以整个 App 仍不是完整基础版。
 
 状态定义：DONE 为已形成真实闭环；PARTIAL 为可用但缺计划中的关键环节；PLACEHOLDER 为协议/骨架/开发验证；NOT_STARTED 为规划存在而无实现；BLOCKED 为有明确外部阻塞；UNKNOWN 为仅凭仓库无法确认。
 
@@ -12,16 +12,18 @@
 | --- | --- | --- |
 | Android/HarmonyOS Kuikly 宿主 | DONE | 两端有启动、host、adapter 与平台工程；不代表所有业务双端手测完成 |
 | 强类型共享路由 | DONE | `AppRoute/AppNavigator/AppRouteTable` + 双端 dispatcher/stack tests |
+| 单一 AppShell / 正式一级导航 | DONE（代码）/PARTIAL（设备体验） | 一个 `AppShellPage`、一个 Bottom Navigation、三个常驻根内容；点击 Tab 以 `animateScrollToPage` 切换，根手势关闭，重复点击 no-op；shared/Android/HarmonyOS 测试与双端包构建通过，仍待设备视觉/动画/返回键走查 |
+| Record 容器 | PARTIAL | Timeline/Gallery 已是同一 `RecordRootContent` 的状态视图并共享 catalog/底栏；点击切换和视图状态保留已实现，内部 HorizontalPager 与左右滑动尚未实现；独立 Gallery route 仅作兼容 |
 | MMKV bridge 与主题旧值迁移 | DONE | 双端 2.4.0、typed protocol、迁移状态和测试资产 |
-| Shared 主题与基础组件 | PARTIAL | 色彩/字体/间距/圆角/动效、SegmentedControl 与多种组件存在；缺统一 Icon、Elevation/Shadow、PlaceCard 和自适应 pane，主色仍未迁移到 Proposal 的暖琥珀方案 |
+| Shared 主题与基础组件 | PARTIAL | 暖白/近黑/暖琥珀 Light/Dark token、统一 AppIcon 入口、PlaceCard/CapsuleCard、状态组件与 Bottom Navigation 已存在；图标仍是文本 glyph，Elevation 未完成视觉落地，缺自适应 pane |
 | 本地档案与首次引导 | DONE | 启动决策、草稿恢复、保存/重置、双端 launch gate 和页面状态完整 |
 | 地点本地 CRUD | PARTIAL | 新建/编辑/删除/持久化可用；没有 source，seed 地点也可删除，与“系统地点不可删”原计划不一致 |
 | 地点搜索/筛选 | DONE | 纯本地字段搜索、分类/城市/区域/收藏过滤和排序有单测 |
 | 收藏地点 | DONE（技术）/PARTIAL（产品） | 独立 ID 集合、容错、持久化完整；用户可见文案已改“想去”，底层保持 `Favorite*`；仍缺加入时间排序 |
-| 首页 | PLACEHOLDER | 只有共享设计系统说明和导航大按钮，未加载档案、地点推荐、最近记忆或统计 |
-| 设置 | PARTIAL/DEBUG | 主题真实可用；其余规划设置未做，并混入 Push/BackTo 路由验收文案 |
+| 首页 | PARTIAL | 已是“探索”真实根页并提供地点/想去入口；未加载档案、地点推荐、最近记忆或统计，尚未完成 Home Redesign |
+| 设置 | PARTIAL | 主题偏好真实可用，技术与路由验收文案已移除；缓存、存储占用、隐私、关于等规划设置未做 |
 | 地点列表/详情 UI | PARTIAL | 地点详情已有“想去”、记忆计数和“在这里留下城市碎片”主 CTA；仍无地点照片、距离、地图和导航，列表视觉仍偏管理工具 |
-| Profile UI | PARTIAL | 档案编辑/清除真实可用；仍是本地档案 CRUD 页，不是“我的城市档案”聚合页 |
+| Profile UI | PARTIAL | 档案编辑/清除真实可用；已确认增加碎片数、关联地点数、想去数三项真实统计，但尚未接入对应 Repository 聚合 |
 | 地图探索 | PLACEHOLDER | 只有 typed route，无 `@Page`、Native View 或平台地图 SDK |
 | 权限原生页 | PLACEHOLDER | Harmony 可达但明确写“具体权限申请待实现”；Android launcher 未注册 |
 | 文件导入原生页 | PLACEHOLDER | Harmony 可达但未调文件选择器；Android launcher 未注册 |
@@ -41,22 +43,22 @@
 | --- | --- | --- | --- | --- | --- |
 | LaunchGate | DONE | profile/onboarding MMKV | 系统冷启动 | Home/Onboarding replace | 启动反馈页 |
 | Onboarding | DONE | OnboardingRepository | LaunchGate/Settings | Home | 四步真实表单，但“默认档案”削弱引导意图，后续随产品视觉调整 |
-| Home | PLACEHOLDER | 仅主题设置 | LaunchGate/返回首页 | 地点、想去、Timeline、Profile、Settings | 开发说明 + 大按钮菜单；Timeline 入口真实但首页本身未产品化 |
+| Home | PARTIAL | 主题设置 | LaunchGate/探索 Tab | 地点、想去 | 正式探索根页与底栏已接入；内容仍是早期入口，尚无推荐与最近记忆 |
 | Place List | PARTIAL | Place/Favorite Repository | Home | Editor/Detail/back | 搜索筛选真实，内容层级偏管理工具 |
 | Favorites | PARTIAL | 同上 | Home | Detail/back | 与地点列表复用，用户文案已为“想去”，视觉仍偏管理列表 |
 | Place Detail | PARTIAL | Place/Favorite/Capsule Repository | 列表/回忆详情 | Capsule Editor/Timeline/Place Editor/back | 记录主 CTA 和记忆计数已接通；地点内容仍缺摄影、位置与导航 |
 | Place Editor | DONE（当前模型范围） | Place Repository | 列表/详情 | Detail/back | 表单 CRUD 完整；不应成为核心探索视觉模板 |
-| Profile | PARTIAL | Profile/Onboarding Repository | Home/Settings | Onboarding/back | 编辑与清除完整，缺统计、足迹、想去内容 |
-| Settings | PARTIAL/DEBUG | SettingsRepository | Home | Profile/Onboarding/Home/Settings | 主题真实；混入技术说明和路由测试 |
-| Router Diagnostics | DEBUG | 无业务数据 | 非业务 pageName | Home/Settings | 明确开发诊断 |
-| Image Adapter Diagnostics | DEBUG | assets/HTTP 示例 | 非业务 pageName | 无 | Kuikly 图片 adapter benchmark |
+| Profile | PARTIAL | Profile/Onboarding Repository | 我的 Tab | Settings/Onboarding | Profile 内容常驻 AppShell，编辑草稿在根 Tab 切换后保留；三项真实统计与想去内容尚未实现 |
+| Settings | PARTIAL | SettingsRepository | Profile | Onboarding/back | 二级页无底栏；主题真实，规划设置未补齐 |
+| Router Diagnostics | DEBUG | 无业务数据 | 正式产品 UI 不可达，仅非业务 pageName | Home/Settings | 明确开发诊断 |
+| Image Adapter Diagnostics | DEBUG | assets/HTTP 示例 | 正式产品 UI 不可达，仅非业务 pageName | 无 | Kuikly 图片 adapter benchmark |
 | Harmony Permission | PLACEHOLDER | route params | typed native route | back | 只显示骨架与参数 |
 | Harmony File Import | PLACEHOLDER | route params | typed native route | back | 只显示骨架与参数 |
 | Harmony Route Fallback | DONE（基础设施） | 失败参数 | guard/dispatcher | back/Home | 安全降级页，含必要诊断文本 |
 | Capsule Editor | DONE（代码） | Capsule/Place Repository + PhotoPicker | Place Detail / Capsule Detail | Capsule Detail/back | 轻量日记编辑、照片/心情/标签、草稿和退出确认 |
 | Capsule Detail | DONE（代码） | Capsule/Place Repository | Editor/Timeline/Gallery | Place Detail/Editor/Timeline | 回忆内容、照片、地点关联与删除确认 |
-| Timeline | DONE（代码）/PARTIAL（体验） | Capsule/Place Repository | Home/Place Detail/Capsule Detail | Capsule Detail/Gallery | 时间倒序内容流和完整状态；未做月份分组/大屏双栏 |
-| Gallery | DONE（代码）/PARTIAL（体验） | 同 Timeline | Timeline | Capsule Detail/Timeline | 两列照片 Grid；无月份分组、缩略图生成 |
+| Timeline | DONE（当前代码）/PARTIAL（目标体验） | Capsule/Place Repository | AppShell 记录 Tab/Place Detail/Capsule Detail | Capsule Detail | 已迁入 RecordRootContent 的时间轴视图；内部 Pager 动画/手势未做 |
+| Gallery | DONE（当前代码）/PARTIAL（兼容清理） | 同 Timeline | AppShell Record segmented control；兼容 route | Capsule Detail/Timeline | 正式相册已是 RecordRootContent 内部视图；独立 GalleryPage/route 暂留兼容 |
 | MapExplore | NOT_STARTED | 无 | 当前正式 UI 无入口 | 无 | 仅路由协议 |
 
 ## 规划对照
@@ -78,7 +80,7 @@
 
 ### 尚未实现
 
-- 基础版核心仍缺：地图/定位、相机、缩略图、备份、正式一级导航、Home/Profile 与完整设置。
+- 基础版核心仍缺：地图/定位、相机、缩略图、备份、Home/Profile Redesign 与完整设置。
 - 进阶版与复杂版全部产品功能。
 
 ### 后续新增（初始规划未明确为当前阶段实现）
@@ -98,7 +100,7 @@
 
 ## 已知问题与临时代码
 
-- 正式 Home/Settings 泄露 AppTheme、AppRoute、AppNavigator、MMKV、Replace、Push 等开发信息。
+- Home 已移除 AppTheme/AppRoute/AppNavigator/Replace 等开发信息，Settings 已移除 shared/MMKV 与路由验收入口；两页的完整产品内容仍待后续 Feature 重构。
 - `KRBridgeModule.ets` 有 close/copy/toast/date TODO；`KRMyModule/KRMyView` 有模板式 null 返回。
 - Harmony 原生 placeholder 直接显示 JSON 参数；只适合开发阶段。
 - Android 同时依赖 Picasso 与 Glide；实际图片 adapter 使用情况需要在媒体阶段统一，避免双栈长期存在。
@@ -117,11 +119,16 @@
 
 HarmonyOS 首轮闪退日志已明确为 `CCMediaModule` 未注册，注册与共享 bridge 异常降级随后完成。第二轮真机日志显示 Picker 已成功返回 `file://media/Photo/...`，但旧实现直接执行 `copyFileSync(sourceUri, target)`，在 `copy_file.cpp:IsAllPath` 以错误码 2 失败。当前实现已改为 `openSync(sourceUri)` 获取 Picker 授予读取权限的 `File`，再以 `sourceFile.fd` 复制到沙箱，并在 `finally` 关闭文件；复制前登记目标以便失败时清理半文件，错误日志只记录阶段、错误码和消息，不记录完整照片 URI。HarmonyOS 本地 Hypium 测试、ArkTS 编译、HAP 打包与签名已通过；成功/取消/失败恢复/重启读取仍须按 `P0_RECORD_FLOW_ACCEPTANCE.md` 在 HED-AL00 真机复验，因此 P0-0 不能标记 DONE。
 
+P0-2 正式一级导航于 2026-07-28 完成代码与自动化验证：`:shared:testDebugUnitTest`、`:androidApp:testDebugUnitTest` 和 HarmonyOS `entry@default test` 均通过；Android Debug APK、HarmonyOS arm64 `libshared.so` 与 signed Debug HAP 已使用本轮源码重建成功。测试覆盖三个真实根路由映射、typed replace、重复点击当前 Tab no-op、跨根页替换后旧 Tab 不留在返回栈，以及根页进入详情再返回时只保留当前根页。双端设备上的底栏安全区、深浅色、字形和根页返回键行为仍需按本次验收流程手工确认。
+
+P0-3A 于 2026-07-29 取代 P0-2 的根 Tab replace：Home/Timeline/Profile typed route 统一进入 canonical `app_shell`，底栏只创建一次，三个根内容位于同一无手势 HorizontalPager；底栏点击执行 `animateScrollToPage`，三个独立 LazyListState、根页面 remember 状态与 RecordRootView 在 Tab 切换间保留。详情、Editor、Settings 继续 typed route；Debug 不进入壳。`:shared:testDebugUnitTest`、`:androidApp:testDebugUnitTest`、Android Debug APK、HarmonyOS Kotlin/Native arm64、ArkTS entry test 与 signed Debug HAP 均通过。首次 HarmonyOS 真机验收发现平台 `HarmonyRouteCatalog` 仍是 P0-2 白名单，导致完成引导后的 `app_shell` 被 guard 拒绝；现已补登记 `app_shell`、撤销已不存在的 standalone `home/timeline/profile` Page，并将 `recoverHome()` 指向 canonical AppShell。HarmonyOS 单测、ArkTS 编译和 signed HAP 已重新通过，等待用新 HAP 覆盖安装后复验动画、滚动恢复、安全区与返回键。
+
 ## 2026-07-28 Design System v2 状态
 
 - `DONE`：暖白/近黑/中性灰/暖灰/琥珀浅色方案及配套深色方案；主题持久化 key、wire value 和协议版本保持不变。
 - `DONE`：最小组件 API 已建立：统一图标入口、底部导航、两种 PlaceCard、两种 CapsuleCard、PhotoGrid、SearchField、Empty/Loading/Error、Overflow Menu、Bottom Sheet、Elevation token。
 - `DONE`：地点列表接入 Compact PlaceCard 与类别 fallback；时间轴接入 CapsuleCard 和产品状态；相册接入共享 PhotoGrid。
 - `DONE`：新增 `ASSET_ATTRIBUTION.md` 资产门禁；当前无产品可用地点摄影，诊断 `sample.png` 被明确排除。
-- `PARTIAL`：AppBottomNavigation、SearchField、Overflow Menu、Bottom Sheet 尚未接入正式 Home/详情页；组件存在不等于应用壳完成。
+- `DONE`：AppBottomNavigation 只存在于单一 AppShell，点击驱动无手势根 Pager 动画；重复点击 no-op，根切换不写入原生返回栈。
+- `PARTIAL`：SearchField、Overflow Menu、Bottom Sheet 尚未接入正式 Home/详情页；组件存在不等于对应 Feature 完成。
 - `PARTIAL`：Elevation 尚未完成双端阴影视觉走查；AppIcon 首版需要 Android/HarmonyOS 字形一致性验收。
