@@ -18,7 +18,7 @@
 | `LaunchGate` | `LAUNCH_GATE` | `launch_gate` | Kuikly | `launch_gate` | 无 | 可运行；系统无参启动默认入口 | 可运行；系统无参启动默认入口 |
 | `Onboarding` | `ONBOARDING` | `onboarding` | Kuikly | `onboarding` | 无 | 可运行 | 可运行 |
 | `Home` | `HOME` | `app_shell` | Kuikly | `app_shell` | `initialRootTab=home` | 可运行 | 可运行 |
-| `PlaceList` | `PLACE_LIST` | `place_list` | Kuikly | `place_list` | 无 | 可运行 | 可运行 |
+| `PlaceList(initialCategory?)` | `PLACE_LIST` | `place_list` | Kuikly | `place_list` | `initialCategory: String?`（`PlaceCategory.wireValue`） | 可运行 | 可运行 |
 | `PlaceDetail(placeId)` | `PLACE_DETAIL` | `place_detail` | Kuikly | `place_detail` | `placeId: String`，必填、非空白 | 可运行 | 可运行 |
 | `PlaceEditor(placeId?)` | `PLACE_EDITOR` | `place_editor` | Kuikly | `place_editor` | `placeId: String?` | 可运行 | 可运行 |
 | `MapExplore` | `MAP_EXPLORE` | `map_explore` | Kuikly | `map_explore` | 无 | 协议占位 | 协议占位 |
@@ -186,7 +186,8 @@ pageName 仍必须拦截。
 - `PlaceDetail(placeId)`：`placeId` 必填且不能是空白字符串。
 - `PlaceEditor(null)`：新建模式，不发送 `placeId`。
 - `PlaceEditor(placeId)`：编辑模式，发送非空白 `placeId`。
-- `PlaceList/Favorites`：无业务参数。
+- `PlaceList(initialCategory?)`：Home 分类入口可发送 `PlaceCategory.wireValue`；缺失或未知值降级为无分类筛选。
+- `Favorites`：无业务参数。
 - 带参数详情页不得依赖缺栈 `backTo` 重建；必须使用完整 typed route。
 
 T121～T130 的地点栈回归已覆盖：

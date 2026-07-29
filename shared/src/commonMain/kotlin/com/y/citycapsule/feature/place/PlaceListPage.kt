@@ -39,10 +39,18 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 internal class PlaceListPager : BasePager() {
     override fun willInit() {
         super.willInit()
-        installPlaceList(PlaceListMode.ALL)
+        installPlaceList(
+            PlaceListMode.ALL,
+            PlaceCategory.fromWireValue(
+                pageData.params.optString(AppRouteTable.PARAM_INITIAL_CATEGORY)
+            )
+        )
     }
 
-    private fun installPlaceList(mode: PlaceListMode) {
+    private fun installPlaceList(
+        mode: PlaceListMode,
+        initialCategory: PlaceCategory? = null
+    ) {
         val navigator = KuiklyAppNavigator(this)
         val storage = KuiklyKeyValueStore(this)
         val placeRepository = LocalPlaceRepository(storage)
@@ -54,7 +62,8 @@ internal class PlaceListPager : BasePager() {
                 navigator,
                 placeRepository,
                 favoriteRepository,
-                themeHost
+                themeHost,
+                initialCategory
             )
         }
     }
@@ -87,23 +96,28 @@ private fun PlaceListScreen(
     navigator: AppNavigator,
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
-    themeHost: AppThemeHost
+    themeHost: AppThemeHost,
+    initialCategory: PlaceCategory? = null
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
     var uiState by remember { mutableStateOf(PlaceListUiState(mode = mode)) }
+    val invalidationOwner = remember { PlaceFeatureRuntime.newOwnerToken() }
     val holder = remember(placeRepository, favoriteRepository, mode) {
         PlaceListStateHolder(
             placeRepository = placeRepository,
             favoriteRepository = favoriteRepository,
             mode = mode,
-            onDataChanged = PlaceFeatureRuntime::invalidate,
+            initialCategory = initialCategory,
+            onDataChanged = { PlaceFeatureRuntime.invalidateFrom(invalidationOwner) },
             onStateChanged = { uiState = it }
         )
     }
     val catalogRevision = PlaceFeatureRuntime.revision
 
     LaunchedEffect(holder, catalogRevision) {
-        holder.load()
+        if (PlaceFeatureRuntime.shouldReload(invalidationOwner)) {
+            holder.load()
+        }
     }
 
     RuntimeAppTheme(themeHost = themeHost) {

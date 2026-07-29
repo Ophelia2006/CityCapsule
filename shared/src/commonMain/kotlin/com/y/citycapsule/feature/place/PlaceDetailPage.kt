@@ -75,21 +75,29 @@ private fun PlaceDetailScreen(
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
     var uiState by remember { mutableStateOf(PlaceDetailUiState()) }
+    val invalidationOwner = remember { PlaceFeatureRuntime.newOwnerToken() }
     val holder = remember(placeId, placeRepository, favoriteRepository, capsuleRepository) {
         PlaceDetailStateHolder(
             placeId = placeId,
             placeRepository = placeRepository,
             favoriteRepository = favoriteRepository,
             capsuleRepository = capsuleRepository,
-            onDataChanged = PlaceFeatureRuntime::invalidate,
+            onDataChanged = { PlaceFeatureRuntime.invalidateFrom(invalidationOwner) },
             onStateChanged = { uiState = it }
         )
     }
     val catalogRevision = PlaceFeatureRuntime.revision
     val capsuleRevision = CapsuleFeatureRuntime.revision
 
-    LaunchedEffect(holder, catalogRevision, capsuleRevision) {
-        holder.load()
+    LaunchedEffect(holder, catalogRevision) {
+        if (PlaceFeatureRuntime.shouldReload(invalidationOwner)) {
+            holder.load()
+        }
+    }
+    LaunchedEffect(holder, capsuleRevision) {
+        if (uiState.status != PlaceDetailUiStatus.LOADING) {
+            holder.load()
+        }
     }
 
     RuntimeAppTheme(themeHost = themeHost) {

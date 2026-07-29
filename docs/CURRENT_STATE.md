@@ -20,7 +20,7 @@
 | 地点本地 CRUD | PARTIAL | 新建/编辑/删除/持久化可用；没有 source，seed 地点也可删除，与“系统地点不可删”原计划不一致 |
 | 地点搜索/筛选 | DONE | 纯本地字段搜索、分类/城市/区域/收藏过滤和排序有单测 |
 | 收藏地点 | DONE（技术）/PARTIAL（产品） | 独立 ID 集合、容错、持久化完整；用户可见文案已改“想去”，底层保持 `Favorite*`；仍缺加入时间排序 |
-| 首页 | PARTIAL | 已是“探索”真实根页并提供地点/想去入口；未加载档案、地点推荐、最近记忆或统计，尚未完成 Home Redesign |
+| 首页 | DONE（代码）/PARTIAL（设备体验） | 已聚合 Profile/Place/Favorite/Capsule Repository，展示档案城市与头像、问候与搜索入口、可解释本地排序 Hero、分类、想去/同城地点、最多 3 条真实最近记忆和真实地点选择后的快速记录；不展示天气、距离或 AI 推荐，仍待双端视觉与交互走查 |
 | 设置 | PARTIAL | 主题偏好真实可用，技术与路由验收文案已移除；缓存、存储占用、隐私、关于等规划设置未做 |
 | 地点列表/详情 UI | PARTIAL | 地点详情已有“想去”、记忆计数和“在这里留下城市碎片”主 CTA；仍无地点照片、距离、地图和导航，列表视觉仍偏管理工具 |
 | Profile UI | PARTIAL | 档案编辑/清除真实可用；已确认增加碎片数、关联地点数、想去数三项真实统计，但尚未接入对应 Repository 聚合 |
@@ -43,7 +43,7 @@
 | --- | --- | --- | --- | --- | --- |
 | LaunchGate | DONE | profile/onboarding MMKV | 系统冷启动 | Home/Onboarding replace | 启动反馈页 |
 | Onboarding | DONE | OnboardingRepository | LaunchGate/Settings | Home | 四步真实表单，但“默认档案”削弱引导意图，后续随产品视觉调整 |
-| Home | PARTIAL | 主题设置 | LaunchGate/探索 Tab | 地点、想去 | 正式探索根页与底栏已接入；内容仍是早期入口，尚无推荐与最近记忆 |
+| Home | DONE（代码）/PARTIAL（设备体验） | Profile/Place/Favorite/Capsule Repository | LaunchGate/探索 Tab | 地点列表/详情、想去、碎片详情、带 placeId 的碎片编辑器 | 已完成 P0-3 产品化内容与真实空/加载/部分失败降级；待双端视觉验收 |
 | Place List | PARTIAL | Place/Favorite Repository | Home | Editor/Detail/back | 搜索筛选真实，内容层级偏管理工具 |
 | Favorites | PARTIAL | 同上 | Home | Detail/back | 与地点列表复用，用户文案已为“想去”，视觉仍偏管理列表 |
 | Place Detail | PARTIAL | Place/Favorite/Capsule Repository | 列表/回忆详情 | Capsule Editor/Timeline/Place Editor/back | 记录主 CTA 和记忆计数已接通；地点内容仍缺摄影、位置与导航 |
@@ -100,7 +100,7 @@
 
 ## 已知问题与临时代码
 
-- Home 已移除 AppTheme/AppRoute/AppNavigator/Replace 等开发信息，Settings 已移除 shared/MMKV 与路由验收入口；两页的完整产品内容仍待后续 Feature 重构。
+- Home 已完成首版产品化聚合与本地推荐；分类入口以 typed 可选参数初始化地点列表筛选，搜索入口进入现有真实搜索页。Settings 的完整产品内容仍待后续 Feature 重构。
 - `KRBridgeModule.ets` 有 close/copy/toast/date TODO；`KRMyModule/KRMyView` 有模板式 null 返回。
 - Harmony 原生 placeholder 直接显示 JSON 参数；只适合开发阶段。
 - Android 同时依赖 Picasso 与 Glide；实际图片 adapter 使用情况需要在媒体阶段统一，避免双栈长期存在。
@@ -112,6 +112,7 @@
 - 时间轴、相册和详情日期已接双端设备本地时区格式器；bridge 不可用时才使用 UTC 降级。
 - Record 页面仍依赖单栏 `AppScaffold`，平板列表/详情双栏尚未实现。
 - 当前 repository mutation queue 只保证单实例/单进程顺序，不能等同数据库事务或跨页面全局并发控制。
+- Home、地点列表与地点详情的想去切换已避免成功提示插入、当前内容重排和页面自身 revision 重载；Record/Profile/Editor 的加载替换、共享滚动状态和照片位置组合仍是待设备验证的抖动高风险区。
 
 ## 验证状态
 
@@ -124,6 +125,10 @@ P0-2 正式一级导航于 2026-07-28 完成代码与自动化验证：`:shared:
 P0-3A 于 2026-07-29 取代 P0-2 的根 Tab replace：Home/Timeline/Profile typed route 统一进入 canonical `app_shell`，底栏只创建一次，三个根内容位于同一无手势 HorizontalPager；底栏点击执行 `animateScrollToPage`，三个独立 LazyListState、根页面 remember 状态与 RecordRootView 在 Tab 切换间保留。详情、Editor、Settings 继续 typed route；Debug 不进入壳。`:shared:testDebugUnitTest`、`:androidApp:testDebugUnitTest`、Android Debug APK、HarmonyOS Kotlin/Native arm64、ArkTS entry test 与 signed Debug HAP 均通过。首次 HarmonyOS 真机验收发现平台 `HarmonyRouteCatalog` 仍是 P0-2 白名单，导致完成引导后的 `app_shell` 被 guard 拒绝；现已补登记 `app_shell`、撤销已不存在的 standalone `home/timeline/profile` Page，并将 `recoverHome()` 指向 canonical AppShell。HarmonyOS 单测、ArkTS 编译和 signed HAP 已重新通过，等待用新 HAP 覆盖安装后复验动画、滚动恢复、安全区与返回键。
 
 2026-07-30 按 R1/R2/R3/R6 重新核对并验证 P0-3A：根 Tab 继续使用单一 AppShell Pager，不恢复已废弃的 typed replace。新增 shared 重复点击/快速选择状态测试，以及 Android JVM 的唯一 Bottom Navigation、壳内无根 route action、诊断页正式入口隔离门禁；`:shared:testDebugUnitTest` 与 `:androidApp:testDebugUnitTest` 通过，Android Debug APK、HarmonyOS arm64 `libshared.so`、ArkTS `entry@default test` 与 signed Debug HAP 均由当前源码重建成功。R5 真机验收已由用户确认通过，不修改 Pager 动画实现；HarmonyOS HAP 仍需覆盖安装执行完整设备清单。
+
+2026-07-30 完成 P0-3 Home Redesign 代码：AppShell 注入并复用 Profile/Place/Favorite/Capsule Repository，Home 在探索 Tab 激活及 Place/Capsule revision 变化时重载；本地推荐规则、分类 typed 预筛选、最多 3 条最近记忆和先选地点再记录均已实现。`:shared:testDebugUnitTest`、`:androidApp:testDebugUnitTest`、Android Debug APK 与 `:shared:compileKotlinOhosArm64` 通过；双端设备视觉、Bottom Sheet 滚动和交互验收仍按 `P0_HOME_ACCEPTANCE.md` 执行。
+
+2026-07-30 修复想去切换抖动：Home 加载时建立 Hero/辅助地点的稳定展示快照，切换想去只更新状态；地点列表和地点详情为 revision 失效事件增加页面 owner，跳过自己发出的重载；三处成功操作均不再在内容上方插入状态横幅。`:shared:testDebugUnitTest`（160 tests）、`:androidApp:testDebugUnitTest` 与 `:shared:compileKotlinOhosArm64` 通过。`linkDebugSharedOhosArm64` 因本机缺少 `OHOS_SDK_HOME`/默认 OpenHarmony SDK 而未完成，需在配置 SDK 的环境重跑；设备抖动验收仍待执行。
 
 ## 2026-07-28 Design System v2 状态
 

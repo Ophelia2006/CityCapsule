@@ -1,5 +1,7 @@
 package com.y.citycapsule.core.navigation
 
+import com.y.citycapsule.core.place.PlaceCategory
+
 /**
  * Shared, platform-agnostic navigation contract.
  *
@@ -13,7 +15,7 @@ sealed interface AppRoute {
 
     data object Home : AppRoute
 
-    data object PlaceList : AppRoute
+    data class PlaceList(val initialCategory: PlaceCategory? = null) : AppRoute
 
     data class PlaceDetail(val placeId: String) : AppRoute {
         init {
@@ -97,4 +99,3 @@ private fun requireOptionalRouteArgument(name: String, value: String?) {
         requireRouteArgument(name, value)
     }
 }
-

@@ -12,8 +12,19 @@ import androidx.compose.runtime.setValue
 internal object PlaceFeatureRuntime {
     var revision: Long by mutableStateOf(0L)
         private set
+    private var nextOwnerToken = 0L
+    private var lastInvalidationOwner: Long? = null
 
     fun invalidate() {
+        invalidateFrom(ownerToken = null)
+    }
+
+    fun newOwnerToken(): Long = ++nextOwnerToken
+
+    fun invalidateFrom(ownerToken: Long?) {
+        lastInvalidationOwner = ownerToken
         revision += 1L
     }
+
+    fun shouldReload(ownerToken: Long): Boolean = lastInvalidationOwner != ownerToken
 }

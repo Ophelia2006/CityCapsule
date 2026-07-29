@@ -103,7 +103,7 @@ class PlaceDetailStateHolder(
         if (state.status != PlaceDetailUiStatus.READY || state.togglingFavorite) {
             return
         }
-        update(state.copy(togglingFavorite = true, notice = null))
+        update(state.copy(togglingFavorite = true))
         favoriteRepository.toggleFavorite(placeId) { result ->
             when (result) {
                 is StorageResult.Success -> {
@@ -111,10 +111,9 @@ class PlaceDetailStateHolder(
                         state.copy(
                             favorite = result.value,
                             togglingFavorite = false,
-                            notice = PlaceFeatureNotice(
-                                if (result.value) "已加入想去。" else "已移出想去。",
-                                PlaceNoticeTone.SUCCESS
-                            )
+                            notice = state.notice?.takeUnless {
+                                it.message == FAVORITE_UPDATE_FAILURE_NOTICE
+                            }
                         )
                     )
                     onDataChanged()
@@ -124,7 +123,7 @@ class PlaceDetailStateHolder(
                     state.copy(
                         togglingFavorite = false,
                         notice = PlaceFeatureNotice(
-                            "想去状态更新失败，请稍后重试。",
+                            FAVORITE_UPDATE_FAILURE_NOTICE,
                             PlaceNoticeTone.ERROR
                         )
                     )
@@ -213,5 +212,9 @@ class PlaceDetailStateHolder(
     private fun update(nextState: PlaceDetailUiState) {
         state = nextState
         onStateChanged(nextState)
+    }
+
+    private companion object {
+        const val FAVORITE_UPDATE_FAILURE_NOTICE = "想去状态更新失败，请稍后重试。"
     }
 }

@@ -66,10 +66,11 @@ class PlaceListStateHolder(
     private val placeRepository: PlaceRepository,
     private val favoriteRepository: FavoriteRepository,
     private val mode: PlaceListMode = PlaceListMode.ALL,
+    initialCategory: PlaceCategory? = null,
     private val onDataChanged: () -> Unit = {},
     private val onStateChanged: (PlaceListUiState) -> Unit = {}
 ) {
-    var state: PlaceListUiState = initialState(mode)
+    var state: PlaceListUiState = initialState(mode, initialCategory)
         private set
 
     private var loadGeneration = 0
@@ -180,7 +181,7 @@ class PlaceListStateHolder(
         ) {
             return
         }
-        update(state.copy(busyFavoriteId = placeId, notice = null))
+        update(state.copy(busyFavoriteId = placeId))
         favoriteRepository.toggleFavorite(placeId) { result ->
             when (result) {
                 is StorageResult.Success -> {
@@ -193,10 +194,9 @@ class PlaceListStateHolder(
                         state.copy(
                             favoriteIds = ids,
                             busyFavoriteId = null,
-                            notice = PlaceFeatureNotice(
-                                if (result.value) "已加入想去。" else "已移出想去。",
-                                PlaceNoticeTone.SUCCESS
-                            )
+                            notice = state.notice?.takeUnless {
+                                it.message == FAVORITE_FAILURE_NOTICE
+                            }
                         ).withSearchResults()
                     )
                     onDataChanged()
@@ -206,7 +206,7 @@ class PlaceListStateHolder(
                     state.copy(
                         busyFavoriteId = null,
                         notice = PlaceFeatureNotice(
-                            "想去操作失败，页面状态已保持不变。",
+                            FAVORITE_FAILURE_NOTICE,
                             PlaceNoticeTone.ERROR
                         )
                     )
@@ -250,8 +250,17 @@ class PlaceListStateHolder(
     }
 
     private companion object {
-        fun initialState(mode: PlaceListMode): PlaceListUiState =
-            PlaceListUiState(mode = mode, filter = forcedFilter(mode))
+        const val FAVORITE_FAILURE_NOTICE = "想去操作失败，页面状态已保持不变。"
+
+        fun initialState(
+            mode: PlaceListMode,
+            initialCategory: PlaceCategory?
+        ): PlaceListUiState = PlaceListUiState(
+            mode = mode,
+            filter = forcedFilter(mode).copy(
+                categories = initialCategory?.let(::setOf).orEmpty()
+            )
+        )
 
         fun forcedFilter(mode: PlaceListMode): PlaceFilter =
             PlaceFilter(favoritesOnly = mode == PlaceListMode.FAVORITES)

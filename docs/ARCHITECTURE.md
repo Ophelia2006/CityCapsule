@@ -22,7 +22,7 @@
 
 ```text
 Kuikly @Page
-  ├─ 简单页：直接调用 Repository（Home/Settings）
+  ├─ 简单页：直接调用 Repository（Settings）
   └─ 业务页：StateHolder
                → Repository
                  → KeyValueStore
@@ -85,6 +85,27 @@ PlaceListPage / FavoritesPager
   → PlaceSearchEngine.search(catalog, filter, favoriteIds)
   → UI 状态 Loading / Empty / Content / Error-like notice
 ```
+
+Home 的分类入口通过 typed `AppRoute.PlaceList(initialCategory)` 携带可选分类 wire value；`PlaceListPager` 解析为 `PlaceCategory` 并初始化筛选。未知或缺失值安全降级为无分类筛选。
+
+### 探索首页聚合与本地推荐
+
+```text
+AppShellPage
+  → HomeRootContent
+  → HomeStateHolder
+     ├─ LocalProfileRepository.getProfileSnapshot()
+     ├─ PlaceRepository.getCatalogSnapshot()
+     ├─ FavoriteRepository.getFavoriteIds()/toggleFavorite()
+     └─ CapsuleRepository.getPublished()
+  → HomeRecommendationPolicy
+     → 当前档案城市优先
+     → 想去或尚未记录优先
+     → 同优先级内按类别轮转
+     → category enum + placeId 稳定兜底
+```
+
+Home 不使用网络、天气、坐标或距离。最近记忆从已发布 Capsule 按创建时间倒序取最多 3 条，并用同次加载的 Place catalog 补充地点。快速记录先在 Home 内的可滚动选择器选择真实地点，再进入 `CapsuleEditor(placeId)`；空 catalog 时只提供新建地点。
 
 搜索覆盖名称、标签、城市、区域、地址、备注；支持类别、城市、区域和只看收藏过滤。没有在线 POI、距离、定位或推荐算法。
 

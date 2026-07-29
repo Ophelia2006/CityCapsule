@@ -1,0 +1,211 @@
+package com.y.citycapsule.feature.home
+
+import com.y.citycapsule.core.capsule.CapsuleDateFormatter
+import com.y.citycapsule.core.capsule.CapsuleRepository
+import com.y.citycapsule.core.capsule.CityCapsule
+import com.y.citycapsule.core.favorite.FavoritePlaceIds
+import com.y.citycapsule.core.favorite.FavoriteRepository
+import com.y.citycapsule.core.place.Place
+import com.y.citycapsule.core.place.PlaceCatalogSource
+import com.y.citycapsule.core.place.PlaceCategory
+import com.y.citycapsule.core.place.PlaceRepository
+import com.y.citycapsule.core.profile.LocalProfile
+import com.y.citycapsule.core.profile.LocalProfileRepository
+import com.y.citycapsule.core.storage.StorageResult
+
+enum class HomeUiStatus { LOADING, READY }
+
+data class HomeRecentMemory(val capsule: CityCapsule, val place: Place?, val dateLabel: String)
+
+data class HomeSupportingSection(val title: String, val placeIds: List<String>)
+
+data class HomeUiState(
+    val status: HomeUiStatus = HomeUiStatus.LOADING,
+    val profile: LocalProfile = LocalProfile.DEFAULT,
+    val rankedPlaces: List<Place> = emptyList(),
+    val supportingPlaceIds: List<String> = emptyList(),
+    val supportingTitle: String = "换一种逛法",
+    val favoriteIds: Set<String> = emptySet(),
+    val recordedPlaceIds: Set<String> = emptySet(),
+    val recentMemories: List<HomeRecentMemory> = emptyList(),
+    val catalogReadOnly: Boolean = false,
+    val notice: String? = null,
+    val busyFavoriteId: String? = null
+) {
+    val featuredPlace: Place? get() = rankedPlaces.firstOrNull()
+    val categories: List<PlaceCategory>
+        get() = PlaceCategory.entries.filter { category -> rankedPlaces.any { it.category == category } }
+    val supportingPlaces: List<Place>
+        get() {
+            val placeById = rankedPlaces.associateBy(Place::id)
+            return supportingPlaceIds.mapNotNull(placeById::get)
+        }
+}
+
+/** Pure, explainable local ranking. No location, network, or personalization is implied. */
+object HomeRecommendationPolicy {
+    fun rank(
+        places: List<Place>,
+        currentCity: String?,
+        favoriteIds: Set<String>,
+        recordedPlaceIds: Set<String>
+    ): List<Place> {
+        val normalizedCity = currentCity?.trim().orEmpty()
+        val tiers = places.groupBy { place ->
+            HomePlaceTier(
+                cityRank = if (normalizedCity.isNotEmpty() && place.city.equals(normalizedCity, true)) 0 else 1,
+                discoveryRank = if (place.id in favoriteIds || place.id !in recordedPlaceIds) 0 else 1
+            )
+        }
+        return tiers.keys
+            .sortedWith(compareBy<HomePlaceTier> { it.cityRank }.thenBy { it.discoveryRank })
+            .flatMap { tier -> diversify(tiers[tier].orEmpty()) }
+    }
+
+    fun supportingSection(
+        rankedPlaces: List<Place>,
+        currentCity: String?,
+        favoriteIds: Set<String>
+    ): HomeSupportingSection {
+        val remaining = rankedPlaces.drop(1)
+        val favorites = remaining.filter { it.id in favoriteIds }
+        val normalizedCity = currentCity?.trim().orEmpty()
+        val sameCity = remaining.filter {
+            normalizedCity.isNotEmpty() && it.city.equals(normalizedCity, ignoreCase = true)
+        }
+        val places = when {
+            favorites.isNotEmpty() -> favorites
+            sameCity.isNotEmpty() -> sameCity
+            else -> remaining
+        }.take(HOME_SUPPORTING_PLACE_LIMIT)
+        val title = when {
+            favorites.isNotEmpty() -> "想去的地方"
+            normalizedCity.isNotEmpty() -> "这座城里"
+            else -> "换一种逛法"
+        }
+        return HomeSupportingSection(title, places.map(Place::id))
+    }
+
+    private fun diversify(places: List<Place>): List<Place> {
+        val buckets = PlaceCategory.entries.map { category ->
+            places.filter { it.category == category }.sortedBy(Place::id).toMutableList()
+        }
+        val result = mutableListOf<Place>()
+        while (buckets.any { it.isNotEmpty() }) {
+            buckets.forEach { bucket -> if (bucket.isNotEmpty()) result += bucket.removeAt(0) }
+        }
+        return result
+    }
+
+    private data class HomePlaceTier(val cityRank: Int, val discoveryRank: Int)
+}
+
+class HomeStateHolder(
+    private val profileRepository: LocalProfileRepository,
+    private val placeRepository: PlaceRepository,
+    private val favoriteRepository: FavoriteRepository,
+    private val capsuleRepository: CapsuleRepository,
+    private val dateFormatter: CapsuleDateFormatter,
+    private val onDataChanged: () -> Unit = {},
+    private val onStateChanged: (HomeUiState) -> Unit = {}
+) {
+    var state = HomeUiState()
+        private set
+    private var loadGeneration = 0
+
+    fun load() {
+        val generation = ++loadGeneration
+        update(state.copy(status = HomeUiStatus.LOADING, busyFavoriteId = null))
+        profileRepository.getProfileSnapshot { profileSnapshot ->
+            if (generation != loadGeneration) return@getProfileSnapshot
+            placeRepository.getCatalogSnapshot { catalogSnapshot ->
+                if (generation != loadGeneration) return@getCatalogSnapshot
+                favoriteRepository.getFavoriteIds { favoriteResult ->
+                    if (generation != loadGeneration) return@getFavoriteIds
+                    capsuleRepository.getPublished { capsuleResult ->
+                        if (generation != loadGeneration) return@getPublished
+                        val favorites = (favoriteResult as? StorageResult.Success)?.value ?: FavoritePlaceIds.EMPTY
+                        val capsules = (capsuleResult as? StorageResult.Success)?.value.orEmpty()
+                        val places = catalogSnapshot.catalog.places
+                        val placeById = places.associateBy(Place::id)
+                        val recordedPlaceIds = capsules.mapTo(mutableSetOf()) { it.placeId }
+                        val rankedPlaces = HomeRecommendationPolicy.rank(
+                            places,
+                            profileSnapshot.profile.homeCity,
+                            favorites.placeIds,
+                            recordedPlaceIds
+                        )
+                        val supportingSection = HomeRecommendationPolicy.supportingSection(
+                            rankedPlaces,
+                            profileSnapshot.profile.homeCity,
+                            favorites.placeIds
+                        )
+                        update(
+                            HomeUiState(
+                                status = HomeUiStatus.READY,
+                                profile = profileSnapshot.profile,
+                                rankedPlaces = rankedPlaces,
+                                supportingPlaceIds = supportingSection.placeIds,
+                                supportingTitle = supportingSection.title,
+                                favoriteIds = favorites.placeIds,
+                                recordedPlaceIds = recordedPlaceIds,
+                                catalogReadOnly = catalogSnapshot.source ==
+                                    PlaceCatalogSource.RECOVERY_READ_ONLY,
+                                recentMemories = capsules
+                                    .sortedWith(compareByDescending<CityCapsule> { it.createdAtEpochMs }.thenBy { it.id })
+                                    .take(HOME_RECENT_MEMORY_LIMIT)
+                                    .map { HomeRecentMemory(it, placeById[it.placeId], dateFormatter.format(it.createdAtEpochMs)) },
+                                notice = when {
+                                    favoriteResult is StorageResult.Failure -> "想去状态暂时无法读取，仍可继续探索地点。"
+                                    capsuleResult is StorageResult.Failure -> "最近的城市记忆暂时无法读取，地点仍可浏览。"
+                                    catalogSnapshot.source == PlaceCatalogSource.RECOVERY_READ_ONLY ->
+                                        "地点数据暂时无法安全读取，请重试。"
+                                    profileSnapshot.warning != null || catalogSnapshot.warning != null ->
+                                        "部分本地数据暂时不可用，当前已显示可安全读取的内容。"
+                                    else -> null
+                                }
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun toggleFavorite(placeId: String) {
+        if (
+            state.status != HomeUiStatus.READY ||
+            state.catalogReadOnly ||
+            state.busyFavoriteId != null
+        ) return
+        update(state.copy(busyFavoriteId = placeId))
+        favoriteRepository.toggleFavorite(placeId) { result ->
+            when (result) {
+                is StorageResult.Success -> {
+                    val ids = if (result.value) state.favoriteIds + placeId else state.favoriteIds - placeId
+                    update(
+                        state.copy(
+                            favoriteIds = ids,
+                            busyFavoriteId = null,
+                            notice = state.notice?.takeUnless { it == HOME_FAVORITE_FAILURE_NOTICE }
+                        )
+                    )
+                    onDataChanged()
+                }
+                StorageResult.Missing,
+                is StorageResult.Failure -> update(
+                    state.copy(busyFavoriteId = null, notice = HOME_FAVORITE_FAILURE_NOTICE)
+                )
+            }
+        }
+    }
+
+    private fun update(next: HomeUiState) {
+        state = next
+        onStateChanged(next)
+    }
+}
+
+internal const val HOME_RECENT_MEMORY_LIMIT = 3
+internal const val HOME_SUPPORTING_PLACE_LIMIT = 3
+private const val HOME_FAVORITE_FAILURE_NOTICE = "想去操作失败，页面状态已保持不变。"

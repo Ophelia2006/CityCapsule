@@ -1,5 +1,6 @@
 package com.y.citycapsule.core.navigation
 
+import com.y.citycapsule.core.place.PlaceCategory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -58,7 +59,7 @@ class AppRouteTableTest {
 
     @Test
     fun placeListEditorAndFavoritesUseFrozenDestinations() {
-        val placeList = AppRouteTable.resolve(AppRoute.PlaceList)
+        val placeList = AppRouteTable.resolve(AppRoute.PlaceList())
         val newPlace = AppRouteTable.resolve(AppRoute.PlaceEditor())
         val editPlace = AppRouteTable.resolve(AppRoute.PlaceEditor("place-7"))
         val favorites = AppRouteTable.resolve(AppRoute.Favorites)
@@ -75,6 +76,13 @@ class AppRouteTableTest {
             RouteDestination.Kuikly(AppRouteTable.PAGE_FAVORITES),
             favorites.destination
         )
+    }
+
+    @Test
+    fun placeListCarriesOptionalInitialCategory() {
+        val request = AppRouteTable.resolve(AppRoute.PlaceList(PlaceCategory.CULTURE))
+
+        assertEquals("culture", request.params[AppRouteTable.PARAM_INITIAL_CATEGORY])
     }
 
     @Test

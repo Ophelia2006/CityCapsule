@@ -101,7 +101,7 @@ private fun TimelineView(state: CapsuleTimelineState, navigator: AppNavigator) {
             message = "从一个地点开始，写下第一条城市记忆。",
             actionLabel = "去探索地点"
         ) {
-            navigator.navigate(AppRoute.PlaceList)
+            navigator.navigate(AppRoute.PlaceList())
         }
         return
     }

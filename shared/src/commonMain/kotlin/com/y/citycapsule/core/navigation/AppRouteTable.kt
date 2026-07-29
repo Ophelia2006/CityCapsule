@@ -5,6 +5,7 @@ package com.y.citycapsule.core.navigation
  */
 object AppRouteTable {
     const val PARAM_PLACE_ID = "placeId"
+    const val PARAM_INITIAL_CATEGORY = "initialCategory"
     const val PARAM_INITIAL_ROOT_TAB = "initialRootTab"
 
     const val ROUTE_LAUNCH_GATE = "launch_gate"
@@ -55,7 +56,12 @@ object AppRouteTable {
         AppRoute.LaunchGate -> kuikly(action, ROUTE_LAUNCH_GATE, PAGE_LAUNCH_GATE)
         AppRoute.Onboarding -> kuikly(action, ROUTE_ONBOARDING, PAGE_ONBOARDING)
         AppRoute.Home -> appShell(action, ROUTE_HOME)
-        AppRoute.PlaceList -> kuikly(action, ROUTE_PLACE_LIST, PAGE_PLACE_LIST)
+        is AppRoute.PlaceList -> kuikly(
+            action,
+            ROUTE_PLACE_LIST,
+            PAGE_PLACE_LIST,
+            optionalParams(PARAM_INITIAL_CATEGORY to route.initialCategory?.wireValue)
+        )
         is AppRoute.PlaceDetail -> kuikly(
             action = action,
             routeKey = ROUTE_PLACE_DETAIL,
@@ -209,4 +215,3 @@ object AppRouteTable {
         return result
     }
 }
-

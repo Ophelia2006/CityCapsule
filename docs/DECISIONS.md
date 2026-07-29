@@ -118,9 +118,11 @@ ADR-019 已取代 ADR-016 的根级 typed replace；Record 内部的二级 Pager
 
 ## ADR-018：首页内容与无摄影阶段展示规则
 
-状态：Accepted for next UI features，尚未实现。
+状态：Accepted and implemented in P0-3 Home Redesign。
 
 探索首页以重点地点整卡作为 Primary。seed 与用户自建地点允许混合参与可解释的本地排序；由于当前模型没有 source，不伪装成能够按来源区分。Profile Overview 允许展示由当前数据精确计算的碎片数、关联地点数和想去数。地点摄影能力完成来源授权、资产登记、模型/迁移与双端验收前，所有地点内容统一使用代码生成的类别 fallback。
+
+P0-3 将排序规则冻结为“当前档案城市优先 → 想去或尚未记录优先 → 同优先级内按类别轮转 → category enum 与 placeId 稳定兜底”。该规则只使用 Profile、Place、Favorite、Capsule 的本地真实数据，不宣称 AI、个性化、附近或实时推荐。Home 最多展示 3 条真实最近记忆；快速记录必须先选择真实地点并传递非空 `placeId`。
 
 ## 尚无决策依据的议题
 

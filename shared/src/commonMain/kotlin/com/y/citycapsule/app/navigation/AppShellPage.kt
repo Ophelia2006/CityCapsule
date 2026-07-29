@@ -20,6 +20,7 @@ import com.y.citycapsule.app.theme.RuntimeAppTheme
 import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.capsule.KuiklyLocalCapsuleDateFormatter
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
+import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
@@ -38,6 +39,7 @@ internal class AppShellPager : BasePager() {
         super.willInit()
         val navigator = KuiklyAppNavigator(this)
         val storage = KuiklyKeyValueStore(this)
+        val placeRepository = LocalPlaceRepository(storage)
         val initialTab = AppRootTab.fromInitialRouteValue(
             pageData.params.optString(AppRouteTable.PARAM_INITIAL_ROOT_TAB)
         ) ?: AppRootTab.EXPLORE
@@ -48,7 +50,8 @@ internal class AppShellPager : BasePager() {
                 settingsRepository = SettingsRepository(storage),
                 profileRepository = LocalProfileRepository(storage),
                 onboardingRepository = OnboardingRepository(storage),
-                placeRepository = LocalPlaceRepository(storage),
+                placeRepository = placeRepository,
+                favoriteRepository = LocalFavoriteRepository(storage, placeRepository),
                 capsuleRepository = LocalCapsuleRepository(storage),
                 dateFormatter = KuiklyLocalCapsuleDateFormatter(this),
                 themeHost = KuiklyAppThemeHost(this)
@@ -65,6 +68,7 @@ private fun AppShellScreen(
     profileRepository: LocalProfileRepository,
     onboardingRepository: OnboardingRepository,
     placeRepository: LocalPlaceRepository,
+    favoriteRepository: LocalFavoriteRepository,
     capsuleRepository: LocalCapsuleRepository,
     dateFormatter: KuiklyLocalCapsuleDateFormatter,
     themeHost: AppThemeHost
@@ -115,6 +119,12 @@ private fun AppShellScreen(
                 when (AppRootTab.fromPageIndex(page)) {
                     AppRootTab.EXPLORE -> HomeRootContent(
                         navigator = navigator,
+                        profileRepository = profileRepository,
+                        placeRepository = placeRepository,
+                        favoriteRepository = favoriteRepository,
+                        capsuleRepository = capsuleRepository,
+                        dateFormatter = dateFormatter,
+                        active = shellState.selectedTab == AppRootTab.EXPLORE,
                         statusBarHeight = statusBarHeight,
                         listState = exploreListState
                     )

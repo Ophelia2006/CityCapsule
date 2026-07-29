@@ -11,13 +11,16 @@
 - `[UI/UX Redesign][DONE 2026-07-29]` P0-3A 单一 AppShell：唯一 Bottom Navigation、Home/Record/Profile 常驻根 Pager、点击 `animateScrollToPage`、根 `userScrollEnabled=false`、重复点击 no-op、独立滚动/页面状态保留；二级 typed route 隐藏底栏，Debug 不入壳；shared/Android/HarmonyOS 自动化与双端包构建通过。
 - `[UI/UX Redesign][PARTIAL 2026-07-29]` Record Container：Timeline/Gallery 已合并为同一 RecordRootContent 的点击切换视图并共享 catalog/底栏/RecordRootView；P0-3B 再实现内部 HorizontalPager 与左右滑动，补同轴手势、状态恢复和双端手势测试；独立 Gallery route 暂留兼容。
 - `[UI/UX Redesign][Code Scan]` 使用 2026-07-30 当前源码重新生成的 signed HAP 覆盖安装 HarmonyOS 真机；先确认完成首次引导后进入 `app_shell`，再检查 Tab 动画方向、快速连点、三个根滚动位置、Record 视图、Profile 编辑草稿、详情返回、系统返回键和底栏安全区。平台 guard 已有“允许 `app_shell`、拒绝退役 `home/timeline/profile` Page”的回归测试；shared 重复点击/快速选择测试与 Android 唯一底栏、无根 route action、诊断入口隔离门禁已通过。
-- `[Initial Plan][UI/UX Redesign][Decision 2026-07-29]` 重新设计 Home：重点地点整卡为 Primary；seed 与用户自建地点允许混合参与可解释本地排序；展示分类与至多一条真实最近城市记忆；空数据使用诚实 empty state，不伪造推荐算法或摄影。
+- `[Initial Plan][UI/UX Redesign][DONE 2026-07-30]` P0-3 Home Redesign：聚合 Profile/Place/Favorite/Capsule Repository；当前档案城市优先 → 想去/未记录优先 → 类别多样化 → 稳定顺序兜底；展示 Hero、typed 分类入口、想去/同城地点、最多 3 条真实最近记忆；快速记录先选择真实地点再进入 `CapsuleEditor(placeId)`；不伪造天气、距离、摄影、AI 或网络推荐。
+- `[UI/UX Redesign]` 在 Android/HarmonyOS 设备验收 P0-3 Home 的 Light/Dark、长昵称/城市名、空 catalog、部分读取失败、想去切换、3 条最近记忆、地点选择器滚动与编辑器返回栈；代码与跨端编译已通过。
+- `[Code Scan][UI/UX Redesign]` 双端设备回归 Home Hero、Home“想去的地方/换一种逛法”、地点详情和搜索地点列表的想去切换：只允许心形/按钮状态变化，不得插入成功横幅、重排当前推荐、进入 Loading 或丢失搜索/筛选/滚动位置。代码与状态回归测试已于 2026-07-30 完成。
 - `[Code Scan][BLOCKED]` 按 `docs/P0_RECORD_FLOW_ACCEPTANCE.md` 完成 Android/HarmonyOS 真机的选图成功、取消、复制失败、重启读取和引用清理；Android 模拟器已完成真实选图回传和沙箱复制，Android 真机未连接；HarmonyOS 的模块未注册崩溃与媒体 URI 直接按路径复制问题均已修复，Hypium 测试及 signed HAP 构建通过，仍须在 HED-AL00 覆盖安装后完成真机复验。
 - `[Initial Plan]` 补相机 capability（如本阶段确认需要）和缩略图生成；正常删除/移除/丢弃的媒体引用清理已经完成，后续可评估崩溃遗留文件扫描。
 - `[UI/UX Redesign]` 真机可用后继续 Record Flow 视觉走查，检查图片渲染、返回栈和大字体问题。
 
 ## P1：补齐基础版探索与本地数据完整性
 
+- `[Code Scan]` 执行 UI 稳定性专项：发布/编辑/删除 Capsule 后返回时间轴和相册；长列表中段新增最新记录；时间轴/相册中段切换；Editor 选图、保存草稿、移除首张/中间照片；Profile 首次加载、保存和清除。重点检查整页 Loading、滚动归零、状态提示插入下推，以及无稳定 key 导致的缩略图闪白/错图。
 - `[UI/UX Redesign]` 重构 Explore/PlaceCard/PlaceDetail：摄影内容、分类、搜索、整卡点击、“想去”、位置摘要和“在这里留下城市碎片”主 CTA。
 - `[Initial Plan]` 决定 Place source/seed 不可删除规则并迁移现有 catalog；避免无依据直接改 wire schema。
 - `[Initial Plan]` 实现 Location capability、坐标字段迁移、距离和权限降级。

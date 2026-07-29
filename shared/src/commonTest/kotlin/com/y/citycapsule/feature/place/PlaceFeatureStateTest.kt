@@ -23,6 +23,21 @@ import kotlin.test.assertTrue
 
 class PlaceFeatureStateTest {
     @Test
+    fun initialCategoryFromTypedEntryFiltersFirstLoad() {
+        val fixture = fixture()
+        val holder = PlaceListStateHolder(
+            fixture.placeRepository,
+            fixture.favoriteRepository,
+            initialCategory = PlaceCategory.NATURE
+        )
+
+        holder.load()
+
+        assertEquals(setOf(PlaceCategory.NATURE), holder.state.filter.categories)
+        assertTrue(holder.state.visiblePlaces.all { it.category == PlaceCategory.NATURE })
+    }
+
+    @Test
     fun listSearchAndCombinedFiltersUseSharedEngine() {
         val fixture = fixture()
         val holder = PlaceListStateHolder(
@@ -74,6 +89,38 @@ class PlaceFeatureStateTest {
     }
 
     @Test
+    fun allPlacesFavoriteToggleKeepsListReadyAndInStableOrder() {
+        val fixture = fixture()
+        var invalidations = 0
+        val holder = PlaceListStateHolder(
+            fixture.placeRepository,
+            fixture.favoriteRepository,
+            onDataChanged = { invalidations++ }
+        )
+        holder.load()
+        val originalIds = holder.state.visiblePlaces.map(Place::id)
+        val originalNotice = holder.state.notice
+
+        holder.toggleFavorite(originalIds.first())
+
+        assertEquals(PlaceListUiStatus.READY, holder.state.status)
+        assertEquals(originalIds, holder.state.visiblePlaces.map(Place::id))
+        assertEquals(originalNotice, holder.state.notice)
+        assertEquals(1, invalidations)
+    }
+
+    @Test
+    fun placeListIgnoresItsOwnInvalidationButReloadsForExternalMutation() {
+        val owner = PlaceFeatureRuntime.newOwnerToken()
+
+        PlaceFeatureRuntime.invalidateFrom(owner)
+        assertFalse(PlaceFeatureRuntime.shouldReload(owner))
+
+        PlaceFeatureRuntime.invalidate()
+        assertTrue(PlaceFeatureRuntime.shouldReload(owner))
+    }
+
+    @Test
     fun corruptedCatalogEntersReadOnlyStateAndBlocksFavoriteMutation() {
         val storage = InMemoryKeyValueStore()
         storage.seedRaw(AppStorageKeys.Places.CATALOG, encodedValue = "{broken")
@@ -106,6 +153,8 @@ class PlaceFeatureStateTest {
         assertEquals(PlaceDetailUiStatus.READY, holder.state.status)
         holder.toggleFavorite()
         assertTrue(holder.state.favorite)
+        assertEquals(PlaceDetailUiStatus.READY, holder.state.status)
+        assertEquals(null, holder.state.notice)
 
         holder.requestDelete()
         holder.delete { deleted = true }
