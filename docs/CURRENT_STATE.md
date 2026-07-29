@@ -123,6 +123,8 @@ P0-2 正式一级导航于 2026-07-28 完成代码与自动化验证：`:shared:
 
 P0-3A 于 2026-07-29 取代 P0-2 的根 Tab replace：Home/Timeline/Profile typed route 统一进入 canonical `app_shell`，底栏只创建一次，三个根内容位于同一无手势 HorizontalPager；底栏点击执行 `animateScrollToPage`，三个独立 LazyListState、根页面 remember 状态与 RecordRootView 在 Tab 切换间保留。详情、Editor、Settings 继续 typed route；Debug 不进入壳。`:shared:testDebugUnitTest`、`:androidApp:testDebugUnitTest`、Android Debug APK、HarmonyOS Kotlin/Native arm64、ArkTS entry test 与 signed Debug HAP 均通过。首次 HarmonyOS 真机验收发现平台 `HarmonyRouteCatalog` 仍是 P0-2 白名单，导致完成引导后的 `app_shell` 被 guard 拒绝；现已补登记 `app_shell`、撤销已不存在的 standalone `home/timeline/profile` Page，并将 `recoverHome()` 指向 canonical AppShell。HarmonyOS 单测、ArkTS 编译和 signed HAP 已重新通过，等待用新 HAP 覆盖安装后复验动画、滚动恢复、安全区与返回键。
 
+2026-07-30 按 R1/R2/R3/R6 重新核对并验证 P0-3A：根 Tab 继续使用单一 AppShell Pager，不恢复已废弃的 typed replace。新增 shared 重复点击/快速选择状态测试，以及 Android JVM 的唯一 Bottom Navigation、壳内无根 route action、诊断页正式入口隔离门禁；`:shared:testDebugUnitTest` 与 `:androidApp:testDebugUnitTest` 通过，Android Debug APK、HarmonyOS arm64 `libshared.so`、ArkTS `entry@default test` 与 signed Debug HAP 均由当前源码重建成功。R5 真机验收已由用户确认通过，不修改 Pager 动画实现；HarmonyOS HAP 仍需覆盖安装执行完整设备清单。
+
 ## 2026-07-28 Design System v2 状态
 
 - `DONE`：暖白/近黑/中性灰/暖灰/琥珀浅色方案及配套深色方案；主题持久化 key、wire value 和协议版本保持不变。

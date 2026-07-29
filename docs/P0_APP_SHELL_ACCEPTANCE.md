@@ -6,9 +6,14 @@
 
 ## 自动化与构建
 
-在仓库根目录执行：
+在仓库根目录执行。Windows 本机先指向实际 DevEco SDK；否则 Kotlin/Native linker 会回退到不存在的默认安装路径：
 
 ```powershell
+$devEco = 'D:\Software\Office\DevEcoStudio\DevEco Studio'
+$env:PATH = "$devEco\tools\node;$env:PATH"
+$env:DEVECO_SDK_HOME = "$devEco\sdk"
+$env:OHOS_SDK_HOME = "$devEco\sdk\default\openharmony"
+
 .\gradlew.bat :shared:testDebugUnitTest
 .\gradlew.bat :androidApp:testDebugUnitTest
 .\gradlew.bat :androidApp:assembleDebug

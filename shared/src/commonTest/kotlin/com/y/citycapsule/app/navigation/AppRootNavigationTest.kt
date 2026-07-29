@@ -39,6 +39,28 @@ class AppRootNavigationTest {
     }
 
     @Test
+    fun repeatedSelectionOfEveryCurrentTabIsAlwaysNoOp() {
+        AppRootTab.entries.forEach { tab ->
+            val state = AppShellState(tab)
+
+            repeat(5) {
+                assertFalse(state.selectTab(tab))
+            }
+            assertEquals(tab, state.selectedTab)
+        }
+    }
+
+    @Test
+    fun rapidRootSelectionEndsAtTheLastRequestedTab() {
+        val state = AppShellState(AppRootTab.EXPLORE)
+
+        assertTrue(state.selectTab(AppRootTab.PROFILE))
+        assertTrue(state.selectTab(AppRootTab.RECORD))
+
+        assertEquals(AppRootTab.RECORD, state.selectedTab)
+    }
+
+    @Test
     fun recordViewStateSurvivesRootTabChanges() {
         val state = AppShellState(AppRootTab.RECORD)
         state.selectRecordView(RecordRootView.GALLERY)

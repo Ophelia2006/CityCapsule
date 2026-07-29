@@ -29,7 +29,7 @@
 
 首屏先看问句、搜索与一个真实地点；Primary 是打开重点地点（整卡）。该地点允许从 seed 与用户自建地点混合 catalog 中按可解释本地规则产生，不宣称 AI 或个性化算法。分类与最近记忆在其后，设置不出现。**搜索框、分类项和“查看全部地点”都是探索列表入口**：分别带搜索焦点、分类筛选和无筛选状态。想去用图标；摄影能力完成前统一用类别 fallback。页面背景、标题、分类行不使用 Card。
 
-组件树：`ExploreHomeScreen[页面] → AppScaffold[通用] → HomeTopBar[Feature] → SearchField[通用] → FeaturedPlaceCard[数据/通用变体] → CategoryRow[Feature] → CapsulePreview[数据] → AppBottomNavigation[通用]`。
+组件树：`AppShell[唯一 AppBottomNavigation] → ExploreHomeContent[根内容] → HomeTopBar[Feature] → SearchField[通用] → FeaturedPlaceCard[数据/通用变体] → CategoryRow[Feature] → CapsulePreview[数据]`。
 
 ## 2. 探索列表
 
@@ -145,9 +145,9 @@ Primary 是打开地点行；搜索和类别辅助缩小范围。地点行必须
 └──────────────────────────┘
 ```
 
-日期与地点形成阅读骨架，Primary 是打开碎片整卡。Timeline 是 Record 根容器的第 0 页；切换相册使用 TabRow + HorizontalPager，可点击也可左右滑动，只改变 PagerState，不执行页面出入栈。一级底栏由 Record 根容器持有并持续显示。时间线轴、日期标题不用 Card；碎片内容可使用低 elevation CapsuleCard。更早内容自然滚动。
+日期与地点形成阅读骨架，Primary 是打开碎片整卡。Timeline 是 Record 根容器的默认视图；当前通过 segmented control 点击切换 Timeline/Gallery，只改变 Compose 状态，不执行页面出入栈。TabRow + HorizontalPager 与左右滑动属于 P0-3B Target，尚未实现。一级底栏由外层唯一 AppShell 持有并持续显示。时间线轴、日期标题不用 Card；碎片内容可使用低 elevation CapsuleCard。更早内容自然滚动。
 
-组件树：`TimelineScreen[页面] → AppScaffold → RecordHeader → ViewSegmentedControl[通用] → TimelineList → DateHeader → TimelineRail → CapsuleCard[数据/通用] → AppBottomNavigation`。
+组件树：`AppShell[唯一 AppBottomNavigation] → RecordRootContent[根内容] → RecordHeader → ViewSegmentedControl[通用] → TimelineList → DateHeader → TimelineRail → CapsuleCard[数据/通用]`。
 
 ## 7. 城市相册
 
@@ -166,9 +166,9 @@ Primary 是打开地点行；搜索和类别辅助缩小范围。地点行必须
 └──────────────────────────┘
 ```
 
-照片是全部视觉焦点，Primary 是点击照片进入所属碎片。Gallery 是同一 Record 根容器的第 1 页，不再作为最终产品中的独立二级页面；时间轴/相册切换不产生导航栈记录，一级底栏持续显示。网格继续滚动；不在每张图叠加按钮或 Card。加载失败单格显示 fallback，整体 catalog 仍可浏览。
+照片是全部视觉焦点，Primary 是点击照片进入所属碎片。Gallery 是同一 Record 根容器的内部视图，不再作为最终产品中的独立二级页面；时间轴/相册切换不产生导航栈记录，外层 AppShell 的一级底栏持续显示。网格继续滚动；不在每张图叠加按钮或 Card。加载失败单格显示 fallback，整体 catalog 仍可浏览。
 
-组件树：`GalleryScreen[页面] → AppScaffold → RecordHeader → ViewSegmentedControl → PhotoGrid[数据/通用] → AppBottomNavigation`。
+组件树：`AppShell[唯一 AppBottomNavigation] → RecordRootContent[根内容] → RecordHeader → ViewSegmentedControl → PhotoGrid[数据/通用]`。
 
 ## 8. 城市碎片详情
 
@@ -252,6 +252,6 @@ Primary 是打开地点；心形为即时移出动作，须可恢复或明确反
 - 返回使用 TopBar；不在内容末尾重复“返回上一页”。
 - 筛选与权限解释用 Bottom Sheet；危险删除用确认 Dialog；低频管理用 Overflow Menu。
 - Card 整体点击进入详情；心形、溢出等独立图标需独立触控区和语义标签。
-- Bottom Navigation 仅出现在 Home、Record 根容器和 Profile Overview；详情与操作页不重复显示。Record 的 Timeline/Gallery 两种内部视图共享同一底栏。
+- Bottom Navigation 只由单一 AppShell 创建一次；Home、Record 根内容和 Profile Overview 共享它。详情与操作页位于 AppShell 外，不显示底栏。Record 的 Timeline/Gallery 两种内部视图共享同一外层底栏。
 - “探索 / 记录 / 我的”位于单一 AppShell；点击驱动 `animateScrollToPage`，重复点击当前 Tab 为 no-op，根 Pager 暂不支持手指左右滑动。
-- “列表 / 地图”和“时间轴 / 相册”是各自 Feature 容器内的同级视图状态，不使用页面出入栈；其中 Record 使用 TabRow + HorizontalPager 支持点击和左右滑动。进入地点详情或碎片详情才属于层级导航。
+- “列表 / 地图”和“时间轴 / 相册”是各自 Feature 容器内的同级视图状态，不使用页面出入栈。Record 当前只实现 segmented control 点击切换；TabRow + HorizontalPager 左右滑动属于 P0-3B Target。进入地点详情或碎片详情才属于层级导航。
