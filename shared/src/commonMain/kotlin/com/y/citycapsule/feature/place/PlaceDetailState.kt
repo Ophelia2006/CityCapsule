@@ -5,6 +5,7 @@ import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.storage.StorageResult
 import com.y.citycapsule.core.capsule.CapsuleRepository
+import com.y.citycapsule.core.capsule.CityCapsule
 
 enum class PlaceDetailUiStatus {
     LOADING,
@@ -18,6 +19,7 @@ data class PlaceDetailUiState(
     val place: Place? = null,
     val favorite: Boolean = false,
     val memoryCount: Int = 0,
+    val recentMemories: List<CityCapsule> = emptyList(),
     val togglingFavorite: Boolean = false,
     val showDeleteConfirmation: Boolean = false,
     val notice: PlaceFeatureNotice? = null
@@ -71,6 +73,9 @@ class PlaceDetailStateHolder(
                             baseState.copy(
                                 memoryCount = (memories as? StorageResult.Success)
                                     ?.value?.size ?: 0,
+                                recentMemories = (memories as? StorageResult.Success)
+                                    ?.value?.sortedByDescending(CityCapsule::createdAtEpochMs)
+                                    ?.take(3).orEmpty(),
                                 notice = if (memories is StorageResult.Failure) {
                                     PlaceFeatureNotice(
                                         "城市记忆状态暂时无法读取，地点删除已禁用。",

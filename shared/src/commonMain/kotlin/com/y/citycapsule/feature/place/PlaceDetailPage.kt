@@ -1,4 +1,4 @@
-package com.y.citycapsule.feature.place
+﻿package com.y.citycapsule.feature.place
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -7,9 +7,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.tencent.kuikly.compose.foundation.layout.Spacer
+import com.tencent.kuikly.compose.foundation.layout.Box
+import com.tencent.kuikly.compose.foundation.layout.Column
+import com.tencent.kuikly.compose.foundation.layout.Row
+import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
+import com.tencent.kuikly.compose.foundation.layout.padding
+import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.Alignment
+import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.core.annotations.Page
 import com.y.citycapsule.app.theme.AppThemeHost
@@ -29,6 +37,7 @@ import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.core.capsule.CapsuleRepository
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
+import com.y.citycapsule.core.capsule.KuiklyLocalCapsuleDateFormatter
 import com.y.citycapsule.feature.capsule.CapsuleFeatureRuntime
 import com.y.citycapsule.designsystem.component.AppBodyText
 import com.y.citycapsule.designsystem.component.AppButton
@@ -39,6 +48,17 @@ import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppSection
 import com.y.citycapsule.designsystem.component.AppStatusMessage
 import com.y.citycapsule.designsystem.component.AppTopBar
+import com.y.citycapsule.designsystem.component.AppPageTitle
+import com.y.citycapsule.designsystem.component.AppCaptionText
+import com.y.citycapsule.designsystem.component.AppIconButton
+import com.y.citycapsule.designsystem.component.AppIconName
+import com.y.citycapsule.designsystem.component.AppMenuItem
+import com.y.citycapsule.designsystem.component.AppOverflowMenu
+import com.y.citycapsule.designsystem.component.CapsuleCard
+import com.y.citycapsule.designsystem.component.CapsuleCardModel
+import com.y.citycapsule.designsystem.component.CapsuleCardVariant
+import com.y.citycapsule.designsystem.component.PlaceMediaFallback
+import com.y.citycapsule.feature.capsule.CapsulePhoto
 import com.y.citycapsule.designsystem.theme.AppTheme
 
 @Page(AppRouteTable.PAGE_PLACE_DETAIL, supportInLocal = true)
@@ -58,9 +78,11 @@ internal class PlaceDetailPager : BasePager() {
                 placeRepository,
                 favoriteRepository,
                 LocalCapsuleRepository(storage),
+                KuiklyLocalCapsuleDateFormatter(this),
                 themeHost
             )
         }
+
     }
 }
 
@@ -71,10 +93,12 @@ private fun PlaceDetailScreen(
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
     capsuleRepository: CapsuleRepository,
+    dateFormatter: KuiklyLocalCapsuleDateFormatter,
     themeHost: AppThemeHost
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
     var uiState by remember { mutableStateOf(PlaceDetailUiState()) }
+    var menuExpanded by remember { mutableStateOf(false) }
     val invalidationOwner = remember { PlaceFeatureRuntime.newOwnerToken() }
     val holder = remember(placeId, placeRepository, favoriteRepository, capsuleRepository) {
         PlaceDetailStateHolder(
@@ -102,10 +126,19 @@ private fun PlaceDetailScreen(
 
     RuntimeAppTheme(themeHost = themeHost) {
         AppScaffold(statusBarHeight = statusBarHeight) {
-            AppTopBar(
-                title = "地点详情",
-                subtitle = "发现地点，也留下属于你的城市片段。"
-            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                AppTopBar(
+                    title = "地点详情",
+                    subtitle = "发现地点，也留下属于你的城市片段。",
+                    modifier = Modifier.weight(1f)
+                )
+                AppIconButton(
+                    icon = AppIconName.MORE,
+                    contentDescription = "更多地点操作",
+                    onClick = { menuExpanded = true },
+                    enabled = uiState.place != null && uiState.status == PlaceDetailUiStatus.READY
+                )
+            }
             uiState.notice?.let {
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
                 AppStatusMessage(it.message, tone = it.tone.toAppStatusTone())
@@ -121,16 +154,27 @@ private fun PlaceDetailScreen(
                     }
                 )
             } else {
+                Box(
+                    Modifier.fillMaxWidth()
+                        .height(AppTheme.dimensions.placeHeroHeight)
+                        .clip(RoundedCornerShape(AppTheme.dimensions.radiusLg))
+                ) {
+                    PlaceMediaFallback(place.category.toFallbackKind())
+                }
+                Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
                 PlaceDetails(place)
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-                AppButton(
-                    text = if (uiState.favorite) "移出想去" else "想去",
-                    onClick = holder::toggleFavorite,
-                    variant = AppButtonVariant.SECONDARY,
-                    enabled = !uiState.isBusy,
-                    loading = uiState.togglingFavorite,
-                    loadingText = "正在更新…"
-                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    AppBodyText(if (uiState.favorite) "已加入想去" else "想去")
+                    Spacer(Modifier.weight(1f))
+                    AppIconButton(
+                        icon = if (uiState.favorite) AppIconName.FAVORITE_FILLED else AppIconName.FAVORITE,
+                        contentDescription = if (uiState.favorite) "移出想去" else "加入想去",
+                        onClick = holder::toggleFavorite,
+                        selected = uiState.favorite,
+                        enabled = !uiState.isBusy
+                    )
+                }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
                 AppSection(
                     title = "我的城市记忆",
@@ -140,13 +184,34 @@ private fun PlaceDetailScreen(
                         "已经在这里留下 ${uiState.memoryCount} 条城市碎片。"
                     }
                 ) {
-                    if (uiState.memoryCount > 0) {
-                        AppButton(
-                            text = "在时间轴中回看",
-                    onClick = { navigator.backToRoot(AppRootTab.RECORD) },
-                            variant = AppButtonVariant.TEXT,
-                            enabled = !uiState.isBusy
-                        )
+                    if (uiState.recentMemories.isNotEmpty()) {
+                        uiState.recentMemories.forEachIndexed { index, memory ->
+                            CapsuleCard(
+                                model = CapsuleCardModel(
+                                    dateLabel = dateFormatter.format(memory.createdAtEpochMs),
+                                    placeLabel = place.name,
+                                    excerpt = memory.content.ifBlank { "一段只属于这里的城市记忆" },
+                                    metadata = memory.tags.takeIf { it.isNotEmpty() }
+                                        ?.joinToString("  ") { "#$it" }
+                                ),
+                                onOpen = { navigator.navigate(AppRoute.CapsuleDetail(memory.id)) },
+                                variant = CapsuleCardVariant.RECENT,
+                                media = memory.imagePaths.firstOrNull()?.let { path ->
+                                    { CapsulePhoto(path, "${place.name}的城市记忆", compact = true) }
+                                }
+                            )
+                            if (index < uiState.recentMemories.lastIndex) {
+                                Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+                            }
+                        }
+                        if (uiState.memoryCount > 0) {
+                            AppButton(
+                                text = "查看全部城市记忆",
+                                onClick = { navigator.backToRoot(AppRootTab.RECORD) },
+                                variant = AppButtonVariant.TEXT,
+                                enabled = !uiState.isBusy
+                            )
+                        }
                     } else {
                         AppSecondaryText("一张照片、一句话，也可以成为以后想起这里的入口。")
                     }
@@ -155,26 +220,8 @@ private fun PlaceDetailScreen(
                 AppButton(
                     text = "在这里留下城市碎片",
                     onClick = { navigator.navigate(AppRoute.CapsuleEditor(placeId = place.id)) },
-                    enabled = !uiState.isBusy
+                    enabled = uiState.status == PlaceDetailUiStatus.READY
                 )
-                Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-                AppSecondaryText("地点管理")
-                Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-                AppButton(
-                    text = "编辑地点",
-                    onClick = { navigator.navigate(AppRoute.PlaceEditor(place.id)) },
-                    variant = AppButtonVariant.TEXT,
-                    enabled = !uiState.isBusy
-                )
-                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-                AppButton(
-                    text = "删除地点",
-                    onClick = holder::requestDelete,
-                    variant = AppButtonVariant.DANGER,
-                    enabled = !uiState.isBusy,
-                    loading = uiState.status == PlaceDetailUiStatus.DELETING
-                )
-                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
             }
             Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
             AppButton(
@@ -184,6 +231,22 @@ private fun PlaceDetailScreen(
                 enabled = !uiState.isBusy
             )
         }
+
+        AppOverflowMenu(
+            expanded = menuExpanded,
+            items = listOf(
+                AppMenuItem("edit", "编辑地点", enabled = !uiState.isBusy),
+                AppMenuItem("delete", "删除地点", destructive = true, enabled = !uiState.isBusy)
+            ),
+            onSelected = { action ->
+                menuExpanded = false
+                when (action) {
+                    "edit" -> uiState.place?.let { navigator.navigate(AppRoute.PlaceEditor(it.id)) }
+                    "delete" -> holder.requestDelete()
+                }
+            },
+            onDismiss = { menuExpanded = false }
+        )
 
         if (uiState.showDeleteConfirmation) {
             AppConfirmDialog(
@@ -203,23 +266,24 @@ private fun PlaceDetailScreen(
 
 @Composable
 private fun PlaceDetails(place: Place) {
-    AppSection(title = place.name, description = place.category.displayName()) {
-        AppBodyText(text = "城市：${place.city}")
-        place.district?.let {
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-            AppBodyText(text = "区域：$it")
-        }
-        place.address?.let {
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-            AppBodyText(text = "地址：$it")
-        }
+    Column {
+        AppPageTitle(place.name)
+        Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
+        AppSecondaryText(
+            listOfNotNull(place.city, place.district, place.category.displayName()).joinToString(" · ")
+        )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+        AppSection(title = "关于这里") {
+            if (!place.note.isNullOrBlank()) AppBodyText(place.note)
+            else AppSecondaryText("这个地点暂时还没有补充介绍。")
         if (place.tags.isNotEmpty()) {
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-            AppSecondaryText(text = "标签：${place.tags.joinToString("、")}")
-        }
-        place.note?.let {
             Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-            AppSecondaryText(text = it)
+                AppCaptionText(place.tags.joinToString("  ") { "#$it" })
+            }
+        }
+        Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+        AppSection(title = "地址") {
+            AppBodyText(place.address ?: listOfNotNull(place.city, place.district).joinToString(" · "))
         }
     }
 }

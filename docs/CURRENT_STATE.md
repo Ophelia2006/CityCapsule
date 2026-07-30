@@ -139,3 +139,5 @@ P0-3A 于 2026-07-29 取代 P0-2 的根 Tab replace：Home/Timeline/Profile type
 - `DONE`：AppBottomNavigation 只存在于单一 AppShell，点击驱动无手势根 Pager 动画；重复点击 no-op，根切换不写入原生返回栈。
 - `PARTIAL`：SearchField、Overflow Menu、Bottom Sheet 尚未接入正式 Home/详情页；组件存在不等于对应 Feature 完成。
 - `PARTIAL`：Elevation 尚未完成双端阴影视觉走查；AppIcon 首版需要 Android/HarmonyOS 字形一致性验收。
+
+- 2026-07-30：P0-4 Place Detail 已产品化：真实地点内容 → 想去探索行为 → 最近城市记忆 → 记录 CTA 的层级已落地；类别 Hero fallback、地址降级、更多菜单与最近三条已发布 Capsule 已接通。shared 161 tests 通过；双端设备视觉与交互仍需按验收流程确认。

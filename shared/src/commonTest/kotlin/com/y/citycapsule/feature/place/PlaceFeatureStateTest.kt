@@ -1,7 +1,8 @@
-package com.y.citycapsule.feature.place
+﻿package com.y.citycapsule.feature.place
 
 import com.y.citycapsule.core.capsule.CapsuleDraft
 import com.y.citycapsule.core.capsule.CapsuleIdGenerator
+import com.y.citycapsule.core.capsule.CapsuleClock
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.favorite.FavoritePlaceIds
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
@@ -35,6 +36,31 @@ class PlaceFeatureStateTest {
 
         assertEquals(setOf(PlaceCategory.NATURE), holder.state.filter.categories)
         assertTrue(holder.state.visiblePlaces.all { it.category == PlaceCategory.NATURE })
+    }
+
+    @Test
+    fun detailExposesThreeNewestMemoriesInDescendingOrder() {
+        val fixture = fixture()
+        repeat(4) { index ->
+            fixture.capsuleRepository.publish(
+                CapsuleDraft(content = "记忆 $index", placeId = "seed_shanghai_museum")
+            ) {}
+        }
+        val holder = PlaceDetailStateHolder(
+            "seed_shanghai_museum",
+            fixture.placeRepository,
+            fixture.favoriteRepository,
+            fixture.capsuleRepository
+        )
+
+        holder.load()
+
+        assertEquals(4, holder.state.memoryCount)
+        assertEquals(3, holder.state.recentMemories.size)
+        assertEquals(
+            holder.state.recentMemories.sortedByDescending { it.createdAtEpochMs },
+            holder.state.recentMemories
+        )
     }
 
     @Test
@@ -268,9 +294,11 @@ class PlaceFeatureStateTest {
             idGenerator = PlaceIdGenerator { "local_${clockValue++}" }
         )
         val favoriteRepository = LocalFavoriteRepository(storage, placeRepository)
+        var capsuleSequence = 0L
         val capsuleRepository = LocalCapsuleRepository(
             storage = storage,
-            idGenerator = CapsuleIdGenerator { "capsule_for_place_test" }
+            clock = CapsuleClock { ++capsuleSequence },
+            idGenerator = CapsuleIdGenerator { "capsule_for_place_test_${++capsuleSequence}" }
         )
         return Fixture(storage, placeRepository, favoriteRepository, capsuleRepository)
     }

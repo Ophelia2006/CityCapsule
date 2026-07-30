@@ -34,7 +34,7 @@ internal fun PlaceSummaryCard(
     )
 }
 
-private fun PlaceCategory.toFallbackKind(): PlaceFallbackKind = when (this) {
+internal fun PlaceCategory.toFallbackKind(): PlaceFallbackKind = when (this) {
     PlaceCategory.LANDMARK -> PlaceFallbackKind.LANDMARK
     PlaceCategory.CULTURE -> PlaceFallbackKind.CULTURE
     PlaceCategory.FOOD -> PlaceFallbackKind.FOOD

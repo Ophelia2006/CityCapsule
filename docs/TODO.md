@@ -1,4 +1,4 @@
-# CityCapsule 待办
+﻿# CityCapsule 待办
 
 优先级同时考虑产品闭环、数据安全和架构阻塞。标签说明来源：`[Initial Plan]`、`[Code Scan]`、`[UI/UX Redesign]`。Record Flow 的 Phase 2 首版已实现；其他 Feature 仍按用户确认的范围逐项推进。
 
@@ -21,7 +21,8 @@
 ## P1：补齐基础版探索与本地数据完整性
 
 - `[Code Scan]` 执行 UI 稳定性专项：发布/编辑/删除 Capsule 后返回时间轴和相册；长列表中段新增最新记录；时间轴/相册中段切换；Editor 选图、保存草稿、移除首张/中间照片；Profile 首次加载、保存和清除。重点检查整页 Loading、滚动归零、状态提示插入下推，以及无稳定 key 导致的缩略图闪白/错图。
-- `[UI/UX Redesign]` 重构 Explore/PlaceCard/PlaceDetail：摄影内容、分类、搜索、整卡点击、“想去”、位置摘要和“在这里留下城市碎片”主 CTA。
+- `[UI/UX Redesign][DONE 2026-07-30]` P0-4 Place Detail 产品化：类别 Hero fallback、地点/城市区域/类型、“想去”图标、关于、真实地址、最近三条城市记忆与“在这里留下城市碎片”主 CTA；编辑/删除已下沉到更多菜单，未展示尚不存在的地图、距离和导航。
+- `[UI/UX Redesign]` 继续重构 Explore/PlaceCard：摄影内容、分类、搜索与整卡点击；真实摄影接入前继续使用已登记的类别 fallback。
 - `[Initial Plan]` 决定 Place source/seed 不可删除规则并迁移现有 catalog；避免无依据直接改 wire schema。
 - `[Initial Plan]` 实现 Location capability、坐标字段迁移、距离和权限降级。
 - `[Initial Plan][UI/UX Redesign]` 接入双端真实地图 Native View、Marker、列表/地图切换和外部导航；地图不可用时降级为列表。

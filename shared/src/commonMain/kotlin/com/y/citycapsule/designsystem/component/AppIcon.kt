@@ -1,4 +1,4 @@
-package com.y.citycapsule.designsystem.component
+﻿package com.y.citycapsule.designsystem.component
 
 import androidx.compose.runtime.Composable
 import com.tencent.kuikly.compose.foundation.background
@@ -18,7 +18,7 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 enum class AppIconName(val glyph: String) {
     BACK("‹"), SEARCH("⌕"), EXPLORE("◇"), RECORD("□"), PROFILE("○"),
     FAVORITE("♡"), FAVORITE_FILLED("♥"), LOCATION("⌖"), ADD("＋"),
-    MORE("•••"), CLOSE("×"), PHOTO("▧"), RETRY("↻"), CHECK("✓")
+    MORE("…"), CLOSE("×"), PHOTO("▧"), RETRY("↻"), CHECK("✓")
 }
 
 @Composable
