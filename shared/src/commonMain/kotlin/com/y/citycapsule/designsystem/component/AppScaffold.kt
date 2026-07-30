@@ -8,6 +8,7 @@ import com.tencent.kuikly.compose.foundation.layout.ColumnScope
 import com.tencent.kuikly.compose.foundation.layout.PaddingValues
 import com.tencent.kuikly.compose.foundation.layout.fillMaxSize
 import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
+import com.tencent.kuikly.compose.foundation.layout.padding
 import com.tencent.kuikly.compose.foundation.layout.widthIn
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.ui.Alignment
@@ -53,6 +54,54 @@ fun AppScaffold(
                         modifier = Modifier.fillMaxWidth(),
                         content = content
                     )
+                }
+            }
+            bottomBar?.invoke()
+        }
+    }
+}
+
+/** Page surface whose header stays visible while only [content] scrolls. */
+@Composable
+fun AppFixedHeaderScaffold(
+    statusBarHeight: Float,
+    modifier: Modifier = Modifier,
+    bottomBar: (@Composable () -> Unit)? = null,
+    header: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val colors = AppTheme.colors
+    val dimensions = AppTheme.dimensions
+
+    Box(
+        modifier = modifier.fillMaxSize().background(colors.background),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = dimensions.contentMaxWidth)
+                .fillMaxSize()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = dimensions.screenHorizontalPadding,
+                        top = statusBarHeight.dp + dimensions.spacingXxl,
+                        end = dimensions.screenHorizontalPadding
+                    ),
+                content = header
+            )
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(
+                    start = dimensions.screenHorizontalPadding,
+                    end = dimensions.screenHorizontalPadding,
+                    bottom = dimensions.spacingXl
+                )
+            ) {
+                item {
+                    Column(Modifier.fillMaxWidth(), content = content)
                 }
             }
             bottomBar?.invoke()

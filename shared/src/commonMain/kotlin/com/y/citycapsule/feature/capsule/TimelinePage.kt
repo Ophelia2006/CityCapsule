@@ -70,39 +70,48 @@ internal fun RecordRootContent(
     LaunchedEffect(holder, revision) { holder.load() }
 
     val dimensions = AppTheme.dimensions
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        state = listState,
-        contentPadding = PaddingValues(
-            start = dimensions.screenHorizontalPadding,
-            top = statusBarHeight.dp + dimensions.spacingXxl,
-            end = dimensions.screenHorizontalPadding,
-            bottom = dimensions.spacingXl
-        )
-    ) {
-        item(key = "record_header") {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = dimensions.screenHorizontalPadding,
+                    top = statusBarHeight.dp + dimensions.spacingXxl,
+                    end = dimensions.screenHorizontalPadding
+                )
+        ) {
             RecordHeader(selectedView, onViewSelected)
         }
-        when {
-            state.status == CapsuleUiStatus.LOADING -> item(key = "record_loading") {
-                LoadingState("正在翻阅城市记忆…")
-            }
-            state.status == CapsuleUiStatus.ERROR -> item(key = "record_error") {
-                ErrorState(state.notice.orEmpty(), onRetry = holder::load)
-            }
-            selectedView == RecordRootView.TIMELINE -> timelineItems(state, navigator)
-            else -> item(key = "record_gallery") {
-                GalleryView(
-                    state = state,
-                    navigator = navigator,
-                    visiblePhotoCount = visiblePhotoCount,
-                    onLoadMore = {
-                        visiblePhotoCount = nextGalleryVisibleCount(
-                            visiblePhotoCount,
-                            galleryPhotos(state).size
-                        )
-                    }
-                )
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            state = listState,
+            contentPadding = PaddingValues(
+                start = dimensions.screenHorizontalPadding,
+                end = dimensions.screenHorizontalPadding,
+                bottom = dimensions.spacingXl
+            )
+        ) {
+            when {
+                state.status == CapsuleUiStatus.LOADING -> item(key = "record_loading") {
+                    LoadingState("正在翻阅城市记忆…")
+                }
+                state.status == CapsuleUiStatus.ERROR -> item(key = "record_error") {
+                    ErrorState(state.notice.orEmpty(), onRetry = holder::load)
+                }
+                selectedView == RecordRootView.TIMELINE -> timelineItems(state, navigator)
+                else -> item(key = "record_gallery") {
+                    GalleryView(
+                        state = state,
+                        navigator = navigator,
+                        visiblePhotoCount = visiblePhotoCount,
+                        onLoadMore = {
+                            visiblePhotoCount = nextGalleryVisibleCount(
+                                visiblePhotoCount,
+                                galleryPhotos(state).size
+                            )
+                        }
+                    )
+                }
             }
         }
     }

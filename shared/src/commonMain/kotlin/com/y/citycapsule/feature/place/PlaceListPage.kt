@@ -50,7 +50,7 @@ import com.y.citycapsule.designsystem.component.AppFilterChip
 import com.y.citycapsule.designsystem.component.AppIconName
 import com.y.citycapsule.designsystem.component.AppMenuItem
 import com.y.citycapsule.designsystem.component.AppOverflowMenu
-import com.y.citycapsule.designsystem.component.AppScaffold
+import com.y.citycapsule.designsystem.component.AppFixedHeaderScaffold
 import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppStatusMessage
 import com.y.citycapsule.designsystem.component.AppTextField
@@ -180,8 +180,10 @@ private fun PlaceListScreen(
     }
 
     RuntimeAppTheme(themeHost = themeHost) {
-        AppScaffold(statusBarHeight = statusBarHeight) {
-            AppActionTopBar(
+        AppFixedHeaderScaffold(
+            statusBarHeight = statusBarHeight,
+            header = {
+                AppActionTopBar(
                 title = if (mode == PlaceListMode.FAVORITES) "想去的地方" else "探索地点",
                 onLeadingClick = { store.dispatch(PlaceListIntent.BackClicked) },
                 actionIcon = if (mode == PlaceListMode.ALL) AppIconName.MORE else null,
@@ -191,9 +193,9 @@ private fun PlaceListScreen(
                 } else {
                     null
                 }
-            )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
-            SearchField(
+                )
+                Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+                SearchField(
                 value = uiState.query,
                 onValueChange = {
                     store.dispatch(PlaceListIntent.QueryChanged(it))
@@ -204,14 +206,16 @@ private fun PlaceListScreen(
                     "搜索地点、分类或区域"
                 },
                 enabled = uiState.status == PlaceListUiStatus.READY
-            )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
-            CategoryChips(uiState, store::dispatch)
-            uiState.notice?.let { notice ->
+                )
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
-                AppStatusMessage(notice.message, tone = notice.tone.toAppStatusTone())
+                CategoryChips(uiState, store::dispatch)
+                Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
             }
-            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+        ) {
+            uiState.notice?.let { notice ->
+                AppStatusMessage(notice.message, tone = notice.tone.toAppStatusTone())
+                Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+            }
             ResultHeader(uiState, onFilterClick = { showFilters = true })
             Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
             PlaceListContent(uiState, store::dispatch)

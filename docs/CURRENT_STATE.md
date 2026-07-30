@@ -1,8 +1,10 @@
 # CityCapsule 当前开发状态
 
+> 账户迁移检查点：2026-07-30 当前 `main` 位于 `da99137 P1-1：Explore`，其后仍有固定操作层与文档的未提交增量。迁移或重新 clone 前必须先阅读 `MIGRATION_HANDOFF.md` 并保存工作树；不能只依赖远端 HEAD。
+
 ## 总体判断
 
-项目处于基础版中期：跨端宿主、统一路由、双端 MMKV、本地档案/首次引导、离线地点，以及“地点详情 → 城市碎片 → 时间轴/相册 → 回忆”已经形成代码闭环。Record Flow 已进入 Phase 2 并完成首版实现，正式“探索 / 记录 / 我的”一级导航已经接通；但 Home 内容、Explore/Profile 视觉以及地图/定位仍未产品化，所以整个 App 仍不是完整基础版。
+项目处于基础版中后期：跨端宿主、统一路由、双端 MMKV、本地档案/首次引导、离线地点，以及“地点详情 → 城市碎片 → 时间轴/相册 → 回忆”已经形成代码闭环。正式“探索 / 记录 / 我的”一级导航、Home、Place Detail、Record 首版视觉与 Explore 首版代码已经接通；这些页面仍有双端设备验收，Profile 聚合、完整 Settings、地图/定位、相机、缩略图和备份尚未完成，所以整个 App 仍不是完整基础版。
 
 状态定义：DONE 为已形成真实闭环；PARTIAL 为可用但缺计划中的关键环节；PLACEHOLDER 为协议/骨架/开发验证；NOT_STARTED 为规划存在而无实现；BLOCKED 为有明确外部阻塞；UNKNOWN 为仅凭仓库无法确认。
 
@@ -81,7 +83,7 @@
 
 ### 尚未实现
 
-- 基础版核心仍缺：地图/定位、相机、缩略图、备份、Home/Profile Redesign 与完整设置。
+- 基础版核心仍缺：地图/定位、相机、缩略图、备份、Profile Redesign 与完整设置；Home/Explore 已完成代码，仍待设备验收。
 - 进阶版与复杂版全部产品功能。
 
 ### 后续新增（初始规划未明确为当前阶段实现）
@@ -118,6 +120,8 @@
 ## 验证状态
 
 2026-07-30 完成 P1-1 Explore 代码收尾：PlaceList/Want To Go 迁为首个轻量 MVI Feature；搜索置顶、分类横向 chips、高级筛选 Bottom Sheet、整行地点点击、新建地点辅助菜单、想去内容列表及档案城市优先/本地点目录降级已落地。新增 MVI 等价回归测试，未以删除旧 StateHolder 测试换取通过。shared、Android 单测与 Android Debug 构建通过；HarmonyOS 构建和双端设备视觉/Effect/lifecycle 行为仍按 `P1_EXPLORE_ACCEPTANCE.md` 验收。
+
+2026-07-30 完成固定操作层代码重构：Explore 固定顶栏/搜索/chips，Record 固定标题与时间轴/相册切换，Capsule Editor 固定关闭/完成，Place/Capsule Detail 固定返回与更多菜单；Bottom Sheet 改为固定标题和 Footer、中间限高滚动。SearchField 去除重复“搜索”标签与绝对叠放图标，改为同一行垂直居中的图标和单行输入。自动化通过，双端小屏/横屏/大字体/软键盘视觉仍待设备验收。
 
 2026-07-28 完成 `:shared:testDebugUnitTest`、Android APK 和 OHOS Kotlin/Native/signed HAP 重建。Android 闪退有完整堆栈证明模拟器运行的是未包含 Pager 媒体模块注册的旧 APK；覆盖安装最新包后，已实测 `DocumentsUI PickActivity` 打开、选择真实图片、回到编辑器并复制到 `files/images/original`，无 `AndroidRuntime` 崩溃。共享媒体 capability 另增加同步桥接异常保护和回归测试，宿主版本错配或模块遗漏时返回 Failure，不再让异常逃逸到 Kuikly 线程。
 

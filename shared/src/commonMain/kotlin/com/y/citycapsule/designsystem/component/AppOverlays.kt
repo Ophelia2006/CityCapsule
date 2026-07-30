@@ -3,13 +3,17 @@ package com.y.citycapsule.designsystem.component
 import androidx.compose.runtime.Composable
 import com.tencent.kuikly.compose.foundation.clickable
 import com.tencent.kuikly.compose.foundation.layout.Box
+import com.tencent.kuikly.compose.foundation.layout.BoxWithConstraints
 import com.tencent.kuikly.compose.foundation.layout.Column
+import com.tencent.kuikly.compose.foundation.layout.ColumnScope
 import com.tencent.kuikly.compose.foundation.layout.Spacer
 import com.tencent.kuikly.compose.foundation.layout.fillMaxSize
 import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
+import com.tencent.kuikly.compose.foundation.layout.heightIn
 import com.tencent.kuikly.compose.foundation.layout.padding
 import com.tencent.kuikly.compose.foundation.layout.widthIn
+import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.window.Dialog
@@ -56,20 +60,33 @@ fun AppBottomSheet(
     title: String,
     onDismiss: () -> Unit,
     dismissLabel: String? = "关闭",
+    footer: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     if (!visible) return
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, scrimColor = AppTheme.colors.scrim)) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            AppCard(Modifier.fillMaxWidth().widthIn(max = AppTheme.dimensions.contentMaxWidth)) {
+        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            AppCard(
+                Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = AppTheme.dimensions.contentMaxWidth)
+                    .heightIn(max = maxHeight * BOTTOM_SHEET_MAX_HEIGHT_FRACTION)
+            ) {
                 AppSectionTitle(title)
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
-                Column { content() }
-                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-                dismissLabel?.let { label ->
-                    AppButton(label, onDismiss, variant = AppButtonVariant.TEXT)
+                LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth()) {
+                    item { Column(Modifier.fillMaxWidth()) { content() } }
+                }
+                if (footer != null || dismissLabel != null) {
+                    Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+                    footer?.invoke(this)
+                    dismissLabel?.let { label ->
+                        AppButton(label, onDismiss, variant = AppButtonVariant.TEXT)
+                    }
                 }
             }
         }
     }
 }
+
+private const val BOTTOM_SHEET_MAX_HEIGHT_FRACTION = 0.85f

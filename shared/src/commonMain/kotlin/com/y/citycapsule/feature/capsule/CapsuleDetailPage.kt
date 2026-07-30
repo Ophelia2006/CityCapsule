@@ -49,7 +49,7 @@ import com.y.citycapsule.designsystem.component.AppIcon
 import com.y.citycapsule.designsystem.component.AppIconName
 import com.y.citycapsule.designsystem.component.AppMenuItem
 import com.y.citycapsule.designsystem.component.AppOverflowMenu
-import com.y.citycapsule.designsystem.component.AppScaffold
+import com.y.citycapsule.designsystem.component.AppFixedHeaderScaffold
 import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppSectionTitle
 import com.y.citycapsule.designsystem.component.AppStatusMessage
@@ -112,8 +112,10 @@ private fun CapsuleDetailScreen(
     LaunchedEffect(holder, revision) { holder.load() }
 
     RuntimeAppTheme(themeHost = themeHost) {
-        AppScaffold(statusBarHeight = statusBarHeight) {
-            AppActionTopBar(
+        AppFixedHeaderScaffold(
+            statusBarHeight = statusBarHeight,
+            header = {
+                AppActionTopBar(
                 title = "城市碎片",
                 subtitle = state.place?.name,
                 onLeadingClick = navigator::back,
@@ -121,8 +123,10 @@ private fun CapsuleDetailScreen(
                 actionDescription = "更多操作",
                 actionEnabled = state.status == CapsuleUiStatus.READY,
                 onActionClick = { menuExpanded = true }
-            )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+                )
+                Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+            }
+        ) {
             when (state.status) {
                 CapsuleUiStatus.LOADING -> LoadingState("正在读取这段城市记忆…")
                 CapsuleUiStatus.NOT_FOUND -> EmptyState(

@@ -22,6 +22,7 @@
 
 ## P1：补齐基础版探索与本地数据完整性
 
+- `[UI/UX Redesign][DONE code 2026-07-30]` 固定关键操作层：Explore 顶栏/搜索/chips、Record 标题/视图切换、Capsule Editor 关闭/完成、Place/Capsule Detail 返回/更多；Bottom Sheet 固定头尾并让中部滚动；SearchField 图标与文字对齐。仍需 Android/HarmonyOS 小屏、横屏、大字体、键盘遮挡和滚动边界真机验收。
 - `[Architecture Decision]` PlaceList 试点双端验收后，后续页面级重构默认按 `MVI_ARCHITECTURE.md` 渐进迁移；建议顺序 Home → PlaceDetail → Profile → Timeline/Gallery/CapsuleDetail → 编辑器/Onboarding。小缺陷和纯样式修改不强制扩大为架构迁移。
 - `[Code Scan]` 执行 UI 稳定性专项：发布/编辑/删除 Capsule 后返回时间轴和相册；长列表中段新增最新记录；时间轴/相册中段切换；Editor 选图、保存草稿、移除首张/中间照片；Profile 首次加载、保存和清除。重点检查整页 Loading、滚动归零、状态提示插入下推，以及无稳定 key 导致的缩略图闪白/错图。
 - `[UI/UX Redesign][DONE 2026-07-30]` P0-4 Place Detail 产品化：类别 Hero fallback、地点/城市区域/类型、“想去”图标、关于、真实地址、最近三条城市记忆与“在这里留下城市碎片”主 CTA；编辑/删除已下沉到更多菜单，未展示尚不存在的地图、距离和导航。

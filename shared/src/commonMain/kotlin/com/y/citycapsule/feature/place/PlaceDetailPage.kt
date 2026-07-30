@@ -40,10 +40,11 @@ import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.capsule.KuiklyLocalCapsuleDateFormatter
 import com.y.citycapsule.feature.capsule.CapsuleFeatureRuntime
 import com.y.citycapsule.designsystem.component.AppBodyText
+import com.y.citycapsule.designsystem.component.AppActionTopBar
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppConfirmDialog
-import com.y.citycapsule.designsystem.component.AppScaffold
+import com.y.citycapsule.designsystem.component.AppFixedHeaderScaffold
 import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppSection
 import com.y.citycapsule.designsystem.component.AppStatusMessage
@@ -125,25 +126,25 @@ private fun PlaceDetailScreen(
     }
 
     RuntimeAppTheme(themeHost = themeHost) {
-        AppScaffold(statusBarHeight = statusBarHeight) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                AppTopBar(
+        AppFixedHeaderScaffold(
+            statusBarHeight = statusBarHeight,
+            header = {
+                AppActionTopBar(
                     title = "地点详情",
                     subtitle = "发现地点，也留下属于你的城市片段。",
-                    modifier = Modifier.weight(1f)
+                    onLeadingClick = navigator::back,
+                    actionIcon = AppIconName.MORE,
+                    actionDescription = "更多地点操作",
+                    onActionClick = { menuExpanded = true },
+                    actionEnabled = uiState.place != null && uiState.status == PlaceDetailUiStatus.READY
                 )
-                AppIconButton(
-                    icon = AppIconName.MORE,
-                    contentDescription = "更多地点操作",
-                    onClick = { menuExpanded = true },
-                    enabled = uiState.place != null && uiState.status == PlaceDetailUiStatus.READY
-                )
+                Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
             }
+        ) {
             uiState.notice?.let {
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
                 AppStatusMessage(it.message, tone = it.tone.toAppStatusTone())
             }
-            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
             val place = uiState.place
             if (place == null) {
                 AppSecondaryText(
@@ -223,13 +224,6 @@ private fun PlaceDetailScreen(
                     enabled = uiState.status == PlaceDetailUiStatus.READY
                 )
             }
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-            AppButton(
-                text = "返回上一页",
-                onClick = navigator::back,
-                variant = AppButtonVariant.TEXT,
-                enabled = !uiState.isBusy
-            )
         }
 
         AppOverflowMenu(

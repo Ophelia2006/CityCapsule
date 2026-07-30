@@ -69,8 +69,10 @@ private fun CapsuleEditorScreen(
     }
     LaunchedEffect(holder) { holder.load() }
     RuntimeAppTheme(themeHost = themeHost) {
-        AppScaffold(statusBarHeight = statusBarHeight) {
-            AppActionTopBar(
+        AppFixedHeaderScaffold(
+            statusBarHeight = statusBarHeight,
+            header = {
+                AppActionTopBar(
                 title = if (capsuleId == null) "这一刻" else "编辑城市碎片",
                 onLeadingClick = { holder.requestClose(navigator::back) },
                 leadingIcon = AppIconName.CLOSE,
@@ -82,8 +84,10 @@ private fun CapsuleEditorScreen(
                     }
                 },
                 actionEnabled = state.status == CapsuleUiStatus.READY
-            )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+                )
+                Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+            }
+        ) {
             when (state.status) {
                 CapsuleUiStatus.LOADING -> LoadingState("正在准备这一刻…")
                 CapsuleUiStatus.NOT_FOUND -> EmptyState(
@@ -104,33 +108,34 @@ private fun CapsuleEditorScreen(
             visible = state.showDiscardConfirmation,
             title = "要离开这一刻吗？",
             onDismiss = holder::dismissDiscard,
-            dismissLabel = null
+            dismissLabel = null,
+            footer = {
+                AppButton(
+                    text = "保存草稿并退出",
+                    onClick = { holder.saveDraftAndClose(navigator::back) },
+                    enabled = state.status == CapsuleUiStatus.READY
+                )
+                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+                AppButton(
+                    text = "继续编辑",
+                    onClick = holder::dismissDiscard,
+                    variant = AppButtonVariant.SECONDARY,
+                    enabled = state.status == CapsuleUiStatus.READY
+                )
+                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+                AppButton(
+                    text = "放弃修改",
+                    onClick = { holder.discard(navigator::back) },
+                    variant = AppButtonVariant.DANGER,
+                    enabled = state.status == CapsuleUiStatus.READY
+                )
+            }
         ) {
             AppSecondaryText("你可以先把当前内容保存在这台设备上，下次从同一地点继续。")
             state.notice?.takeIf { it.contains("草稿") }?.let { notice ->
                 Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
                 AppStatusMessage(notice, tone = AppStatusTone.ERROR)
             }
-            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-            AppButton(
-                text = "保存草稿并退出",
-                onClick = { holder.saveDraftAndClose(navigator::back) },
-                enabled = state.status == CapsuleUiStatus.READY
-            )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-            AppButton(
-                text = "继续编辑",
-                onClick = holder::dismissDiscard,
-                variant = AppButtonVariant.SECONDARY,
-                enabled = state.status == CapsuleUiStatus.READY
-            )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-            AppButton(
-                text = "放弃修改",
-                onClick = { holder.discard(navigator::back) },
-                variant = AppButtonVariant.DANGER,
-                enabled = state.status == CapsuleUiStatus.READY
-            )
         }
     }
 }

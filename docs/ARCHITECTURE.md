@@ -50,7 +50,7 @@ Capsule Editor
 - `core/favorite`：独立收藏 ID 集合和 Repository；写入前检查地点，读取时剔除悬空 ID。
 - `core/capsule`：城市碎片、草稿、心情/标签/媒体路径模型，JSON codec、校验、日期标签和有上限本地 Repository。
 - `core/media`：平台无关 Photo Picker 协议与 `CCMediaModule` transport；不依赖 Android/ArkTS 类型。
-- `designsystem`：语义颜色、Typography、Spacing/Radius/Motion token 及共享组件。
+- `designsystem`：语义颜色、Typography、Spacing/Radius/Motion token 及共享组件；`AppFixedHeaderScaffold` 提供固定 Header/独立滚动正文，`AppBottomSheet` 提供固定标题与 Footer、中间限高滚动区。旧 `AppScaffold` 的整页滚动语义保留给未迁移页面。
 - `feature/onboarding`、`feature/profile`、`feature/place`、`feature/capsule`：页面与 callback 型 StateHolder；Capsule 包含编辑、详情、时间轴、相册和共享照片组件。
 - `app/navigation`：`AppShellPager/AppShellPage` 是唯一产品根壳；`AppRootScaffold` 只创建一个 Bottom Navigation，根 `HorizontalPager` 常驻 Home、Record、Profile 三个内容树。`AppRootTab` 提供稳定 id、typed 入口别名和 Pager index。
 - shared 顶层 `HomePage`、`SettingsPage`：Home 已接正式一级导航但内容仍是早期探索入口；Settings 保留真实主题偏好、首次引导与返回操作，不再承载路由验收入口。
