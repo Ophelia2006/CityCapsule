@@ -24,7 +24,7 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 fun AppTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
+    label: String?,
     modifier: Modifier = Modifier,
     placeholder: String = "",
     supportingText: String? = null,
@@ -44,8 +44,10 @@ fun AppTextField(
     val contentColor = if (enabled) colors.textPrimary else colors.disabledContent
 
     Column(modifier = modifier.fillMaxWidth()) {
-        AppBodyText(text = label)
-        Spacer(Modifier.height(dimensions.spacingXs))
+        if (!label.isNullOrBlank()) {
+            AppBodyText(text = label)
+            Spacer(Modifier.height(dimensions.spacingXs))
+        }
         TextField(
             value = value,
             placeholder = placeholder,

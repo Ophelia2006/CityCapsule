@@ -55,6 +55,7 @@ fun AppBottomSheet(
     visible: Boolean,
     title: String,
     onDismiss: () -> Unit,
+    dismissLabel: String? = "关闭",
     content: @Composable () -> Unit
 ) {
     if (!visible) return
@@ -65,7 +66,9 @@ fun AppBottomSheet(
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
                 Column { content() }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-                AppButton("关闭", onDismiss, variant = AppButtonVariant.TEXT)
+                dismissLabel?.let { label ->
+                    AppButton(label, onDismiss, variant = AppButtonVariant.TEXT)
+                }
             }
         }
     }

@@ -13,6 +13,7 @@
 | Android/HarmonyOS Kuikly 宿主 | DONE | 两端有启动、host、adapter 与平台工程；不代表所有业务双端手测完成 |
 | 强类型共享路由 | DONE | `AppRoute/AppNavigator/AppRouteTable` + 双端 dispatcher/stack tests |
 | 单一 AppShell / 正式一级导航 | DONE（代码）/PARTIAL（设备体验） | 一个 `AppShellPage`、一个 Bottom Navigation、三个常驻根内容；点击 Tab 以 `animateScrollToPage` 切换，根手势关闭，重复点击 no-op；shared/Android/HarmonyOS 测试与双端包构建通过，仍待设备视觉/动画/返回键走查 |
+| MVI 表现层迁移 | NOT_STARTED（目标已批准） | 当前仍有 9 个 callback 型 StateHolder，UI 通过具体方法和 `onStateChanged` 更新；无项目级 Intent/Mutation/Reducer/Effect/StateFlow Store，commonMain 无显式 coroutines 依赖。已决定先做双端技术 Spike，再以 PlaceList/Explore 渐进试点 |
 | Record 容器 | PARTIAL | Timeline/Gallery 已是同一 `RecordRootContent` 的状态视图并共享 catalog/底栏；点击切换和视图状态保留已实现，内部 HorizontalPager 与左右滑动尚未实现；独立 Gallery route 仅作兼容 |
 | MMKV bridge 与主题旧值迁移 | DONE | 双端 2.4.0、typed protocol、迁移状态和测试资产 |
 | Shared 主题与基础组件 | PARTIAL | 暖白/近黑/暖琥珀 Light/Dark token、统一 AppIcon 入口、PlaceCard/CapsuleCard、状态组件与 Bottom Navigation 已存在；图标仍是文本 glyph，Elevation 未完成视觉落地，缺自适应 pane |
@@ -28,7 +29,7 @@
 | 权限原生页 | PLACEHOLDER | Harmony 可达但明确写“具体权限申请待实现”；Android launcher 未注册 |
 | 文件导入原生页 | PLACEHOLDER | Harmony 可达但未调文件选择器；Android launcher 未注册 |
 | 城市碎片模型/Repository/编辑器 | DONE（代码闭环） | 模型/校验/Codec、catalog/draft Key、Repository、编辑/草稿/发布/更新/退出确认和照片选择均存在；shared/Android 测试通过 |
-| 时间轴/相册/碎片详情 | DONE（代码闭环）/PARTIAL（体验） | 时间倒序、地点补全、两列照片网格、详情/编辑/删除/回地点已接通；缺月份分组、平板双栏和设备手测 |
+| 时间轴/相册/碎片详情 | DONE（代码与视觉结构）/PARTIAL（设备体验） | 时间轴按本地年月分组并以大日期、地点、照片与正文摘录呈现；相册按年月分组、自适应 3/4 列并分批增加最多 18 张原图；详情照片优先，编辑/删除进入更多菜单；仍缺缩略图、平板双栏和设备手测 |
 | 相册与业务文件媒体 | PARTIAL | Android/HarmonyOS 原生 Photo Picker、Pager/native 双侧模块注册、沙箱原图复制及引用保护清理已实现；Android 模拟器已完成系统 Picker 选图、回传和沙箱复制；HarmonyOS 已修复把 `file://media/...` 当普通路径传给 `copyFileSync` 的问题，现先打开受控 URI、使用 fd 复制并关闭文件；共享桥接同步异常会降级为 Failure 而不再使页面进程崩溃；最新 signed HAP 已编译，仍待真机安装和完整交互复验；无相机、缩略图 |
 | 导入导出/备份 | NOT_STARTED | 无 manifest/ZIP/Repository/预览；文件页不构成实现 |
 | 定位/距离/外部导航 | NOT_STARTED | Place 无坐标，平台无定位/地图能力 |
@@ -55,10 +56,10 @@
 | Harmony Permission | PLACEHOLDER | route params | typed native route | back | 只显示骨架与参数 |
 | Harmony File Import | PLACEHOLDER | route params | typed native route | back | 只显示骨架与参数 |
 | Harmony Route Fallback | DONE（基础设施） | 失败参数 | guard/dispatcher | back/Home | 安全降级页，含必要诊断文本 |
-| Capsule Editor | DONE（代码） | Capsule/Place Repository + PhotoPicker | Place Detail / Capsule Detail | Capsule Detail/back | 轻量日记编辑、照片/心情/标签、草稿和退出确认 |
-| Capsule Detail | DONE（代码） | Capsule/Place Repository | Editor/Timeline/Gallery | Place Detail/Editor/Timeline | 回忆内容、照片、地点关联与删除确认 |
-| Timeline | DONE（当前代码）/PARTIAL（目标体验） | Capsule/Place Repository | AppShell 记录 Tab/Place Detail/Capsule Detail | Capsule Detail | 已迁入 RecordRootContent 的时间轴视图；内部 Pager 动画/手势未做 |
-| Gallery | DONE（当前代码）/PARTIAL（兼容清理） | 同 Timeline | AppShell Record segmented control；兼容 route | Capsule Detail/Timeline | 正式相册已是 RecordRootContent 内部视图；独立 GalleryPage/route 暂留兼容 |
+| Capsule Editor | DONE（代码与视觉结构）/PARTIAL（设备体验） | Capsule/Place Repository + PhotoPicker | Place Detail / Capsule Detail | Capsule Detail/back | 顶栏关闭/完成、照片优先、自然正文、心情/地点/标签；脏草稿退出明确提供保存草稿、继续编辑、放弃修改 |
+| Capsule Detail | DONE（代码与视觉结构）/PARTIAL（设备体验） | Capsule/Place Repository | Editor/Timeline/Gallery | Place Detail/Editor/Record root | 照片优先，日期/心情/正文/标签/地点形成阅读层级；编辑与删除只在更多菜单，删除后回 Record root |
+| Timeline | DONE（代码与视觉结构）/PARTIAL（设备体验） | Capsule/Place Repository | AppShell 记录 Tab/Place Detail/Capsule Detail | Capsule Detail | 按本地年月分组，每条记忆为独立 lazy item，使用大日期、地点、缩略照片位与正文摘录；内部 Pager 动画/手势未做 |
+| Gallery | DONE（代码与视觉结构）/PARTIAL（缩略图/兼容清理/设备体验） | 同 Timeline | AppShell Record segmented control；兼容 route | Capsule Detail/Timeline | 按本地年月分组的自适应 3/4 列网格；当前无缩略图能力，以 18 张一批限制原图同时加载；独立 GalleryPage/route 暂留兼容 |
 | MapExplore | NOT_STARTED | 无 | 当前正式 UI 无入口 | 无 | 仅路由协议 |
 
 ## 规划对照
@@ -141,3 +142,11 @@ P0-3A 于 2026-07-29 取代 P0-2 的根 Tab replace：Home/Timeline/Profile type
 - `PARTIAL`：Elevation 尚未完成双端阴影视觉走查；AppIcon 首版需要 Android/HarmonyOS 字形一致性验收。
 
 - 2026-07-30：P0-4 Place Detail 已产品化：真实地点内容 → 想去探索行为 → 最近城市记忆 → 记录 CTA 的层级已落地；类别 Hero fallback、地址降级、更多菜单与最近三条已发布 Capsule 已接通。shared 161 tests 通过；双端设备视觉与交互仍需按验收流程确认。
+
+- 2026-07-30：P0-5 Record Flow 视觉结构完成：Editor 只保留顶栏“完成”主动作并将三种草稿退出选择收进离开流程；Timeline 改为本地年月分组的 lazy 记忆条目；Gallery 改为年月分组、自适应网格和 18 张一批的原图加载保护；Detail 改为照片优先且编辑/删除只存在于更多菜单；空态不再解释技术实现。shared/Android 单测、Android Debug APK 与 HarmonyOS Kotlin/Native arm64 编译通过。当前环境因未配置 `OHOS_SDK_HOME`/`DEVECO_STUDIO_HOME` 无法完成 HarmonyOS native link/HAP；双端视觉、返回栈、大字体与媒体真机行为仍须按 `P0_RECORD_VISUAL_ACCEPTANCE.md` 验收。
+
+- 2026-07-30：修复 P0-5 多图与编辑回归：详情/Editor 照片改用无孤立尾格的均衡行布局，2/3/5 张不再留下固定三列空洞；照片路径作为 Compose stable key，减少增删时 painter slot 错位与鸿蒙闪动；照片删除控件保持 48dp 触控区但视觉容器统一为 32dp；新建发布仍 replace 到详情，编辑发布改为 back 到原详情并由 `CapsuleFeatureRuntime.revision` 触发重载，避免每次编辑叠加一个旧详情页。布局与导航策略新增 shared 回归测试，Android 单测/APK 与 HarmonyOS arm64 共享编译通过，仍需双端真机视觉确认。
+
+- 2026-07-30：鸿蒙复验发现仅在分行 `Row` 内增加 stable key 仍不能阻止跨行照片销毁。均衡网格现改为单一自定义 `Layout` 父节点：全部照片以路径 key 作为直接子项，增删后只重新测量和放置，避免未删除 painter 因跨父节点迁移而闪白。紧凑删除按钮的叉号改为 Canvas 双线绘制，不再依赖两端字体基线。shared/Android 单测与 HarmonyOS arm64 共享编译通过，需用最新 APK/HAP 复验视觉结果。
+
+- 2026-07-30：修正详情页恰好 2 张照片时的尺寸不一致：双图现在使用同一行等宽、等高的正方形布局；1 张仍为 Hero，3 张及以上仍为 Hero + 均衡网格。该调整只影响展示容器，不修改原图或媒体存储。

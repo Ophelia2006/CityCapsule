@@ -41,4 +41,14 @@ class ComponentPaletteTest {
         assertEquals(DarkAppColorScheme.onWarningContainer, warning.content)
         assertEquals(DarkAppColorScheme.errorContainer, error.background)
     }
+
+    @Test
+    fun balancedPhotoRowsNeverLeaveAnOrphanGap() {
+        assertEquals(listOf(2), balancedPhotoRowSizes(2))
+        assertEquals(listOf(3), balancedPhotoRowSizes(3))
+        assertEquals(listOf(2, 2), balancedPhotoRowSizes(4))
+        assertEquals(listOf(3, 2), balancedPhotoRowSizes(5))
+        assertEquals(listOf(3, 2, 2), balancedPhotoRowSizes(7))
+        assertEquals(7, balancedPhotoRowSizes(7).sum())
+    }
 }

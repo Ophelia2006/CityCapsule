@@ -124,10 +124,22 @@ ADR-019 已取代 ADR-016 的根级 typed replace；Record 内部的二级 Pager
 
 P0-3 将排序规则冻结为“当前档案城市优先 → 想去或尚未记录优先 → 同优先级内按类别轮转 → category enum 与 placeId 稳定兜底”。该规则只使用 Profile、Place、Favorite、Capsule 的本地真实数据，不宣称 AI、个性化、附近或实时推荐。Home 最多展示 3 条真实最近记忆；快速记录必须先选择真实地点并传递非空 `placeId`。
 
+## ADR-020：后续表现层采用按 Feature 渐进迁移的轻量 MVI
+
+状态：Accepted target；技术 Spike 与首个 Feature 迁移尚未完成。
+
+用户明确要求后续代码尽量采用 MVI。当前代码已有不可变 `UiState`、集中状态更新、可替换 Repository 和 StateHolder 单测，但仍是 callback 型 StateHolder，并没有统一 Intent、Mutation、纯 Reducer、Effect、StateFlow 或 Store 生命周期协议。`shared/commonMain` 也没有显式声明 coroutines 依赖。因此该决策不能写成“项目当前已经使用 MVI”。
+
+项目采用自有薄 MVI Contract，并按 Feature 渐进迁移；不引入全局 Redux Store、不一次性重写 9 个 StateHolder，也不在验证前引入第三方 MVI 框架。首个试点为 PlaceList/Explore，之后依次考虑 Home、PlaceDetail、Profile、Record 只读页，最后再处理编辑器、Onboarding 和 AppShell。
+
+固定边界是：UI 只发送 Intent、读取 StateFlow State、消费一次性 Effect；异步结果经 Executor 转为 Mutation，由纯 Reducer 产生新 State。导航仍由 UI 使用 typed `AppNavigator` 执行，Store 不依赖平台或 Compose UI 状态。UseCase/DataSource 只在出现真实业务边界时增加，MVI 不等同于为 Clean Architecture 补空层。
+
+在业务迁移前先完成 Android/HarmonyOS 技术 Spike，验证显式 coroutines 依赖、StateFlow 收集、Effect 单次消费、Intent 顺序与 `dispose()`。Effect 的具体 Flow 实现、Scope/Dispatcher 和 callback/suspend 适配方式由 Spike 结果决定。详细规则见 `MVI_ARCHITECTURE.md`。
+
 ## 尚无决策依据的议题
 
 - 为什么 Place 删除 source/坐标/封面、为何所有 seed 地点允许删除。
-- 为什么当前没有 UseCase/DataSource 层。
+- 当前是否、何时为具体跨 Repository 规则引入 UseCase/DataSource 层。
 - iOS/H5/小程序是否进入产品支持范围。
 - Android 为什么同时保留 Picasso 与 Glide。
 - 地图供应商、网络库、图片长期加载方案和数据层未来是否改为数据库。

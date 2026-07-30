@@ -106,24 +106,23 @@ Primary 是打开地点行；搜索和类别辅助缩小范围。地点行必须
 
 ```text
 ┌──────────────────────────┐
-│ × 这一刻        保存草稿   │
-│ 静安雕塑公园               │
+│ × 这一刻            完成   │
 │                            │
-│ [ + 添加照片 ][图][图]      │
-│ 说说这一刻…                 │
+│ 照片                        │
+│ [图][图]  从相册选择照片      │
+│ 写下这一刻                   │
 │ ┌──────────────────────┐  │
 │ │ 风吹过树影，城市慢下来。 │  │
 │ └──────────────────────┘  │
 │ 心情  [平静] 开心 惊喜       │
-│ 标签  #散步 #傍晚   +        │
-│                            │
-│ [ 保存到城市记忆          ] │
+│ 📍 静安雕塑公园              │
+│ 标签  #散步 #傍晚            │
 └──────────────────────────┘
 ```
 
-首屏优先照片与正文，地点作为上下文。唯一 Primary 是发布；草稿是文字动作，关闭触发未保存确认。照片可滚动；心情/标签随后。表单分组靠留白，不把每组套 Card；Picker 状态用 Bottom Sheet/行内反馈。
+首屏优先照片与正文，地点作为上下文。唯一 Primary 是顶栏“完成”；页面底部不再重复发布按钮。关闭脏编辑器时 Bottom Sheet 依次提供“保存草稿并退出 / 继续编辑 / 放弃修改”，无修改时直接返回。照片可滚动；心情、地点与标签随后。表单分组靠留白，不把每组套 Card；Picker 状态用行内反馈。
 
-组件树：`CapsuleEditorScreen[页面] → EditorTopBar → PlaceContext[只展示] → EditablePhotoGrid[数据] → BodyTextField[数据] → MoodSelector[Feature] → TagEditor[Feature] → PublishButton → DiscardDialog[通用]`。
+组件树：`CapsuleEditorScreen[页面] → AppActionTopBar → EditablePhotoGrid[数据] → BodyTextField[数据] → MoodSelector[Feature] → PlaceContext[只展示] → TagEditor[Feature] → ExitBottomSheet[通用]`。
 
 ## 6. 记录时间轴
 
@@ -145,7 +144,7 @@ Primary 是打开地点行；搜索和类别辅助缩小范围。地点行必须
 └──────────────────────────┘
 ```
 
-日期与地点形成阅读骨架，Primary 是打开碎片整卡。Timeline 是 Record 根容器的默认视图；当前通过 segmented control 点击切换 Timeline/Gallery，只改变 Compose 状态，不执行页面出入栈。TabRow + HorizontalPager 与左右滑动属于 P0-3B Target，尚未实现。一级底栏由外层唯一 AppShell 持有并持续显示。时间线轴、日期标题不用 Card；碎片内容可使用低 elevation CapsuleCard。更早内容自然滚动。
+日期与地点形成阅读骨架，Primary 是打开整条记忆。Timeline 是 Record 根容器的默认视图；当前通过 segmented control 点击切换 Timeline/Gallery，只改变 Compose 状态，不执行页面出入栈。TabRow + HorizontalPager 与左右滑动属于 P0-3B Target，尚未实现。一级底栏由外层唯一 AppShell 持有并持续显示。月份标题和日期不用 Card；每条记忆作为独立 lazy item，以照片位、地点和正文摘录形成内容层级，不再套整块通用 Card。更早内容自然滚动。
 
 组件树：`AppShell[唯一 AppBottomNavigation] → RecordRootContent[根内容] → RecordHeader → ViewSegmentedControl[通用] → TimelineList → DateHeader → TimelineRail → CapsuleCard[数据/通用]`。
 
@@ -156,8 +155,10 @@ Primary 是打开地点行；搜索和类别辅助缩小范围。地点行必须
 │ 我的城市记忆               │
 │   时间轴   [ 相册 ]         │
 │                            │
+│ 2026 · 7                    │
 │ [图1][图2][图3]             │
 │ [图4][图5][图6]             │
+│ 2026 · 6                    │
 │ [图7][图8][图9]             │
 │                            │
 │ 图片按城市碎片归属，点开回忆  │
@@ -166,7 +167,7 @@ Primary 是打开地点行；搜索和类别辅助缩小范围。地点行必须
 └──────────────────────────┘
 ```
 
-照片是全部视觉焦点，Primary 是点击照片进入所属碎片。Gallery 是同一 Record 根容器的内部视图，不再作为最终产品中的独立二级页面；时间轴/相册切换不产生导航栈记录，外层 AppShell 的一级底栏持续显示。网格继续滚动；不在每张图叠加按钮或 Card。加载失败单格显示 fallback，整体 catalog 仍可浏览。
+照片是全部视觉焦点，Primary 是点击照片进入所属碎片。Gallery 是同一 Record 根容器的内部视图，不再作为最终产品中的独立二级页面；时间轴/相册切换不产生导航栈记录，外层 AppShell 的一级底栏持续显示。照片按本地年月分组，网格在手机为 3 列、较宽窗口为 4 列；当前缩略图能力尚未实现，因此先按 18 张一批逐步增加原图，避免首屏同时解码整个相册。不在每张图叠加按钮或 Card。加载失败单格显示 fallback，整体 catalog 仍可浏览。
 
 组件树：`AppShell[唯一 AppBottomNavigation] → RecordRootContent[根内容] → RecordHeader → ViewSegmentedControl → PhotoGrid[数据/通用]`。
 

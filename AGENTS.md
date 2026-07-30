@@ -29,6 +29,16 @@ CityCapsule / 城市胶囊是“城市探索 + 个人城市记录工具”，核
 
 业务页面不得直接依赖 Android SDK、ArkTS、HMRouter、MMKV 实例或原始路由字符串。平台 API 只能位于平台宿主/adapter/capability 边界。网络能力未来必须经 `RemoteDataSource` / Repository 接入，不能写入 Page、StateHolder 或领域模型。
 
+## MVI 渐进迁移规则
+
+- 后续新建 Feature 的表现层默认使用项目内轻量 MVI；现有 Feature 在发生页面级重构时按 Feature 迁移，不进行全项目一次性重写。小范围缺陷修复和纯视觉调整不强制扩大为 MVI 迁移。
+- MVI 的固定语义是 `UI → Intent → Store/Executor → Mutation → pure Reducer → StateFlow<State>`，一次性导航/关闭等行为通过 Effect 回到 UI。Effect 不得代替可恢复 State。
+- 每个 Feature 一个 Store，不建立全局 Redux Store，也不为了形式创建空 UseCase/DataSource。简单 CRUD 可由 Store 访问 Repository；真实跨 Repository 业务规则再引入 UseCase。
+- 迁移完成的 UI 只能读取 State、`dispatch(Intent)` 和消费 Effect；Store 不持有 `AppNavigator`、Compose `PagerState/LazyListState`、平台对象或原始路由字符串。
+- Store 必须串行处理 Intent/Mutation，并有明确 `dispose()` 生命周期。异步 Repository/Capability 结果必须回到 Mutation/Reducer；不得从 callback 直接并发写 State。
+- 在首个 Feature 迁移前必须完成协程、StateFlow 收集、Effect 单次消费与 Store 销毁的 Android/HarmonyOS 技术 Spike。Spike 通过前不得批量生成空 Store。
+- 第一迁移试点为 PlaceList/Explore；现有 Record Flow、AppShell 和其余 StateHolder 保持现状，按 `docs/MVI_ARCHITECTURE.md` 的顺序渐进迁移。
+
 ## 数据与路由规则
 
 - 新持久化 Key 只能登记在 `AppStorageKeys`，并同步审查 Android/HarmonyOS 协议、迁移和文档。
@@ -65,7 +75,7 @@ CityCapsule / 城市胶囊是“城市探索 + 个人城市记录工具”，核
 每次修改 Feature 前依次阅读：
 
 1. 本文件；
-2. `docs/ARCHITECTURE.md`、`docs/DECISIONS.md`、`docs/CURRENT_STATE.md`、`docs/TODO.md`；
+2. `docs/ARCHITECTURE.md`、`docs/DECISIONS.md`、`docs/CURRENT_STATE.md`、`docs/TODO.md`、`docs/MVI_ARCHITECTURE.md`；
 3. UI Feature 还需阅读 `docs/INFORMATION_ARCHITECTURE.md`、`docs/USER_FLOWS.md`、`docs/WIREFRAMES.md`、`docs/DESIGN_SYSTEM_PROPOSAL.md`、`docs/UI_REFACTOR_PLAN.md` 中相关部分；
 4. `docs/INITIAL_PLANNING_BASELINE.md` 中与 Feature 对应的部分；
 5. 该 Feature 当前实际代码和测试。

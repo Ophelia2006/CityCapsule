@@ -2,6 +2,8 @@
 
 > 当前门禁：P0-3A 单一 AppShell 已批准并完成代码/自动化验证；Record Container 点击切换已迁入壳，内部 Pager 仍待 P0-3B。其余页面仍需一次只批准并验收一个 Feature，不得据此自动开始大规模 UI 修改。
 
+> 架构门禁（2026-07-30）：后续页面级 Feature 重构默认采用 `MVI_ARCHITECTURE.md` 的渐进式 MVI。继续 Explore/PlaceList 实现前，先完成 coroutines/StateFlow/Effect/lifecycle 双端技术 Spike；PlaceList 是第一个业务迁移试点。已有 AppShell、Record Flow 和其他 StateHolder 不做一次性重写。
+
 ## 1. 允许与禁止范围
 
 当前文档同步阶段只修改 Proposal 与长期项目文档，不修改业务代码。进入实现阶段后仍需一次只验收一个 Feature；路由协议、存储 schema、业务模型或平台能力的变化必须单独说明迁移与双端验证。
@@ -26,14 +28,15 @@ Map/Location/External navigation capability
 
 ### P0：先形成真实闭环
 
-1. **应用壳 P0-3A（代码与自动化完成，待设备验收）**：一个 AppShell/底栏，三个常驻根内容；点击 Tab 驱动无手势根 Pager，重复点击 no-op，诊断入口不入壳。
-2. **Record Container P0-3B（部分完成）**：Timeline/Gallery 已是同一 Record 根内容的点击切换视图并保留底栏/状态；下一步补内部 HorizontalPager、左右滑动和同轴手势验收；详情仍走 typed route。
-3. **探索首页**：基于 seed 与用户自建地点混合 catalog，以及真实 Capsule/Favorite 本地数据和诚实空态；重点地点整卡是 Primary，本地规则必须可解释，不称 AI。
-4. **地点图片数据前置**：摄影能力完成前统一类别 fallback；未来真实图片必须先确认来源与授权、登记资产，并为 Place 图片关系制定双端兼容的 schema/迁移方案。禁止直接硬编码路径或假图。
-5. **地点列表与 PlaceCard**：收敛筛选/新建权重，整卡点击；摄影能力完成前使用类别 fallback。
-6. **地点详情**：唯一 Primary 为记录；想去轻量化；管理动作进入溢出。
-7. **Record Flow 视觉整理**：编辑器、Record Container、详情只重排，不改变草稿/媒体清理/发布语义。
-8. **我的城市档案**：聚合现有档案，并展示可精确计算的碎片数、关联地点数、想去数；不新增里程、轨迹或虚构足迹。
+1. **MVI 技术 Spike（待开始）**：显式 coroutines 依赖、StateFlow 收集、Effect 单次消费、Intent 顺序、Store dispose 和双端构建；不批量生成 Feature Store。
+2. **PlaceList / Explore MVI 试点（待开始）**：保持现有业务与 schema，先完成 Intent/Mutation/Reducer/Effect/Store 和等价测试，再在同一 Feature 内完成地点列表/PlaceCard 产品化。
+3. **应用壳 P0-3A（代码与自动化完成，待设备验收）**：一个 AppShell/底栏，三个常驻根内容；点击 Tab 驱动无手势根 Pager，重复点击 no-op，诊断入口不入壳。
+4. **Record Container P0-3B（部分完成）**：Timeline/Gallery 已是同一 Record 根内容的点击切换视图并保留底栏/状态；下一步补内部 HorizontalPager、左右滑动和同轴手势验收；详情仍走 typed route。
+5. **探索首页（代码完成，待设备验收）**：基于 seed 与用户自建地点混合 catalog，以及真实 Capsule/Favorite 本地数据和诚实空态；重点地点整卡是 Primary，本地规则必须可解释，不称 AI。后续页面级修改按 MVI 顺序单独迁移 Home。
+6. **地点图片数据前置**：摄影能力完成前统一类别 fallback；未来真实图片必须先确认来源与授权、登记资产，并为 Place 图片关系制定双端兼容的 schema/迁移方案。禁止直接硬编码路径或假图。
+7. **地点详情（代码已产品化，MVI 待后续 Feature）**：唯一 Primary 为记录；想去轻量化；管理动作进入溢出。
+8. **Record Flow 视觉整理（P0-5 代码完成，待设备验收）**：编辑器、Record Container、详情已完成信息层级重排，未改变草稿/媒体清理/发布语义；Timeline/Gallery 按本地年月分组，Gallery 在缩略图完成前分批展示原图。按 `P0_RECORD_VISUAL_ACCEPTANCE.md` 完成双端验收，MVI 迁移不与设备验收捆绑。
+9. **我的城市档案**：聚合现有档案，并展示可精确计算的碎片数、关联地点数、想去数；页面级实现默认采用 MVI，不新增里程、轨迹或虚构足迹。
 
 ### P1：能力完成后开放
 

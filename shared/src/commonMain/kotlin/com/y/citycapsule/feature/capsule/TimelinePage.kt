@@ -6,16 +6,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.tencent.kuikly.compose.foundation.background
 import com.tencent.kuikly.compose.foundation.clickable
+import com.tencent.kuikly.compose.foundation.layout.Box
 import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.PaddingValues
+import com.tencent.kuikly.compose.foundation.layout.Row
 import com.tencent.kuikly.compose.foundation.layout.Spacer
 import com.tencent.kuikly.compose.foundation.layout.fillMaxSize
 import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
+import com.tencent.kuikly.compose.foundation.layout.padding
+import com.tencent.kuikly.compose.foundation.layout.width
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.foundation.lazy.LazyListState
+import com.tencent.kuikly.compose.foundation.lazy.LazyListScope
+import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.text.style.TextOverflow
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.y.citycapsule.app.navigation.RecordRootView
 import com.y.citycapsule.core.capsule.CapsuleDateFormatter
@@ -25,16 +33,21 @@ import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceRepository
+import com.y.citycapsule.designsystem.component.AdaptivePhotoGrid
+import com.y.citycapsule.designsystem.component.AppButton
+import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppCaptionText
+import com.y.citycapsule.designsystem.component.AppDisplayText
+import com.y.citycapsule.designsystem.component.AppSectionTitle
 import com.y.citycapsule.designsystem.component.AppSegmentedControl
 import com.y.citycapsule.designsystem.component.AppTopBar
-import com.y.citycapsule.designsystem.component.CapsuleCard
-import com.y.citycapsule.designsystem.component.CapsuleCardModel
 import com.y.citycapsule.designsystem.component.EmptyState
 import com.y.citycapsule.designsystem.component.ErrorState
 import com.y.citycapsule.designsystem.component.LoadingState
-import com.y.citycapsule.designsystem.component.PhotoGrid
 import com.y.citycapsule.designsystem.theme.AppTheme
+
+private const val GALLERY_INITIAL_PHOTO_COUNT = 18
+private const val GALLERY_NEXT_PHOTO_COUNT = 18
 
 /** Record root content. Timeline and Gallery are retained views, not platform routes. */
 @Composable
@@ -49,6 +62,7 @@ internal fun RecordRootContent(
     onViewSelected: (RecordRootView) -> Unit
 ) {
     var state by remember { mutableStateOf(CapsuleTimelineState()) }
+    var visiblePhotoCount by remember { mutableStateOf(GALLERY_INITIAL_PHOTO_COUNT) }
     val holder = remember(capsules, places, dateFormatter) {
         CapsuleTimelineStateHolder(capsules, places, dateFormatter) { state = it }
     }
@@ -66,27 +80,140 @@ internal fun RecordRootContent(
             bottom = dimensions.spacingXl
         )
     ) {
-        item {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                AppTopBar("我的城市记忆", "按时间或照片回看那些值得留下的城市片段。")
-                Spacer(Modifier.height(dimensions.spacingMd))
-                AppSegmentedControl(
-                    options = listOf("时间轴", "相册"),
-                    selectedIndex = if (selectedView == RecordRootView.TIMELINE) 0 else 1,
-                    onSelected = { index ->
-                        onViewSelected(
-                            if (index == 0) RecordRootView.TIMELINE else RecordRootView.GALLERY
+        item(key = "record_header") {
+            RecordHeader(selectedView, onViewSelected)
+        }
+        when {
+            state.status == CapsuleUiStatus.LOADING -> item(key = "record_loading") {
+                LoadingState("正在翻阅城市记忆…")
+            }
+            state.status == CapsuleUiStatus.ERROR -> item(key = "record_error") {
+                ErrorState(state.notice.orEmpty(), onRetry = holder::load)
+            }
+            selectedView == RecordRootView.TIMELINE -> timelineItems(state, navigator)
+            else -> item(key = "record_gallery") {
+                GalleryView(
+                    state = state,
+                    navigator = navigator,
+                    visiblePhotoCount = visiblePhotoCount,
+                    onLoadMore = {
+                        visiblePhotoCount = nextGalleryVisibleCount(
+                            visiblePhotoCount,
+                            galleryPhotos(state).size
                         )
                     }
                 )
-                Spacer(Modifier.height(dimensions.spacingLg))
-                when {
-                    state.status == CapsuleUiStatus.LOADING -> LoadingState("正在翻阅城市记忆…")
-                    state.status == CapsuleUiStatus.ERROR ->
-                        ErrorState(state.notice.orEmpty(), onRetry = holder::load)
-                    selectedView == RecordRootView.TIMELINE ->
-                        TimelineView(state, navigator)
-                    else -> GalleryView(state, navigator)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordHeader(
+    selectedView: RecordRootView,
+    onViewSelected: (RecordRootView) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        AppTopBar("我的城市记忆", "按时间或照片，回到那些值得留下的片刻。")
+        Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+        AppSegmentedControl(
+            options = listOf("时间轴", "相册"),
+            selectedIndex = if (selectedView == RecordRootView.TIMELINE) 0 else 1,
+            onSelected = { index ->
+                onViewSelected(
+                    if (index == 0) RecordRootView.TIMELINE else RecordRootView.GALLERY
+                )
+            }
+        )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+    }
+}
+
+private fun LazyListScope.timelineItems(
+    state: CapsuleTimelineState,
+    navigator: AppNavigator
+) {
+    if (state.items.isEmpty()) {
+        item(key = "timeline_empty") {
+            EmptyState(
+                title = "还没有城市碎片",
+                message = "从一个地点开始，留下第一条城市记忆。",
+                actionLabel = "去探索地点"
+            ) {
+                navigator.navigate(AppRoute.PlaceList())
+            }
+        }
+        return
+    }
+
+    val groups = groupTimelineItems(state.items)
+    groups.forEachIndexed { groupIndex, group ->
+        item(key = "timeline_month_${group.monthKey}") {
+            AppSectionTitle(group.monthLabel)
+            Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+        }
+        items(
+            count = group.items.size,
+            key = { index -> "timeline_${group.items[index].capsule.id}" }
+        ) { itemIndex ->
+            val timelineItem = group.items[itemIndex]
+            Column(modifier = Modifier.fillMaxWidth()) {
+                TimelineMemoryRow(
+                    item = timelineItem,
+                    onOpen = {
+                        navigator.navigate(AppRoute.CapsuleDetail(timelineItem.capsule.id))
+                    }
+                )
+                if (itemIndex < group.items.lastIndex) TimelineDivider()
+            }
+        }
+        if (groupIndex < groups.lastIndex) {
+            item(key = "timeline_gap_${group.monthKey}") {
+                Spacer(Modifier.height(AppTheme.dimensions.spacingXl))
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineMemoryRow(item: CapsuleTimelineItem, onOpen: () -> Unit) {
+    val dimensions = AppTheme.dimensions
+    val calendar = parseCapsuleCalendarLabel(item.dateLabel)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+            .padding(vertical = dimensions.spacingSm)
+    ) {
+        Column(modifier = Modifier.width(dimensions.minTouchTarget)) {
+            AppDisplayText(calendar.dayLabel)
+            if (calendar.dayLabel != "—") AppCaptionText("日")
+        }
+        Spacer(Modifier.width(dimensions.spacingSm))
+        Column(modifier = Modifier.weight(1f)) {
+            AppSectionTitle(item.place?.name ?: "曾经到访的地点")
+            item.place?.let { place ->
+                Spacer(Modifier.height(dimensions.spacingXxs))
+                AppCaptionText(listOfNotNull(place.city, place.district).joinToString(" · "))
+            }
+            Spacer(Modifier.height(dimensions.spacingSm))
+            val firstPhoto = item.capsule.imagePaths.firstOrNull()
+            if (firstPhoto == null) {
+                TimelineMemoryPreview(item)
+            } else {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.width(dimensions.mediaThumbnailSize)) {
+                        CapsulePhoto(
+                            path = firstPhoto,
+                            description = "${item.place?.name ?: "城市"}的记忆照片",
+                            compact = true,
+                            heightOverride = dimensions.mediaThumbnailSize
+                        )
+                    }
+                    Spacer(Modifier.width(dimensions.spacingSm))
+                    Column(modifier = Modifier.weight(1f)) {
+                        TimelineMemoryPreview(item)
+                    }
                 }
             }
         }
@@ -94,45 +221,36 @@ internal fun RecordRootContent(
 }
 
 @Composable
-private fun TimelineView(state: CapsuleTimelineState, navigator: AppNavigator) {
-    if (state.items.isEmpty()) {
-        EmptyState(
-            title = "还没有城市碎片",
-            message = "从一个地点开始，写下第一条城市记忆。",
-            actionLabel = "去探索地点"
-        ) {
-            navigator.navigate(AppRoute.PlaceList())
-        }
-        return
-    }
-
-    state.items.forEach { item ->
-        CapsuleCard(
-            model = CapsuleCardModel(
-                dateLabel = item.dateLabel,
-                placeLabel = item.place?.let { "${it.city} · ${it.name}" } ?: "曾经到访的地点",
-                excerpt = item.capsule.content,
-                metadata = listOfNotNull(
-                    item.capsule.mood?.displayName(),
-                    item.capsule.tags.takeIf { it.isNotEmpty() }
-                        ?.joinToString("  ") { "#$it" }
-                ).joinToString(" · ").ifBlank { null }
-            ),
-            onOpen = { navigator.navigate(AppRoute.CapsuleDetail(item.capsule.id)) },
-            media = item.capsule.imagePaths.firstOrNull()?.let { path ->
-                {
-                    CapsulePhoto(
-                        path = path,
-                        description = "${item.place?.name ?: "城市"}的记忆照片"
-                    )
-                }
-            }
-        )
-        Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+private fun TimelineMemoryPreview(item: CapsuleTimelineItem) {
+    Text(
+        text = item.capsule.content,
+        color = AppTheme.colors.textPrimary,
+        style = AppTheme.typography.body,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis
+    )
+    val metadata = listOfNotNull(
+        item.capsule.mood?.displayName(),
+        item.capsule.tags.takeIf { it.isNotEmpty() }
+            ?.joinToString("  ") { "#$it" }
+    ).joinToString(" · ")
+    if (metadata.isNotBlank()) {
+        Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+        AppCaptionText(metadata)
     }
 }
 
-private data class RecordGalleryPhoto(
+@Composable
+private fun TimelineDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(AppTheme.dimensions.strokeThin)
+            .background(AppTheme.colors.divider)
+    )
+}
+
+internal data class RecordGalleryPhoto(
     val capsule: CityCapsule,
     val place: Place?,
     val dateLabel: String,
@@ -140,33 +258,116 @@ private data class RecordGalleryPhoto(
     val index: Int
 )
 
-@Composable
-private fun GalleryView(state: CapsuleTimelineState, navigator: AppNavigator) {
-    val photos = state.items.flatMap { item ->
+internal fun galleryPhotos(state: CapsuleTimelineState): List<RecordGalleryPhoto> =
+    state.items.flatMap { item ->
         item.capsule.imagePaths.mapIndexed { index, path ->
             RecordGalleryPhoto(item.capsule, item.place, item.dateLabel, path, index)
         }
     }
+
+@Composable
+internal fun GalleryView(
+    state: CapsuleTimelineState,
+    navigator: AppNavigator,
+    visiblePhotoCount: Int,
+    onLoadMore: () -> Unit
+) {
+    val photos = galleryPhotos(state)
     if (photos.isEmpty()) {
         EmptyState(
-            title = "还没有城市照片",
-            message = "带照片的城市碎片会在这里形成相册。"
-        )
+            title = if (state.items.isEmpty()) "还没有城市碎片" else "还没有城市照片",
+            message = if (state.items.isEmpty()) {
+                "从一个地点开始，留下第一条城市记忆。"
+            } else {
+                "下一次记录时加一张照片，它会出现在这里。"
+            },
+            actionLabel = if (state.items.isEmpty()) "留下第一条碎片" else "去探索地点"
+        ) {
+            navigator.navigate(AppRoute.PlaceList())
+        }
         return
     }
 
-    PhotoGrid(items = photos) { photo ->
-        Column {
+    val visiblePhotos = photos.take(visiblePhotoCount.coerceAtLeast(0))
+    val groups = groupGalleryPhotos(visiblePhotos)
+    groups.forEachIndexed { groupIndex, group ->
+        AppSectionTitle(group.monthLabel)
+        Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+        AdaptivePhotoGrid(items = group.items) { photo, tileSize ->
             CapsulePhoto(
                 path = photo.path,
                 description = "${photo.place?.name ?: "城市"}的照片 ${photo.index + 1}",
                 modifier = Modifier.clickable {
                     navigator.navigate(AppRoute.CapsuleDetail(photo.capsule.id))
                 },
-                compact = true
+                compact = true,
+                heightOverride = tileSize
             )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-            AppCaptionText(photo.place?.name ?: photo.dateLabel)
+        }
+        if (groupIndex < groups.lastIndex) {
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXl))
         }
     }
+
+    val remaining = photos.size - visiblePhotos.size
+    if (remaining > 0) {
+        Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+        AppButton(
+            text = "继续查看（还有 $remaining 张）",
+            onClick = onLoadMore,
+            variant = AppButtonVariant.TEXT
+        )
+    }
 }
+
+internal data class CapsuleCalendarLabel(
+    val monthKey: String,
+    val monthLabel: String,
+    val dayLabel: String
+)
+
+internal data class CapsuleMonthGroup<T>(
+    val monthKey: String,
+    val monthLabel: String,
+    val items: List<T>
+)
+
+internal fun parseCapsuleCalendarLabel(label: String): CapsuleCalendarLabel {
+    val match = DATE_LABEL_PATTERN.matchEntire(label.trim())
+    if (match == null) return CapsuleCalendarLabel("unknown", "日期未知", "—")
+    val year = match.groupValues[1]
+    val month = match.groupValues[2]
+    val day = match.groupValues[3]
+    return CapsuleCalendarLabel(
+        monthKey = "$year-$month",
+        monthLabel = "$year 年 $month 月",
+        dayLabel = day
+    )
+}
+
+internal fun groupTimelineItems(items: List<CapsuleTimelineItem>): List<CapsuleMonthGroup<CapsuleTimelineItem>> =
+    groupByCapsuleMonth(items) { it.dateLabel }
+
+internal fun groupGalleryPhotos(items: List<RecordGalleryPhoto>): List<CapsuleMonthGroup<RecordGalleryPhoto>> =
+    groupByCapsuleMonth(items) { it.dateLabel }
+
+private fun <T> groupByCapsuleMonth(
+    items: List<T>,
+    dateLabel: (T) -> String
+): List<CapsuleMonthGroup<T>> {
+    val groups = linkedMapOf<String, MutableList<T>>()
+    val labels = mutableMapOf<String, String>()
+    items.forEach { item ->
+        val calendar = parseCapsuleCalendarLabel(dateLabel(item))
+        labels[calendar.monthKey] = calendar.monthLabel
+        groups.getOrPut(calendar.monthKey) { mutableListOf() } += item
+    }
+    return groups.map { (key, values) ->
+        CapsuleMonthGroup(key, labels.getValue(key), values)
+    }
+}
+
+internal fun nextGalleryVisibleCount(current: Int, total: Int): Int =
+    (current + GALLERY_NEXT_PHOTO_COUNT).coerceAtMost(total.coerceAtLeast(0))
+
+private val DATE_LABEL_PATTERN = Regex("^(\\d+) 年 (\\d+) 月 (\\d+) 日$")

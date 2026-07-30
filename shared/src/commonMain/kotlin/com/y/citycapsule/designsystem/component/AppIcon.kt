@@ -1,6 +1,7 @@
 ﻿package com.y.citycapsule.designsystem.component
 
 import androidx.compose.runtime.Composable
+import com.tencent.kuikly.compose.foundation.Canvas
 import com.tencent.kuikly.compose.foundation.background
 import com.tencent.kuikly.compose.foundation.clickable
 import com.tencent.kuikly.compose.foundation.layout.Box
@@ -11,6 +12,8 @@ import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.graphics.Color
+import com.tencent.kuikly.compose.ui.geometry.Offset
+import com.tencent.kuikly.compose.ui.graphics.StrokeCap
 import com.tencent.kuikly.compose.ui.unit.Dp
 import com.y.citycapsule.designsystem.theme.AppTheme
 
@@ -18,7 +21,7 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 enum class AppIconName(val glyph: String) {
     BACK("‹"), SEARCH("⌕"), EXPLORE("◇"), RECORD("□"), PROFILE("○"),
     FAVORITE("♡"), FAVORITE_FILLED("♥"), LOCATION("⌖"), ADD("＋"),
-    MORE("…"), CLOSE("×"), PHOTO("▧"), RETRY("↻"), CHECK("✓")
+    MORE("…"), CLOSE("×"), FORWARD("›"), PHOTO("▧"), RETRY("↻"), CHECK("✓")
 }
 
 @Composable
@@ -41,25 +44,61 @@ fun AppIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    compactVisual: Boolean = false
 ) {
     val colors = AppTheme.colors
     Box(
         modifier = modifier
             .size(AppTheme.dimensions.minTouchTarget)
-            .clip(RoundedCornerShape(AppTheme.dimensions.radiusMd))
-            .background(if (selected) colors.primaryContainer else Color.Transparent)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        AppIcon(
-            name = icon,
-            contentDescription = contentDescription,
-            tint = when {
+        Box(
+            modifier = Modifier
+                .size(if (compactVisual) AppTheme.dimensions.iconXl else AppTheme.dimensions.minTouchTarget)
+                .clip(RoundedCornerShape(if (compactVisual) AppTheme.dimensions.radiusXl else AppTheme.dimensions.radiusMd))
+                .background(if (selected) colors.primaryContainer else Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            val iconTint = when {
                 !enabled -> colors.disabledContent
                 selected -> colors.primary
                 else -> colors.textPrimary
             }
+            if (compactVisual && icon == AppIconName.CLOSE) {
+                AppCloseMark(iconTint)
+            } else {
+                AppIcon(
+                    name = icon,
+                    contentDescription = contentDescription,
+                    size = if (compactVisual) AppTheme.dimensions.iconSm else AppTheme.dimensions.iconLg,
+                    tint = iconTint
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppCloseMark(tint: Color) {
+    val dimensions = AppTheme.dimensions
+    Canvas(Modifier.size(dimensions.iconSm)) {
+        val inset = size.minDimension / 4f
+        val strokeWidth = (dimensions.strokeThin * 2).toPx()
+        drawLine(
+            color = tint,
+            start = Offset(inset, inset),
+            end = Offset(size.width - inset, size.height - inset),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(size.width - inset, inset),
+            end = Offset(inset, size.height - inset),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
         )
     }
 }

@@ -149,7 +149,7 @@ PlaceDetailPage(placeId)
 
 `CityCapsule` 保存正文、可选心情、标签、地点 ID、最多 9 个图片路径和创建/更新时间。编辑器支持同上下文草稿恢复、保存、未保存退出确认、发布与更新；新建草稿和既有碎片草稿不会互相误恢复。`LocalCapsuleRepository` 整体重写最多 500 条的 catalog，并串行化 publish/delete；更新一个已不存在的 ID 返回 `Missing`，不会静默新建。
 
-时间轴按创建时间倒序读取 catalog，再按 `placeId` 补充地点信息；相册是同一数据集的照片网格，不建立第二份媒体索引。日期通过 `CCLocaleModule` 使用设备本地时区生成稳定 `yyyy-MM-dd`，shared 再转换为产品文案。
+时间轴按创建时间倒序读取 catalog，再按 `placeId` 补充地点信息；渲染层按设备本地 `yyyy-MM` 分组，并让每条记忆保持独立 lazy item。相册是同一数据集的照片网格，不建立第二份媒体索引；同样按本地年月分组。当前没有缩略图数据或缓存，Gallery 只以 18 张为一批逐步增加可组合的原图，不能把该保护描述为已实现缩略图。日期通过 `CCLocaleModule` 使用设备本地时区生成稳定 `yyyy-MM-dd`，shared 再转换为产品文案。
 
 删除碎片、移除照片、丢弃草稿或拒收超额选择时，shared 先读取 catalog 与草稿构造保护集合，只把未引用候选路径交给平台删除；任一引用读取失败即延后清理。平台只允许删除 `filesDir/images/original` 直属托管文件。该机制覆盖正常业务操作，不是全目录垃圾扫描；进程在“复制完成、元数据尚未落盘”之间崩溃仍可能留下待后续维护处理的文件。
 
@@ -216,7 +216,7 @@ AppShellPage / RecordRootContent
   → CapsuleDetail 仍通过 AppNavigator.navigate(typed route)
 ```
 
-时间轴/相册点击切换已在同一 Record 内容树内实现，切换后底栏和 Record 视图状态保留。Record 内部 `HorizontalPager` 与手指左右滑动尚未实现；独立 `GalleryPage` / `AppRoute.Gallery` 仍作为兼容入口存在，但正式一级 UI 不进入它。
+时间轴/相册点击切换已在同一 Record 内容树内实现，切换后底栏和 Record 视图状态保留。Timeline 的月份标题和记忆条目直接作为 lazy items；Gallery 的月份与自适应网格也位于同一根滚动容器，并以显式“继续查看”扩大照片批次。Record 内部 `HorizontalPager` 与手指左右滑动尚未实现；独立 `GalleryPage` / `AppRoute.Gallery` 仍作为兼容入口存在，但正式一级 UI 不进入它。
 
 ## 数据与缓存
 
@@ -242,6 +242,24 @@ AppShellPage / RecordRootContent
 - 图片 adapter 的 HTTP 示例只存在于诊断页，不是业务网络层。
 - 没有 OkHttp/Ktor/Retrofit/NetStack 业务封装、RemoteDataSource、天气、地理编码、路线或 AI 调用。
 
-## Target Architecture（未来，非现状）
+## Target Architecture（已批准目标，非当前全量现状）
 
-核心业务扩大时再引入 `StateHolder/Store → UseCase → Repository → Local/RemoteDataSource → Capability`。不要为了形式先创建空层；在地图、城市碎片或网络功能落地时，以可测试的业务规则为边界逐步补齐。
+后续表现层按 Feature 渐进迁移为轻量 MVI：
+
+```text
+Kuikly UI
+  → dispatch(Intent)
+Feature Store / Executor
+  → Repository / Capability
+  → Mutation
+  → pure Reducer
+  → StateFlow<UiState>
+
+Feature Store
+  → Effect Flow
+  → UI 执行 typed navigation / 一次性行为
+```
+
+当前 9 个 callback 型 StateHolder 仍是实际架构，不能因目标获批而标记为已迁移。首个试点是 PlaceList/Explore；在此之前先验证显式 coroutines 依赖、Kuikly 收集 StateFlow、Effect 单次消费、Intent 串行化和 Store dispose 的 Android/HarmonyOS 行为。详细契约与迁移门禁见 `MVI_ARCHITECTURE.md`。
+
+MVI 只解决表现层状态流。简单 CRUD Store 可以直接调用 Repository；存在真实跨 Repository 业务规则时才引入 UseCase，出现本地/远端来源时再引入 Local/RemoteDataSource。不要为了形式先创建空层，也不建立全局 Redux Store。

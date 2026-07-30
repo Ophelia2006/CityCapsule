@@ -5,9 +5,13 @@ import com.y.citycapsule.core.capsule.CapsuleIdGenerator
 import com.y.citycapsule.core.capsule.CapsuleMediaCleanup
 import com.y.citycapsule.core.capsule.CapsuleMediaCleanupResult
 import com.y.citycapsule.core.capsule.CapsuleMood
+import com.y.citycapsule.core.capsule.CityCapsule
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.media.PhotoPickerCapability
 import com.y.citycapsule.core.media.PhotoPickerResult
+import com.y.citycapsule.core.navigation.AppNavigator
+import com.y.citycapsule.core.navigation.AppRoute
+import com.y.citycapsule.core.navigation.AppRouteKey
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
 import com.y.citycapsule.core.storage.StorageResult
@@ -161,6 +165,94 @@ class CapsuleFeatureStateTest {
         assertEquals("2026 年 7 月 28 日", detail.state.dateLabel)
     }
 
+    @Test
+    fun saveDraftAndClosePersistsTheCurrentEditorContext() {
+        val fixture = fixture()
+        val editor = CapsuleEditorStateHolder(
+            null,
+            PLACE_ID,
+            fixture.capsules,
+            fixture.places
+        )
+        editor.load()
+        editor.updateContent("先保存，下一次继续写。")
+        editor.updateMood(CapsuleMood.CALM)
+        editor.requestClose {}
+        assertTrue(editor.state.showDiscardConfirmation)
+
+        var closed = false
+        editor.saveDraftAndClose { closed = true }
+
+        assertTrue(closed)
+        assertFalse(editor.state.showDiscardConfirmation)
+        assertEquals("先保存，下一次继续写。", draft(fixture).content)
+        assertEquals(PLACE_ID, draft(fixture).placeId)
+    }
+
+    @Test
+    fun timelineGroupsUseLocalYearAndMonthWithoutReorderingMemories() {
+        val julyFirst = timelineItem("july-1", "2026 年 7 月 28 日")
+        val julySecond = timelineItem("july-2", "2026 年 7 月 20 日")
+        val june = timelineItem("june", "2026 年 6 月 30 日")
+
+        val groups = groupTimelineItems(listOf(julyFirst, julySecond, june))
+
+        assertEquals(listOf("2026-7", "2026-6"), groups.map { it.monthKey })
+        assertEquals(listOf("2026 年 7 月", "2026 年 6 月"), groups.map { it.monthLabel })
+        assertEquals(listOf("july-1", "july-2"), groups.first().items.map { it.capsule.id })
+        assertEquals("28", parseCapsuleCalendarLabel(julyFirst.dateLabel).dayLabel)
+    }
+
+    @Test
+    fun malformedDateLabelsRemainVisibleInAnUnknownDateGroup() {
+        val item = timelineItem("unknown", "日期服务暂不可用")
+
+        val calendar = parseCapsuleCalendarLabel(item.dateLabel)
+        val groups = groupTimelineItems(listOf(item))
+
+        assertEquals("unknown", calendar.monthKey)
+        assertEquals("日期未知", calendar.monthLabel)
+        assertEquals("—", calendar.dayLabel)
+        assertEquals(listOf("unknown"), groups.single().items.map { it.capsule.id })
+    }
+
+    @Test
+    fun galleryLoadsOriginalsInBoundedBatchesUntilAllAreVisible() {
+        assertEquals(18, nextGalleryVisibleCount(current = 0, total = 40))
+        assertEquals(36, nextGalleryVisibleCount(current = 18, total = 40))
+        assertEquals(40, nextGalleryVisibleCount(current = 36, total = 40))
+        assertEquals(0, nextGalleryVisibleCount(current = 18, total = 0))
+    }
+
+    @Test
+    fun newPublishOpensDetailButEditingReturnsToTheExistingDetail() {
+        val newNavigator = RecordingCapsuleNavigator()
+        completeCapsuleEditorNavigation(null, "capsule-new", newNavigator)
+        assertEquals(AppRoute.CapsuleDetail("capsule-new"), newNavigator.replaced)
+        assertEquals(0, newNavigator.backCount)
+
+        val editNavigator = RecordingCapsuleNavigator()
+        completeCapsuleEditorNavigation("capsule-existing", "capsule-existing", editNavigator)
+        assertEquals(null, editNavigator.replaced)
+        assertEquals(1, editNavigator.backCount)
+    }
+
+    @Test
+    fun detailUsesEqualTwoUpLayoutForExactlyTwoPhotos() {
+        assertEquals(
+            CapsuleDetailPhotoLayoutMode.SINGLE_HERO,
+            capsuleDetailPhotoLayoutMode(1)
+        )
+        assertEquals(
+            CapsuleDetailPhotoLayoutMode.TWO_UP,
+            capsuleDetailPhotoLayoutMode(2)
+        )
+        assertEquals(
+            CapsuleDetailPhotoLayoutMode.HERO_WITH_GRID,
+            capsuleDetailPhotoLayoutMode(3)
+        )
+    }
+
     private fun fixture(): Fixture {
         val storage = InMemoryKeyValueStore()
         var sequence = 0
@@ -179,6 +271,19 @@ class CapsuleFeatureStateTest {
         return (requireNotNull(result) as StorageResult.Success).value
     }
 
+    private fun timelineItem(id: String, dateLabel: String): CapsuleTimelineItem =
+        CapsuleTimelineItem(
+            capsule = CityCapsule(
+                id = id,
+                content = "城市记忆 $id",
+                placeId = PLACE_ID,
+                createdAtEpochMs = 0L,
+                updatedAtEpochMs = 0L
+            ),
+            place = null,
+            dateLabel = dateLabel
+        )
+
     private data class Fixture(
         val capsules: LocalCapsuleRepository,
         val places: LocalPlaceRepository
@@ -187,4 +292,14 @@ class CapsuleFeatureStateTest {
     private companion object {
         const val PLACE_ID = "seed_shanghai_museum"
     }
+}
+
+private class RecordingCapsuleNavigator : AppNavigator {
+    var replaced: AppRoute? = null
+    var backCount: Int = 0
+
+    override fun navigate(route: AppRoute) = Unit
+    override fun replace(route: AppRoute) { replaced = route }
+    override fun back() { backCount += 1 }
+    override fun backTo(routeKey: AppRouteKey) = Unit
 }

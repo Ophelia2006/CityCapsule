@@ -4,6 +4,8 @@
 
 ## P0：验收 Record Flow 并建立正式产品壳
 
+- `[Architecture Decision]` 在继续 Explore/PlaceList 页面级重构前完成 MVI 技术 Spike：为 commonMain 显式选择兼容的 coroutines 版本，验证 Kuikly `StateFlow` 收集、Effect 单次消费、Intent 串行/latest-load、Page/AppShell Store 生命周期和 `dispose()`；shared/Android/HarmonyOS 构建与测试通过后再冻结具体实现。
+- `[Architecture Decision][UI/UX Redesign]` 以 PlaceList/Explore 为首个 MVI Feature：保留现有 `PlaceListUiState`、Repository、搜索规则、路由和 storage schema，新增 Intent/Mutation/pure Reducer/Effect/Store，并迁移现有 StateHolder 测试能力；不得顺手引入地图、坐标、网络、数据库、全局 Store 或空 UseCase/DataSource。
 - `[Code Scan]` 明确 `h5App`、`miniApp` 是否属于目标；当前空 project include 不阻断 Gradle 8.7 测试，但不能作为已支持平台宣传。
 - `[UI/UX Redesign][DONE 2026-07-28]` Design System v2 最小基础：暖白/中性灰/暖琥珀 token、配套深色、elevation 语义、统一 Icon 入口、类别 fallback、加载/空/错误状态及核心 Flow 组件 API；主题持久化协议未改变。
 - `[UI/UX Redesign]` 在 Android/HarmonyOS 设备走查新 Light/Dark 调色、系统栏、AppIcon 字形与 elevation/shadow；若字形不一致，保持 `AppIcon` API 并替换为跨端稳定的代码矢量实现。
@@ -16,10 +18,11 @@
 - `[Code Scan][UI/UX Redesign]` 双端设备回归 Home Hero、Home“想去的地方/换一种逛法”、地点详情和搜索地点列表的想去切换：只允许心形/按钮状态变化，不得插入成功横幅、重排当前推荐、进入 Loading 或丢失搜索/筛选/滚动位置。代码与状态回归测试已于 2026-07-30 完成。
 - `[Code Scan][BLOCKED]` 按 `docs/P0_RECORD_FLOW_ACCEPTANCE.md` 完成 Android/HarmonyOS 真机的选图成功、取消、复制失败、重启读取和引用清理；Android 模拟器已完成真实选图回传和沙箱复制，Android 真机未连接；HarmonyOS 的模块未注册崩溃与媒体 URI 直接按路径复制问题均已修复，Hypium 测试及 signed HAP 构建通过，仍须在 HED-AL00 覆盖安装后完成真机复验。
 - `[Initial Plan]` 补相机 capability（如本阶段确认需要）和缩略图生成；正常删除/移除/丢弃的媒体引用清理已经完成，后续可评估崩溃遗留文件扫描。
-- `[UI/UX Redesign]` 真机可用后继续 Record Flow 视觉走查，检查图片渲染、返回栈和大字体问题。
+- `[UI/UX Redesign][DONE code/PARTIAL device 2026-07-30]` P0-5 Record Flow 视觉完善：Editor 顶栏关闭/完成与三分支退出；Timeline 本地年月分组、大日期、地点、照片和正文摘录；Gallery 年月分组、自适应网格及 18 张分批原图保护；Detail 照片优先且管理动作下沉更多菜单；产品空态无技术说明。按 `docs/P0_RECORD_VISUAL_ACCEPTANCE.md` 完成 Android/HarmonyOS 图片渲染、返回栈、大字体与长列表真机走查后关闭设备验收项。
 
 ## P1：补齐基础版探索与本地数据完整性
 
+- `[Architecture Decision]` PlaceList 试点双端验收后，后续页面级重构默认按 `MVI_ARCHITECTURE.md` 渐进迁移；建议顺序 Home → PlaceDetail → Profile → Timeline/Gallery/CapsuleDetail → 编辑器/Onboarding。小缺陷和纯样式修改不强制扩大为架构迁移。
 - `[Code Scan]` 执行 UI 稳定性专项：发布/编辑/删除 Capsule 后返回时间轴和相册；长列表中段新增最新记录；时间轴/相册中段切换；Editor 选图、保存草稿、移除首张/中间照片；Profile 首次加载、保存和清除。重点检查整页 Loading、滚动归零、状态提示插入下推，以及无稳定 key 导致的缩略图闪白/错图。
 - `[UI/UX Redesign][DONE 2026-07-30]` P0-4 Place Detail 产品化：类别 Hero fallback、地点/城市区域/类型、“想去”图标、关于、真实地址、最近三条城市记忆与“在这里留下城市碎片”主 CTA；编辑/删除已下沉到更多菜单，未展示尚不存在的地图、距离和导航。
 - `[UI/UX Redesign]` 继续重构 Explore/PlaceCard：摄影内容、分类、搜索与整卡点击；真实摄影接入前继续使用已登记的类别 fallback。

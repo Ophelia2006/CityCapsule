@@ -19,8 +19,12 @@ import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.layout.ContentScale
+import com.tencent.kuikly.compose.ui.unit.Dp
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
+import com.y.citycapsule.designsystem.component.BalancedPhotoGrid
+import com.y.citycapsule.designsystem.component.AppIconButton
+import com.y.citycapsule.designsystem.component.AppIconName
 import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.theme.AppTheme
 
@@ -53,10 +57,15 @@ internal fun CapsulePhoto(
     path: String,
     description: String,
     modifier: Modifier = Modifier,
-    compact: Boolean = false
+    compact: Boolean = false,
+    heightOverride: Dp? = null
 ) {
     val dimensions = AppTheme.dimensions
-    val height = if (compact) dimensions.mediaThumbnailSize else dimensions.mediaPreviewHeight
+    val height = heightOverride ?: if (compact) {
+        dimensions.mediaThumbnailSize
+    } else {
+        dimensions.mediaPreviewHeight
+    }
     var failed by remember(path) { mutableStateOf(false) }
     val painter = rememberAsyncImagePainter(
         path,
@@ -84,4 +93,84 @@ internal fun CapsulePhoto(
             )
         }
     }
+}
+
+@Composable
+internal fun CapsuleEditablePhotoGrid(
+    paths: List<String>,
+    onRemove: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BalancedPhotoGrid(
+        items = paths,
+        modifier = modifier,
+        itemKey = { it }
+    ) { path, tileSize ->
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
+            CapsulePhoto(
+                path = path,
+                description = "已选择的城市照片",
+                compact = true,
+                heightOverride = tileSize
+            )
+            AppIconButton(
+                icon = AppIconName.CLOSE,
+                contentDescription = "移除这张照片",
+                onClick = { onRemove(path) },
+                selected = true,
+                compactVisual = true
+            )
+        }
+    }
+}
+
+/** Photo-first detail layout: one 4:3-like hero followed by compact square tiles. */
+@Composable
+internal fun CapsuleDetailPhotoLayout(
+    paths: List<String>,
+    modifier: Modifier = Modifier
+) {
+    if (paths.isEmpty()) return
+    if (capsuleDetailPhotoLayoutMode(paths.size) == CapsuleDetailPhotoLayoutMode.TWO_UP) {
+        BalancedPhotoGrid(
+            items = paths,
+            modifier = modifier,
+            maxColumns = 2,
+            itemKey = { it }
+        ) { path, tileSize ->
+            CapsulePhoto(
+                path = path,
+                description = "城市记忆照片",
+                compact = true,
+                heightOverride = tileSize
+            )
+        }
+        return
+    }
+    Column(modifier = modifier.fillMaxWidth()) {
+        CapsulePhoto(
+            path = paths.first(),
+            description = "城市记忆主照片"
+        )
+        val remaining = paths.drop(1)
+        if (remaining.isNotEmpty()) {
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            BalancedPhotoGrid(items = remaining, itemKey = { it }) { path, tileSize ->
+                CapsulePhoto(
+                    path = path,
+                    description = "城市记忆照片",
+                    compact = true,
+                    heightOverride = tileSize
+                )
+            }
+        }
+    }
+}
+
+internal enum class CapsuleDetailPhotoLayoutMode { SINGLE_HERO, TWO_UP, HERO_WITH_GRID }
+
+internal fun capsuleDetailPhotoLayoutMode(photoCount: Int): CapsuleDetailPhotoLayoutMode = when {
+    photoCount <= 1 -> CapsuleDetailPhotoLayoutMode.SINGLE_HERO
+    photoCount == 2 -> CapsuleDetailPhotoLayoutMode.TWO_UP
+    else -> CapsuleDetailPhotoLayoutMode.HERO_WITH_GRID
 }

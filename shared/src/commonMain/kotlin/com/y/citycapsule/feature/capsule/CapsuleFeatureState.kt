@@ -122,7 +122,7 @@ class CapsuleEditorStateHolder(
                         state.copy(
                             draft = state.draft.copy(imagePaths = accepted),
                             pickingImages = false,
-                            notice = "已添加 ${accepted.size - state.draft.imagePaths.size} 张照片。"
+                            notice = null
                         )
                     )
                     cleanupMedia(rejected)
@@ -140,17 +140,31 @@ class CapsuleEditorStateHolder(
     fun updateTags(value: String) = change {
         copy(tags = value.split(',', '，').map(String::trim).filter(String::isNotEmpty))
     }
+    fun removeTag(tag: String) = change { copy(tags = tags - tag) }
     fun tagsText(): String = state.draft.tags.joinToString("，")
     fun isDirty(): Boolean = state.draft != initialDraft
 
     fun saveDraft(onSaved: () -> Unit = {}) {
+        persistDraft(closeAfterSave = false, onSaved = onSaved)
+    }
+
+    fun saveDraftAndClose(onClose: () -> Unit) {
+        persistDraft(closeAfterSave = true, onSaved = onClose)
+    }
+
+    private fun persistDraft(closeAfterSave: Boolean, onSaved: () -> Unit) {
         if (state.status != CapsuleUiStatus.READY) return
         val draftToSave = state.draft
         val removedPaths = initialDraft.imagePaths - draftToSave.imagePaths.toSet()
         capsuleRepository.saveDraft(draftToSave) { result ->
             if (result is StorageResult.Success) {
                 initialDraft = draftToSave
-                update(state.copy(notice = "草稿已保存在当前设备。"))
+                update(
+                    state.copy(
+                        notice = if (closeAfterSave) null else "草稿已保存在当前设备。",
+                        showDiscardConfirmation = false
+                    )
+                )
                 mediaCleanup.cleanupCandidates(removedPaths) { cleanupResult ->
                     showCleanupWarning(cleanupResult)
                     onSaved()

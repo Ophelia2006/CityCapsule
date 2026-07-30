@@ -29,7 +29,8 @@ data class AppDimensions(
     val mediaThumbnailSize: Dp,
     val placeHeroHeight: Dp,
     val placeCompactMediaSize: Dp,
-    val bottomNavigationHeight: Dp
+    val bottomNavigationHeight: Dp,
+    val adaptiveGridBreakpoint: Dp
 )
 
 val DefaultAppDimensions = AppDimensions(
@@ -57,5 +58,6 @@ val DefaultAppDimensions = AppDimensions(
     mediaThumbnailSize = 104.dp,
     placeHeroHeight = 208.dp,
     placeCompactMediaSize = 88.dp,
-    bottomNavigationHeight = 64.dp
+    bottomNavigationHeight = 64.dp,
+    adaptiveGridBreakpoint = 600.dp
 )
