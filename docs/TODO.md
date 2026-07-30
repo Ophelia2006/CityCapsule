@@ -31,7 +31,7 @@
 - `[Initial Plan]` 实现 Location capability、坐标字段迁移、距离和权限降级。
 - `[Initial Plan][UI/UX Redesign]` 接入双端真实地图 Native View、Marker、列表/地图切换和外部导航；地图不可用时降级为列表。
 - `[Code Scan]` 如需“按想去时间排序”，新增有迁移方案的数据模型，不能从现有 Set 伪造加入时间；用户文案已经统一为“想去”，底层继续保留 `Favorite*`。
-- `[UI/UX Redesign][Decision 2026-07-29]` 将 Profile 重构为“我的城市档案”：头像/昵称/城市、碎片数、关联地点数、想去数三项精确统计、想去与设置入口；编辑与危险操作下沉，不虚构里程或足迹地图。
+- `[UI/UX Redesign][DONE code 2026-07-30]` P1-2 Profile Overview：头像/昵称/城市，真实碎片数/去过地点数/想去数，按真实 Capsule→Place 关系计算城市足迹，最多 3 个想去地点预览；编辑为 typed 二级 MVI 页面，清除本地档案下沉 Settings 危险操作区且保留 Place/Favorite/Capsule。shared/Android 自动化通过；HarmonyOS 构建和双端设备验收见 `P1_PROFILE_OVERVIEW_ACCEPTANCE.md`。
 - `[Initial Plan]` 完成设置中的缓存清理、存储占用、隐私/关于与二次确认重置。
 - `[Initial Plan]` 实现备份导出、导入验证/预览、导入前备份和媒体恢复；补齐 Android launcher 与 Harmony 文件选择器。
 - `[Code Scan]` 实现 RouteResult/requestId 结果通道；原生取消/失败/不支持必须回传，不得仅展示参数。

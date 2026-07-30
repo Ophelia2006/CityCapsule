@@ -11,6 +11,7 @@ import {
   LAUNCH_GATE_PAGE_NAME,
   MAIN_NAVIGATION_ID,
   ONBOARDING_PAGE_NAME,
+  PROFILE_EDIT_PAGE_NAME,
   PLACE_DETAIL_PAGE_NAME,
   PLACE_EDITOR_PAGE_NAME,
   PLACE_LIST_PAGE_NAME,
@@ -89,6 +90,20 @@ export default function harmonyRouteGuardTest() {
 
         expect(result.allowed).assertTrue();
       });
+    });
+
+    it('allowsProfileEditorPageOutsideAppShell', 0, () => {
+      const result: HarmonyRouteGuardResult = guard.checkRequest(
+        new HarmonyRouteRequest(
+          HarmonyRouteAction.PUSH,
+          'profile_edit',
+          HarmonyRouteTargetType.KUIKLY,
+          PROFILE_EDIT_PAGE_NAME,
+          {}
+        )
+      );
+
+      expect(result.allowed).assertTrue();
     });
 
     it('rejectsRetiredStandaloneRootPages', 0, () => {

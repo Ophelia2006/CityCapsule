@@ -22,6 +22,8 @@ export const APP_SHELL_PAGE_NAME: string = 'app_shell';
 export const APP_SHELL_INITIAL_ROOT_TAB_PARAM: string = 'initialRootTab';
 export const HOME_ROUTE_KEY: string = 'home';
 export const PROFILE_ROUTE_KEY: string = 'profile';
+export const PROFILE_EDIT_ROUTE_KEY: string = 'profile_edit';
+export const PROFILE_EDIT_PAGE_NAME: string = 'profile_edit';
 export const PLACE_LIST_ROUTE_KEY: string = 'place_list';
 export const PLACE_LIST_PAGE_NAME: string = 'place_list';
 export const PLACE_DETAIL_ROUTE_KEY: string = 'place_detail';
@@ -56,6 +58,7 @@ export class HarmonyRouteCatalog {
       case CAPSULE_EDITOR_PAGE_NAME:
       case CAPSULE_DETAIL_PAGE_NAME:
       case GALLERY_PAGE_NAME:
+      case PROFILE_EDIT_PAGE_NAME:
       case 'settings':
       case ROUTER_DIAGNOSTICS_PAGE_NAME:
       case IMAGE_ADAPTER_DIAGNOSTICS_PAGE_NAME:

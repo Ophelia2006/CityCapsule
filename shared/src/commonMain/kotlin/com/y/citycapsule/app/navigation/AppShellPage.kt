@@ -24,7 +24,6 @@ import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
-import com.y.citycapsule.core.onboarding.OnboardingRepository
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
@@ -49,7 +48,6 @@ internal class AppShellPager : BasePager() {
                 navigator = navigator,
                 settingsRepository = SettingsRepository(storage),
                 profileRepository = LocalProfileRepository(storage),
-                onboardingRepository = OnboardingRepository(storage),
                 placeRepository = placeRepository,
                 favoriteRepository = LocalFavoriteRepository(storage, placeRepository),
                 capsuleRepository = LocalCapsuleRepository(storage),
@@ -66,7 +64,6 @@ private fun AppShellScreen(
     navigator: AppNavigator,
     settingsRepository: SettingsRepository,
     profileRepository: LocalProfileRepository,
-    onboardingRepository: OnboardingRepository,
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
     capsuleRepository: LocalCapsuleRepository,
@@ -143,7 +140,10 @@ private fun AppShellScreen(
                     AppRootTab.PROFILE -> ProfileRootContent(
                         navigator = navigator,
                         profileRepository = profileRepository,
-                        onboardingRepository = onboardingRepository,
+                        placeRepository = placeRepository,
+                        favoriteRepository = favoriteRepository,
+                        capsuleRepository = capsuleRepository,
+                        active = shellState.selectedTab == AppRootTab.PROFILE,
                         statusBarHeight = statusBarHeight,
                         listState = profileListState
                     )

@@ -36,7 +36,7 @@ Map/Location/External navigation capability
 6. **地点图片数据前置**：摄影能力完成前统一类别 fallback；未来真实图片必须先确认来源与授权、登记资产，并为 Place 图片关系制定双端兼容的 schema/迁移方案。禁止直接硬编码路径或假图。
 7. **地点详情（代码已产品化，MVI 待后续 Feature）**：唯一 Primary 为记录；想去轻量化；管理动作进入溢出。
 8. **Record Flow 视觉整理（P0-5 代码完成，待设备验收）**：编辑器、Record Container、详情已完成信息层级重排，未改变草稿/媒体清理/发布语义；Timeline/Gallery 按本地年月分组，Gallery 在缩略图完成前分批展示原图。按 `P0_RECORD_VISUAL_ACCEPTANCE.md` 完成双端验收，MVI 迁移不与设备验收捆绑。
-9. **我的城市档案**：聚合现有档案，并展示可精确计算的碎片数、关联地点数、想去数；页面级实现默认采用 MVI，不新增里程、轨迹或虚构足迹。
+9. **我的城市档案（P1-2 代码与自动化完成，设备待验收）**：Profile MVI 聚合现有 Profile/Place/Favorite/Capsule；展示可精确计算的碎片数、distinct 去过地点数、想去数和可解析城市足迹；编辑与危险操作均已下沉，不新增里程、轨迹或虚构足迹。
 
 ### P1：能力完成后开放
 

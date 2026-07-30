@@ -23,8 +23,8 @@
 ```text
 Kuikly @Page
   ├─ 简单页：直接调用 Repository（Settings）
-  └─ 业务页：StateHolder
-               → Repository
+  ├─ 已迁移页：Feature MVI Store → Repository
+  └─ 未迁移业务页：StateHolder → Repository
                  → KeyValueStore
                    → CCStorageModule wire protocol
                      → Android/HarmonyOS dispatcher
@@ -37,7 +37,7 @@ Capsule Editor
         → 应用沙箱 images/original
 ```
 
-当前没有通用 `PageStore`、UseCase、LocalDataSource 或 RemoteDataSource 层。StateHolder 使用 callback 状态更新，而不是初始规划中的 `StateFlow` Store。Repository 与模型均位于 `shared/core/*`；Feature 页位于 `shared/feature/*`。这是一种 package 逻辑隔离，不是多 Gradle feature module。
+当前没有通用 `PageStore`、UseCase、LocalDataSource 或 RemoteDataSource 层。PlaceList/Explore 与 Profile Overview/Editor 使用 Feature 级 MVI Store；其余 StateHolder 仍使用 callback 状态更新。Repository 与模型均位于 `shared/core/*`；Feature 页位于 `shared/feature/*`。这是一种 package 逻辑隔离，不是多 Gradle feature module。
 
 ## Shared 包职责与依赖
 
@@ -51,7 +51,7 @@ Capsule Editor
 - `core/capsule`：城市碎片、草稿、心情/标签/媒体路径模型，JSON codec、校验、日期标签和有上限本地 Repository。
 - `core/media`：平台无关 Photo Picker 协议与 `CCMediaModule` transport；不依赖 Android/ArkTS 类型。
 - `designsystem`：语义颜色、Typography、Spacing/Radius/Motion token 及共享组件；`AppFixedHeaderScaffold` 提供固定 Header/独立滚动正文，`AppBottomSheet` 提供固定标题与 Footer、中间限高滚动区。旧 `AppScaffold` 的整页滚动语义保留给未迁移页面。
-- `feature/onboarding`、`feature/profile`、`feature/place`、`feature/capsule`：页面与 callback 型 StateHolder；Capsule 包含编辑、详情、时间轴、相册和共享照片组件。
+- `feature/onboarding`、`feature/profile`、`feature/place`、`feature/capsule`：页面及表现层状态；Profile Overview/Editor 与 PlaceList 已使用 MVI Store，其余仍主要是 callback 型 StateHolder；Capsule 包含编辑、详情、时间轴、相册和共享照片组件。
 - `app/navigation`：`AppShellPager/AppShellPage` 是唯一产品根壳；`AppRootScaffold` 只创建一个 Bottom Navigation，根 `HorizontalPager` 常驻 Home、Record、Profile 三个内容树。`AppRootTab` 提供稳定 id、typed 入口别名和 Pager index。
 - shared 顶层 `HomePage`、`SettingsPage`：Home 已接正式一级导航但内容仍是早期探索入口；Settings 保留真实主题偏好、首次引导与返回操作，不再承载路由验收入口。
 - `RouterPage`、`ImageAdapterBenchmarks`：明确的开发诊断页，不是产品功能。
@@ -266,6 +266,6 @@ Feature Store
   → UI 执行 typed navigation / 一次性行为
 ```
 
-PlaceList/Explore 已完成首个 Store 代码试点；其余 callback 型 StateHolder 仍是实际架构，不能据此宣称全项目已迁移。显式 coroutines、Reducer/Store/Effect/dispose 的 shared 与 Android 自动化已通过；Kuikly StateFlow 收集、前后台 Effect 与销毁行为仍待 Android/HarmonyOS 设备验收。详细契约与迁移门禁见 `MVI_ARCHITECTURE.md`。
+PlaceList/Explore 与 Profile Overview/Editor 已完成 Store 代码迁移；其余 callback 型 StateHolder 仍是实际架构，不能据此宣称全项目已迁移。显式 coroutines、Reducer/Store/Effect/dispose 的 shared 与 Android 自动化已通过；Kuikly StateFlow 收集、前后台 Effect 与销毁行为仍待 Android/HarmonyOS 设备验收。详细契约与迁移门禁见 `MVI_ARCHITECTURE.md`。
 
 MVI 只解决表现层状态流。简单 CRUD Store 可以直接调用 Repository；存在真实跨 Repository 业务规则时才引入 UseCase，出现本地/远端来源时再引入 Local/RemoteDataSource。不要为了形式先创建空层，也不建立全局 Redux Store。

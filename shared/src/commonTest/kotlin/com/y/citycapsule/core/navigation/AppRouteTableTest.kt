@@ -113,6 +113,18 @@ class AppRouteTableTest {
     }
 
     @Test
+    fun profileEditIsASecondaryPageOutsideTheAppShell() {
+        val request = AppRouteTable.resolve(AppRoute.ProfileEdit)
+
+        assertEquals(AppRouteTable.ROUTE_PROFILE_EDIT, request.routeKey)
+        assertEquals(
+            RouteDestination.Kuikly(AppRouteTable.PAGE_PROFILE_EDIT),
+            request.destination
+        )
+        assertEquals(emptyMap(), request.params)
+    }
+
+    @Test
     fun nativeRouteResolvesToRegisteredPath() {
         val request = AppRouteTable.resolve(
             AppRoute.NativePermission("location")

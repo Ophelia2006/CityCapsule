@@ -2,7 +2,7 @@
 
 ## 状态与适用范围
 
-状态：**PlaceList/Explore 首个代码试点已完成；双端设备 Spike 尚未完成，也不是当前全项目架构。**
+状态：**PlaceList/Explore 首个代码试点与 Profile Overview/Editor 迁移已完成；双端设备 Spike 尚未完成，也不是当前全项目架构。**
 
 从 2026-07-30 起，新建 Feature 的表现层默认采用本文定义的轻量 MVI；对现有 Feature 做页面级重构时，应把该 Feature 的 callback 型 `StateHolder` 迁移为 MVI Store。小范围缺陷修复、纯样式调整或平台适配不强制顺手迁移，避免扩大改动范围。现有 Store 按 Feature 渐进替换，不进行全项目一次性重写。
 
@@ -38,7 +38,7 @@ Feature Store
   → UI 执行 typed navigation、关闭页面或一次性系统交互
 ```
 
-当前 9 个 `StateHolder` 不因本决策自动变成 MVI；只有完成迁移、测试和双端验证的 Feature 才能标记为 MVI。
+现有 `StateHolder` 不因本决策自动变成 MVI；当前只有 PlaceList/Explore 与 Profile Overview/Editor 完成代码迁移和自动化，仍须通过双端设备验证后才能标记为完整验收。
 
 ## 项目内最小协议
 
@@ -135,7 +135,7 @@ PlaceListEffect
 1. `PlaceList / Explore`：首个完整试点。
 2. `Home`：聚合多个 Repository，替换当前 callback 嵌套和 `loadGeneration`。
 3. `PlaceDetail`。
-4. `Profile`。
+4. `Profile`：因用户明确授权 P1-2，于 2026-07-30 提前完成 Overview/Editor 代码迁移与自动化；设备验收仍未完成。
 5. `Timeline / Gallery` 与 `CapsuleDetail`。
 6. `PlaceEditor`、`CapsuleEditor`、`Onboarding`：最后迁移，避免首轮同时处理草稿、未保存退出、媒体清理和多阶段提交。
 7. `AppShell`：最后评估；Pager、滚动和动画继续属于 Compose UI 状态，不为追求“全 MVI”塞进 Store。

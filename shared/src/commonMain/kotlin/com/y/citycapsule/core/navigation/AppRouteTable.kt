@@ -22,6 +22,7 @@ object AppRouteTable {
     const val ROUTE_GALLERY = "gallery"
     const val ROUTE_FAVORITES = "favorites"
     const val ROUTE_PROFILE = "profile"
+    const val ROUTE_PROFILE_EDIT = "profile_edit"
     const val ROUTE_SETTINGS = "settings"
     const val ROUTE_NATIVE_PERMISSION = "native_permission"
     const val ROUTE_NATIVE_FILE_IMPORT = "native_file_import"
@@ -40,6 +41,7 @@ object AppRouteTable {
     const val PAGE_GALLERY = "gallery"
     const val PAGE_FAVORITES = "favorites"
     const val PAGE_PROFILE = "profile"
+    const val PAGE_PROFILE_EDIT = "profile_edit"
     const val PAGE_SETTINGS = "settings"
 
     // Non-business diagnostic pages. They are registration constants, not navigation APIs.
@@ -98,6 +100,11 @@ object AppRouteTable {
         AppRoute.Gallery -> kuikly(action, ROUTE_GALLERY, PAGE_GALLERY)
         AppRoute.Favorites -> kuikly(action, ROUTE_FAVORITES, PAGE_FAVORITES)
         AppRoute.Profile -> appShell(action, ROUTE_PROFILE)
+        AppRoute.ProfileEdit -> kuikly(
+            action,
+            ROUTE_PROFILE_EDIT,
+            PAGE_PROFILE_EDIT
+        )
         AppRoute.Settings -> kuikly(action, ROUTE_SETTINGS, PAGE_SETTINGS)
         is AppRoute.NativePermission -> native(
             action = action,
@@ -138,6 +145,7 @@ object AppRouteTable {
         AppRouteKey.GALLERY -> ROUTE_GALLERY
         AppRouteKey.FAVORITES -> ROUTE_FAVORITES
         AppRouteKey.PROFILE -> ROUTE_APP_SHELL
+        AppRouteKey.PROFILE_EDIT -> ROUTE_PROFILE_EDIT
         AppRouteKey.SETTINGS -> ROUTE_SETTINGS
         AppRouteKey.NATIVE_PERMISSION -> ROUTE_NATIVE_PERMISSION
         AppRouteKey.NATIVE_FILE_IMPORT -> ROUTE_NATIVE_FILE_IMPORT
@@ -157,6 +165,7 @@ object AppRouteTable {
         AppRouteKey.GALLERY -> RouteDestination.Kuikly(PAGE_GALLERY)
         AppRouteKey.FAVORITES -> RouteDestination.Kuikly(PAGE_FAVORITES)
         AppRouteKey.PROFILE -> RouteDestination.Kuikly(PAGE_APP_SHELL)
+        AppRouteKey.PROFILE_EDIT -> RouteDestination.Kuikly(PAGE_PROFILE_EDIT)
         AppRouteKey.SETTINGS -> RouteDestination.Kuikly(PAGE_SETTINGS)
         AppRouteKey.NATIVE_PERMISSION -> RouteDestination.Native(NATIVE_PERMISSION)
         AppRouteKey.NATIVE_FILE_IMPORT -> RouteDestination.Native(NATIVE_FILE_IMPORT)

@@ -29,6 +29,7 @@ data class AppDimensions(
     val mediaThumbnailSize: Dp,
     val placeHeroHeight: Dp,
     val placeCompactMediaSize: Dp,
+    val profileAvatarSize: Dp,
     val bottomNavigationHeight: Dp,
     val adaptiveGridBreakpoint: Dp
 )
@@ -58,6 +59,7 @@ val DefaultAppDimensions = AppDimensions(
     mediaThumbnailSize = 104.dp,
     placeHeroHeight = 208.dp,
     placeCompactMediaSize = 88.dp,
+    profileAvatarSize = 72.dp,
     bottomNavigationHeight = 64.dp,
     adaptiveGridBreakpoint = 600.dp
 )

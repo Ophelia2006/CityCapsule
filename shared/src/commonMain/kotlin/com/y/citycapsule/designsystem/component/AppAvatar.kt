@@ -18,17 +18,19 @@ import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.graphics.Color
+import com.tencent.kuikly.compose.ui.unit.Dp
 import com.y.citycapsule.core.profile.AvatarPreset
 import com.y.citycapsule.designsystem.theme.AppTheme
 
 @Composable
 fun AppProfileAvatar(
     preset: AvatarPreset,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    size: Dp = AppTheme.dimensions.minTouchTarget
 ) {
     Box(
         modifier = modifier
-            .size(AppTheme.dimensions.minTouchTarget)
+            .size(size)
             .clip(RoundedCornerShape(AppTheme.dimensions.radiusXl))
             .background(AppTheme.colors.primaryContainer),
         contentAlignment = Alignment.Center

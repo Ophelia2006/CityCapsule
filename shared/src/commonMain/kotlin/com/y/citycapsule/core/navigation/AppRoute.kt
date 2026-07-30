@@ -55,6 +55,8 @@ sealed interface AppRoute {
 
     data object Profile : AppRoute
 
+    data object ProfileEdit : AppRoute
+
     data object Settings : AppRoute
 
     data class NativePermission(val permissionType: String) : AppRoute {
@@ -85,6 +87,7 @@ enum class AppRouteKey {
     GALLERY,
     FAVORITES,
     PROFILE,
+    PROFILE_EDIT,
     SETTINGS,
     NATIVE_PERMISSION,
     NATIVE_FILE_IMPORT

@@ -21,7 +21,8 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 enum class AppIconName(val glyph: String) {
     BACK("‹"), SEARCH("⌕"), EXPLORE("◇"), RECORD("□"), PROFILE("○"),
     FAVORITE("♡"), FAVORITE_FILLED("♥"), LOCATION("⌖"), ADD("＋"),
-    MORE("…"), CLOSE("×"), FORWARD("›"), PHOTO("▧"), RETRY("↻"), CHECK("✓")
+    MORE("…"), CLOSE("×"), FORWARD("›"), PHOTO("▧"), RETRY("↻"), CHECK("✓"),
+    SETTINGS("⚙")
 }
 
 @Composable
