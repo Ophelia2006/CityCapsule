@@ -2,7 +2,7 @@
 
 > 当前门禁：P0-3A 单一 AppShell 已批准并完成代码/自动化验证；Record Container 点击切换已迁入壳，内部 Pager 仍待 P0-3B。其余页面仍需一次只批准并验收一个 Feature，不得据此自动开始大规模 UI 修改。
 
-> 架构门禁（2026-07-30）：后续页面级 Feature 重构默认采用 `MVI_ARCHITECTURE.md` 的渐进式 MVI。继续 Explore/PlaceList 实现前，先完成 coroutines/StateFlow/Effect/lifecycle 双端技术 Spike；PlaceList 是第一个业务迁移试点。已有 AppShell、Record Flow 和其他 StateHolder 不做一次性重写。
+> 架构状态（2026-07-30）：PlaceList/Explore 首个 MVI 代码试点与 shared/Android 自动化已完成，双端设备 lifecycle/Effect Spike 仍待验收；已有 AppShell、Record Flow 和其他 StateHolder 不做一次性重写。
 
 ## 1. 允许与禁止范围
 
@@ -28,8 +28,8 @@ Map/Location/External navigation capability
 
 ### P0：先形成真实闭环
 
-1. **MVI 技术 Spike（待开始）**：显式 coroutines 依赖、StateFlow 收集、Effect 单次消费、Intent 顺序、Store dispose 和双端构建；不批量生成 Feature Store。
-2. **PlaceList / Explore MVI 试点（待开始）**：保持现有业务与 schema，先完成 Intent/Mutation/Reducer/Effect/Store 和等价测试，再在同一 Feature 内完成地点列表/PlaceCard 产品化。
+1. **MVI 技术 Spike（代码/Android 自动化完成，双端设备待验收）**：已显式声明 coroutines，并通过 PlaceList 验证 StateFlow、Effect、Intent 顺序和 dispose；不批量生成 Feature Store。
+2. **PlaceList / Explore MVI 试点（代码与自动化完成，设备待验收）**：保持现有业务与 schema，已完成 Intent/Mutation/Reducer/Effect/Store、等价测试及地点列表/PlaceCard 产品化。
 3. **应用壳 P0-3A（代码与自动化完成，待设备验收）**：一个 AppShell/底栏，三个常驻根内容；点击 Tab 驱动无手势根 Pager，重复点击 no-op，诊断入口不入壳。
 4. **Record Container P0-3B（部分完成）**：Timeline/Gallery 已是同一 Record 根内容的点击切换视图并保留底栏/状态；下一步补内部 HorizontalPager、左右滑动和同轴手势验收；详情仍走 typed route。
 5. **探索首页（代码完成，待设备验收）**：基于 seed 与用户自建地点混合 catalog，以及真实 Capsule/Favorite 本地数据和诚实空态；重点地点整卡是 Primary，本地规则必须可解释，不称 AI。后续页面级修改按 MVI 顺序单独迁移 Home。

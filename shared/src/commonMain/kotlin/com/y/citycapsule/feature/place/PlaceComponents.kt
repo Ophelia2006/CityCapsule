@@ -15,7 +15,7 @@ import com.y.citycapsule.designsystem.component.PlaceFallbackKind
 internal fun PlaceSummaryCard(
     place: Place,
     favorite: Boolean,
-    favoriteBusy: Boolean,
+    favoriteEnabled: Boolean,
     onOpen: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
@@ -30,7 +30,7 @@ internal fun PlaceSummaryCard(
         onOpen = onOpen,
         onToggleFavorite = onToggleFavorite,
         variant = PlaceCardVariant.COMPACT,
-        favoriteEnabled = !favoriteBusy
+        favoriteEnabled = favoriteEnabled
     )
 }
 

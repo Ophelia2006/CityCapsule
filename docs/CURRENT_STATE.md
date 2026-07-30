@@ -13,7 +13,7 @@
 | Android/HarmonyOS Kuikly 宿主 | DONE | 两端有启动、host、adapter 与平台工程；不代表所有业务双端手测完成 |
 | 强类型共享路由 | DONE | `AppRoute/AppNavigator/AppRouteTable` + 双端 dispatcher/stack tests |
 | 单一 AppShell / 正式一级导航 | DONE（代码）/PARTIAL（设备体验） | 一个 `AppShellPage`、一个 Bottom Navigation、三个常驻根内容；点击 Tab 以 `animateScrollToPage` 切换，根手势关闭，重复点击 no-op；shared/Android/HarmonyOS 测试与双端包构建通过，仍待设备视觉/动画/返回键走查 |
-| MVI 表现层迁移 | NOT_STARTED（目标已批准） | 当前仍有 9 个 callback 型 StateHolder，UI 通过具体方法和 `onStateChanged` 更新；无项目级 Intent/Mutation/Reducer/Effect/StateFlow Store，commonMain 无显式 coroutines 依赖。已决定先做双端技术 Spike，再以 PlaceList/Explore 渐进试点 |
+| MVI 表现层迁移 | PARTIAL | PlaceList/Explore 已迁为首个轻量 MVI Store，commonMain 显式依赖 coroutines，具备串行 Intent/Mutation、pure Reducer、StateFlow、Channel Effect 与 dispose；shared/Android 自动化已通过，HarmonyOS 与双端生命周期设备 Spike 尚待验收，其余 Feature 仍为 StateHolder |
 | Record 容器 | PARTIAL | Timeline/Gallery 已是同一 `RecordRootContent` 的状态视图并共享 catalog/底栏；点击切换和视图状态保留已实现，内部 HorizontalPager 与左右滑动尚未实现；独立 Gallery route 仅作兼容 |
 | MMKV bridge 与主题旧值迁移 | DONE | 双端 2.4.0、typed protocol、迁移状态和测试资产 |
 | Shared 主题与基础组件 | PARTIAL | 暖白/近黑/暖琥珀 Light/Dark token、统一 AppIcon 入口、PlaceCard/CapsuleCard、状态组件与 Bottom Navigation 已存在；图标仍是文本 glyph，Elevation 未完成视觉落地，缺自适应 pane |
@@ -23,7 +23,7 @@
 | 收藏地点 | DONE（技术）/PARTIAL（产品） | 独立 ID 集合、容错、持久化完整；用户可见文案已改“想去”，底层保持 `Favorite*`；仍缺加入时间排序 |
 | 首页 | DONE（代码）/PARTIAL（设备体验） | 已聚合 Profile/Place/Favorite/Capsule Repository，展示档案城市与头像、问候与搜索入口、可解释本地排序 Hero、分类、想去/同城地点、最多 3 条真实最近记忆和真实地点选择后的快速记录；不展示天气、距离或 AI 推荐，仍待双端视觉与交互走查 |
 | 设置 | PARTIAL | 主题偏好真实可用，技术与路由验收文案已移除；缓存、存储占用、隐私、关于等规划设置未做 |
-| 地点列表/详情 UI | PARTIAL | 地点详情已有“想去”、记忆计数和“在这里留下城市碎片”主 CTA；仍无地点照片、距离、地图和导航，列表视觉仍偏管理工具 |
+| 地点列表/详情 UI | PARTIAL（设备体验） | Explore 列表已完成搜索置顶、横向分类 chips、高级筛选 Bottom Sheet、整行 PlaceCard、辅助新建菜单和档案城市优先的本地目录；想去复用内容列表。地点详情已有记录 CTA；仍无真实摄影、定位、距离、地图和导航，双端设备体验待验收 |
 | Profile UI | PARTIAL | 档案编辑/清除真实可用；已确认增加碎片数、关联地点数、想去数三项真实统计，但尚未接入对应 Repository 聚合 |
 | 地图探索 | PLACEHOLDER | 只有 typed route，无 `@Page`、Native View 或平台地图 SDK |
 | 权限原生页 | PLACEHOLDER | Harmony 可达但明确写“具体权限申请待实现”；Android launcher 未注册 |
@@ -45,8 +45,8 @@
 | LaunchGate | DONE | profile/onboarding MMKV | 系统冷启动 | Home/Onboarding replace | 启动反馈页 |
 | Onboarding | DONE | OnboardingRepository | LaunchGate/Settings | Home | 四步真实表单，但“默认档案”削弱引导意图，后续随产品视觉调整 |
 | Home | DONE（代码）/PARTIAL（设备体验） | Profile/Place/Favorite/Capsule Repository | LaunchGate/探索 Tab | 地点列表/详情、想去、碎片详情、带 placeId 的碎片编辑器 | 已完成 P0-3 产品化内容与真实空/加载/部分失败降级；待双端视觉验收 |
-| Place List | PARTIAL | Place/Favorite Repository | Home | Editor/Detail/back | 搜索筛选真实，内容层级偏管理工具 |
-| Favorites | PARTIAL | 同上 | Home | Detail/back | 与地点列表复用，用户文案已为“想去”，视觉仍偏管理列表 |
+| Place List | DONE（代码与自动化）/PARTIAL（设备体验） | Profile/Place/Favorite Repository | Home | Editor/Detail/back | 首个 MVI 试点；搜索、横向分类、高级筛选 Sheet、整行点击和本地目录降级已完成；待双端手验 |
+| Favorites | DONE（代码与自动化）/PARTIAL（设备体验） | 同上 | Home/Profile | Detail/Explore/back | 以地点内容呈现，支持搜索与即时移出想去；不伪造加入时间排序；待双端手验 |
 | Place Detail | PARTIAL | Place/Favorite/Capsule Repository | 列表/回忆详情 | Capsule Editor/Timeline/Place Editor/back | 记录主 CTA 和记忆计数已接通；地点内容仍缺摄影、位置与导航 |
 | Place Editor | DONE（当前模型范围） | Place Repository | 列表/详情 | Detail/back | 表单 CRUD 完整；不应成为核心探索视觉模板 |
 | Profile | PARTIAL | Profile/Onboarding Repository | 我的 Tab | Settings/Onboarding | Profile 内容常驻 AppShell，编辑草稿在根 Tab 切换后保留；三项真实统计与想去内容尚未实现 |
@@ -116,6 +116,8 @@
 - Home、地点列表与地点详情的想去切换已避免成功提示插入、当前内容重排和页面自身 revision 重载；Record/Profile/Editor 的加载替换、共享滚动状态和照片位置组合仍是待设备验证的抖动高风险区。
 
 ## 验证状态
+
+2026-07-30 完成 P1-1 Explore 代码收尾：PlaceList/Want To Go 迁为首个轻量 MVI Feature；搜索置顶、分类横向 chips、高级筛选 Bottom Sheet、整行地点点击、新建地点辅助菜单、想去内容列表及档案城市优先/本地点目录降级已落地。新增 MVI 等价回归测试，未以删除旧 StateHolder 测试换取通过。shared、Android 单测与 Android Debug 构建通过；HarmonyOS 构建和双端设备视觉/Effect/lifecycle 行为仍按 `P1_EXPLORE_ACCEPTANCE.md` 验收。
 
 2026-07-28 完成 `:shared:testDebugUnitTest`、Android APK 和 OHOS Kotlin/Native/signed HAP 重建。Android 闪退有完整堆栈证明模拟器运行的是未包含 Pager 媒体模块注册的旧 APK；覆盖安装最新包后，已实测 `DocumentsUI PickActivity` 打开、选择真实图片、回到编辑器并复制到 `files/images/original`，无 `AndroidRuntime` 崩溃。共享媒体 capability 另增加同步桥接异常保护和回归测试，宿主版本错配或模块遗漏时返回 Failure，不再让异常逃逸到 Kuikly 线程。
 

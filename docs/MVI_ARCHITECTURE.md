@@ -2,7 +2,7 @@
 
 ## 状态与适用范围
 
-状态：**Accepted target，尚未完成技术 Spike，也不是当前全项目架构。**
+状态：**PlaceList/Explore 首个代码试点已完成；双端设备 Spike 尚未完成，也不是当前全项目架构。**
 
 从 2026-07-30 起，新建 Feature 的表现层默认采用本文定义的轻量 MVI；对现有 Feature 做页面级重构时，应把该 Feature 的 callback 型 `StateHolder` 迁移为 MVI Store。小范围缺陷修复、纯样式调整或平台适配不强制顺手迁移，避免扩大改动范围。现有 Store 按 Feature 渐进替换，不进行全项目一次性重写。
 
@@ -63,7 +63,7 @@ interface MviStore<Intent, State, Effect> {
 - `Effect`：只消费一次的非持久行为，例如 typed navigation、关闭页面、展示一次性确认或启动需要 UI 参与的系统交互。Effect 不能代替可恢复的错误/加载状态。
 - `Executor / Actor`：处理 Intent、副作用与回调适配，并把所有结果重新送入 Mutation 流；不得绕过 Reducer 直接修改 State。
 
-Effect 的具体承载采用 `SharedFlow`、`Channel.receiveAsFlow()` 或其他机制，必须由技术 Spike 根据 Kuikly/KMP 生命周期测试后确定，不能只凭常见 Android 写法冻结。
+首个 PlaceList 试点采用 `Channel.receiveAsFlow()` 承载 Effect；shared/Android 自动化已验证单次消费，Kuikly 双端前后台与销毁行为仍需设备 Spike，因此该选择尚未自动推广为所有 Feature 的不可变模板。
 
 ## 强制架构规则
 

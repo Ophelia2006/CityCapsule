@@ -76,7 +76,11 @@ Android KRApplication / Harmony EntryAbility
 
 ```text
 PlaceListPage / FavoritesPager
-  → PlaceListStateHolder.load()
+  → PlaceListIntent
+  → PlaceListStore（串行 Event actor）
+  → PlaceListMutation
+  → pure PlaceListReducer
+  → StateFlow<PlaceListUiState> / one-shot PlaceListEffect
   → LocalPlaceRepository.getCatalogSnapshot()
      → places.catalog（缺失时写入 seed）
   → LocalFavoriteRepository.getFavoriteIds()
@@ -87,6 +91,8 @@ PlaceListPage / FavoritesPager
 ```
 
 Home 的分类入口通过 typed `AppRoute.PlaceList(initialCategory)` 携带可选分类 wire value；`PlaceListPager` 解析为 `PlaceCategory` 并初始化筛选。未知或缺失值安全降级为无分类筛选。
+
+PlaceList/Explore 是当前首个轻量 MVI Feature。UI 只读取 State、派发 Intent，并在 UI 边界消费 typed navigation Effect；Store 不持有 Navigator 或平台对象，`DisposableEffect` 负责 `dispose()`。搜索置顶，分类为横向 chips，高级城市/区域/只看想去筛选位于 Bottom Sheet；地点整行进入详情，想去心形独立操作。当前没有定位能力，默认只按档案城市稳定优先并展示“本地点目录”，不使用“附近”或距离语义。
 
 ### 探索首页聚合与本地推荐
 
@@ -260,6 +266,6 @@ Feature Store
   → UI 执行 typed navigation / 一次性行为
 ```
 
-当前 9 个 callback 型 StateHolder 仍是实际架构，不能因目标获批而标记为已迁移。首个试点是 PlaceList/Explore；在此之前先验证显式 coroutines 依赖、Kuikly 收集 StateFlow、Effect 单次消费、Intent 串行化和 Store dispose 的 Android/HarmonyOS 行为。详细契约与迁移门禁见 `MVI_ARCHITECTURE.md`。
+PlaceList/Explore 已完成首个 Store 代码试点；其余 callback 型 StateHolder 仍是实际架构，不能据此宣称全项目已迁移。显式 coroutines、Reducer/Store/Effect/dispose 的 shared 与 Android 自动化已通过；Kuikly StateFlow 收集、前后台 Effect 与销毁行为仍待 Android/HarmonyOS 设备验收。详细契约与迁移门禁见 `MVI_ARCHITECTURE.md`。
 
 MVI 只解决表现层状态流。简单 CRUD Store 可以直接调用 Repository；存在真实跨 Repository 业务规则时才引入 UseCase，出现本地/远端来源时再引入 Local/RemoteDataSource。不要为了形式先创建空层，也不建立全局 Redux Store。

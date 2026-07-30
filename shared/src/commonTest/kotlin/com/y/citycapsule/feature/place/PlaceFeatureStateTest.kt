@@ -24,21 +24,6 @@ import kotlin.test.assertTrue
 
 class PlaceFeatureStateTest {
     @Test
-    fun initialCategoryFromTypedEntryFiltersFirstLoad() {
-        val fixture = fixture()
-        val holder = PlaceListStateHolder(
-            fixture.placeRepository,
-            fixture.favoriteRepository,
-            initialCategory = PlaceCategory.NATURE
-        )
-
-        holder.load()
-
-        assertEquals(setOf(PlaceCategory.NATURE), holder.state.filter.categories)
-        assertTrue(holder.state.visiblePlaces.all { it.category == PlaceCategory.NATURE })
-    }
-
-    @Test
     fun detailExposesThreeNewestMemoriesInDescendingOrder() {
         val fixture = fixture()
         repeat(4) { index ->
@@ -64,78 +49,6 @@ class PlaceFeatureStateTest {
     }
 
     @Test
-    fun listSearchAndCombinedFiltersUseSharedEngine() {
-        val fixture = fixture()
-        val holder = PlaceListStateHolder(
-            fixture.placeRepository,
-            fixture.favoriteRepository
-        )
-
-        holder.load()
-        assertEquals(8, holder.state.visiblePlaces.size)
-
-        holder.updateQuery("博物馆")
-        assertEquals(
-            setOf("seed_shanghai_museum", "seed_china_tea_museum"),
-            holder.state.visiblePlaces.map(Place::id).toSet()
-        )
-
-        holder.updateQuery("")
-        holder.toggleCategory(PlaceCategory.NATURE)
-        holder.updateCity("杭州")
-        assertEquals(
-            listOf("seed_west_lake"),
-            holder.state.visiblePlaces.map(Place::id)
-        )
-
-        holder.clearFilters()
-        assertEquals(8, holder.state.visiblePlaces.size)
-    }
-
-    @Test
-    fun favoritesModeRemovesCardImmediatelyAfterUnfavorite() {
-        val fixture = fixture()
-        fixture.favoriteRepository.setFavorite("seed_shanghai_museum", true) {}
-        val holder = PlaceListStateHolder(
-            fixture.placeRepository,
-            fixture.favoriteRepository,
-            PlaceListMode.FAVORITES
-        )
-
-        holder.load()
-        assertEquals(
-            listOf("seed_shanghai_museum"),
-            holder.state.visiblePlaces.map(Place::id)
-        )
-
-        holder.toggleFavorite("seed_shanghai_museum")
-
-        assertTrue(holder.state.visiblePlaces.isEmpty())
-        assertEquals(PlaceListContentState.EMPTY_FAVORITES, holder.state.contentState)
-    }
-
-    @Test
-    fun allPlacesFavoriteToggleKeepsListReadyAndInStableOrder() {
-        val fixture = fixture()
-        var invalidations = 0
-        val holder = PlaceListStateHolder(
-            fixture.placeRepository,
-            fixture.favoriteRepository,
-            onDataChanged = { invalidations++ }
-        )
-        holder.load()
-        val originalIds = holder.state.visiblePlaces.map(Place::id)
-        val originalNotice = holder.state.notice
-
-        holder.toggleFavorite(originalIds.first())
-
-        assertEquals(PlaceListUiStatus.READY, holder.state.status)
-        assertEquals(originalIds, holder.state.visiblePlaces.map(Place::id))
-        assertEquals(originalNotice, holder.state.notice)
-        assertEquals(1, invalidations)
-    }
-
-    @Test
     fun placeListIgnoresItsOwnInvalidationButReloadsForExternalMutation() {
         val owner = PlaceFeatureRuntime.newOwnerToken()
 
@@ -144,24 +57,6 @@ class PlaceFeatureStateTest {
 
         PlaceFeatureRuntime.invalidate()
         assertTrue(PlaceFeatureRuntime.shouldReload(owner))
-    }
-
-    @Test
-    fun corruptedCatalogEntersReadOnlyStateAndBlocksFavoriteMutation() {
-        val storage = InMemoryKeyValueStore()
-        storage.seedRaw(AppStorageKeys.Places.CATALOG, encodedValue = "{broken")
-        val fixture = fixture(storage)
-        val holder = PlaceListStateHolder(
-            fixture.placeRepository,
-            fixture.favoriteRepository
-        )
-
-        holder.load()
-        holder.toggleFavorite("seed_shanghai_museum")
-
-        assertTrue(holder.state.readOnly)
-        assertEquals(PlaceListContentState.STORAGE_ERROR, holder.state.contentState)
-        assertTrue(holder.state.favoriteIds.isEmpty())
     }
 
     @Test

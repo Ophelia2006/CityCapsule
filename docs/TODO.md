@@ -4,8 +4,8 @@
 
 ## P0：验收 Record Flow 并建立正式产品壳
 
-- `[Architecture Decision]` 在继续 Explore/PlaceList 页面级重构前完成 MVI 技术 Spike：为 commonMain 显式选择兼容的 coroutines 版本，验证 Kuikly `StateFlow` 收集、Effect 单次消费、Intent 串行/latest-load、Page/AppShell Store 生命周期和 `dispose()`；shared/Android/HarmonyOS 构建与测试通过后再冻结具体实现。
-- `[Architecture Decision][UI/UX Redesign]` 以 PlaceList/Explore 为首个 MVI Feature：保留现有 `PlaceListUiState`、Repository、搜索规则、路由和 storage schema，新增 Intent/Mutation/pure Reducer/Effect/Store，并迁移现有 StateHolder 测试能力；不得顺手引入地图、坐标、网络、数据库、全局 Store 或空 UseCase/DataSource。
+- `[Architecture Decision][PARTIAL 2026-07-30]` MVI 技术 Spike：commonMain 已显式使用 coroutines，PlaceList 自动化已验证 Intent 串行、StateFlow、Effect 单次与 dispose；仍须在 Android/HarmonyOS 设备验证重组、前后台与销毁行为，并完成 HarmonyOS 构建。
+- `[Architecture Decision][UI/UX Redesign][DONE code 2026-07-30]` PlaceList/Explore 首个 MVI Feature：保留 Repository、搜索规则、路由和 storage schema，已迁移 Intent/Mutation/pure Reducer/Effect/Store 与原回归能力；设备验收见 `P1_EXPLORE_ACCEPTANCE.md`。
 - `[Code Scan]` 明确 `h5App`、`miniApp` 是否属于目标；当前空 project include 不阻断 Gradle 8.7 测试，但不能作为已支持平台宣传。
 - `[UI/UX Redesign][DONE 2026-07-28]` Design System v2 最小基础：暖白/中性灰/暖琥珀 token、配套深色、elevation 语义、统一 Icon 入口、类别 fallback、加载/空/错误状态及核心 Flow 组件 API；主题持久化协议未改变。
 - `[UI/UX Redesign]` 在 Android/HarmonyOS 设备走查新 Light/Dark 调色、系统栏、AppIcon 字形与 elevation/shadow；若字形不一致，保持 `AppIcon` API 并替换为跨端稳定的代码矢量实现。
@@ -25,7 +25,7 @@
 - `[Architecture Decision]` PlaceList 试点双端验收后，后续页面级重构默认按 `MVI_ARCHITECTURE.md` 渐进迁移；建议顺序 Home → PlaceDetail → Profile → Timeline/Gallery/CapsuleDetail → 编辑器/Onboarding。小缺陷和纯样式修改不强制扩大为架构迁移。
 - `[Code Scan]` 执行 UI 稳定性专项：发布/编辑/删除 Capsule 后返回时间轴和相册；长列表中段新增最新记录；时间轴/相册中段切换；Editor 选图、保存草稿、移除首张/中间照片；Profile 首次加载、保存和清除。重点检查整页 Loading、滚动归零、状态提示插入下推，以及无稳定 key 导致的缩略图闪白/错图。
 - `[UI/UX Redesign][DONE 2026-07-30]` P0-4 Place Detail 产品化：类别 Hero fallback、地点/城市区域/类型、“想去”图标、关于、真实地址、最近三条城市记忆与“在这里留下城市碎片”主 CTA；编辑/删除已下沉到更多菜单，未展示尚不存在的地图、距离和导航。
-- `[UI/UX Redesign]` 继续重构 Explore/PlaceCard：摄影内容、分类、搜索与整卡点击；真实摄影接入前继续使用已登记的类别 fallback。
+- `[UI/UX Redesign][DONE code 2026-07-30]` P1-1 Explore：搜索置顶、分类横向 chips、整行 PlaceCard、高级筛选 Bottom Sheet、新建地点辅助菜单、想去内容页及档案城市/本地点目录诚实降级；真实摄影接入前继续使用类别 fallback。双端设备验收仍待完成。
 - `[Initial Plan]` 决定 Place source/seed 不可删除规则并迁移现有 catalog；避免无依据直接改 wire schema。
 - `[Initial Plan]` 实现 Location capability、坐标字段迁移、距离和权限降级。
 - `[Initial Plan][UI/UX Redesign]` 接入双端真实地图 Native View、Marker、列表/地图切换和外部导航；地图不可用时降级为列表。

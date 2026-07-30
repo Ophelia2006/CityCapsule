@@ -1,17 +1,31 @@
 package com.y.citycapsule.feature.place
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.tencent.kuikly.compose.foundation.clickable
+import com.tencent.kuikly.compose.foundation.layout.Box
+import com.tencent.kuikly.compose.foundation.layout.Row
 import com.tencent.kuikly.compose.foundation.layout.Spacer
+import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
+import com.tencent.kuikly.compose.foundation.layout.padding
+import com.tencent.kuikly.compose.foundation.layout.width
+import com.tencent.kuikly.compose.foundation.lazy.LazyRow
+import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.setContent
+import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.core.annotations.Page
+import com.y.citycapsule.app.navigation.AppRootTab
+import com.y.citycapsule.app.navigation.backToRoot
 import com.y.citycapsule.app.theme.AppThemeHost
 import com.y.citycapsule.app.theme.KuiklyAppThemeHost
 import com.y.citycapsule.app.theme.RuntimeAppTheme
@@ -23,17 +37,29 @@ import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.PlaceCategory
+import com.y.citycapsule.core.place.PlaceValidator
+import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
+import com.y.citycapsule.designsystem.component.AppActionTopBar
+import com.y.citycapsule.designsystem.component.AppBottomSheet
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppChoiceChip
+import com.y.citycapsule.designsystem.component.AppDivider
+import com.y.citycapsule.designsystem.component.AppFilterChip
+import com.y.citycapsule.designsystem.component.AppIconName
+import com.y.citycapsule.designsystem.component.AppMenuItem
+import com.y.citycapsule.designsystem.component.AppOverflowMenu
 import com.y.citycapsule.designsystem.component.AppScaffold
 import com.y.citycapsule.designsystem.component.AppSecondaryText
-import com.y.citycapsule.designsystem.component.AppSection
 import com.y.citycapsule.designsystem.component.AppStatusMessage
 import com.y.citycapsule.designsystem.component.AppTextField
-import com.y.citycapsule.designsystem.component.AppTopBar
+import com.y.citycapsule.designsystem.component.EmptyState
+import com.y.citycapsule.designsystem.component.ErrorState
+import com.y.citycapsule.designsystem.component.LoadingState
+import com.y.citycapsule.designsystem.component.SearchField
 import com.y.citycapsule.designsystem.theme.AppTheme
+import kotlinx.coroutines.flow.collect
 
 @Page(AppRouteTable.PAGE_PLACE_LIST, supportInLocal = true)
 internal class PlaceListPager : BasePager() {
@@ -58,12 +84,13 @@ internal class PlaceListPager : BasePager() {
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
             PlaceListScreen(
-                mode,
-                navigator,
-                placeRepository,
-                favoriteRepository,
-                themeHost,
-                initialCategory
+                mode = mode,
+                navigator = navigator,
+                profileRepository = LocalProfileRepository(storage),
+                placeRepository = placeRepository,
+                favoriteRepository = favoriteRepository,
+                themeHost = themeHost,
+                initialCategory = initialCategory
             )
         }
     }
@@ -80,11 +107,12 @@ internal class FavoritesPager : BasePager() {
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
             PlaceListScreen(
-                PlaceListMode.FAVORITES,
-                navigator,
-                placeRepository,
-                favoriteRepository,
-                themeHost
+                mode = PlaceListMode.FAVORITES,
+                navigator = navigator,
+                profileRepository = LocalProfileRepository(storage),
+                placeRepository = placeRepository,
+                favoriteRepository = favoriteRepository,
+                themeHost = themeHost
             )
         }
     }
@@ -94,172 +122,293 @@ internal class FavoritesPager : BasePager() {
 private fun PlaceListScreen(
     mode: PlaceListMode,
     navigator: AppNavigator,
+    profileRepository: LocalProfileRepository,
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
     themeHost: AppThemeHost,
     initialCategory: PlaceCategory? = null
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
-    var uiState by remember { mutableStateOf(PlaceListUiState(mode = mode)) }
+    val storeScope = rememberCoroutineScope()
     val invalidationOwner = remember { PlaceFeatureRuntime.newOwnerToken() }
-    val holder = remember(placeRepository, favoriteRepository, mode) {
-        PlaceListStateHolder(
+    val store = remember(
+        profileRepository,
+        placeRepository,
+        favoriteRepository,
+        mode,
+        initialCategory
+    ) {
+        PlaceListStore(
+            profileRepository = profileRepository,
             placeRepository = placeRepository,
             favoriteRepository = favoriteRepository,
+            parentScope = storeScope,
             mode = mode,
-            initialCategory = initialCategory,
-            onDataChanged = { PlaceFeatureRuntime.invalidateFrom(invalidationOwner) },
-            onStateChanged = { uiState = it }
+            initialCategory = initialCategory
         )
     }
+    val uiState by store.state.collectAsState()
     val catalogRevision = PlaceFeatureRuntime.revision
+    var showFilters by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
-    LaunchedEffect(holder, catalogRevision) {
+    DisposableEffect(store) {
+        onDispose(store::dispose)
+    }
+
+    LaunchedEffect(store, catalogRevision) {
         if (PlaceFeatureRuntime.shouldReload(invalidationOwner)) {
-            holder.load()
+            store.dispatch(PlaceListIntent.Load)
+        }
+    }
+
+    LaunchedEffect(store, navigator) {
+        store.effects.collect { effect ->
+            when (effect) {
+                is PlaceListEffect.NavigateToDetail -> navigator.navigate(
+                    AppRoute.PlaceDetail(effect.placeId)
+                )
+                PlaceListEffect.NavigateToEditor -> navigator.navigate(
+                    AppRoute.PlaceEditor()
+                )
+                PlaceListEffect.NavigateBack -> navigator.back()
+                PlaceListEffect.BackToExplore -> navigator.backToRoot(AppRootTab.EXPLORE)
+                PlaceListEffect.FavoritesChanged ->
+                    PlaceFeatureRuntime.invalidateFrom(invalidationOwner)
+            }
         }
     }
 
     RuntimeAppTheme(themeHost = themeHost) {
         AppScaffold(statusBarHeight = statusBarHeight) {
-            AppTopBar(
-                title = if (mode == PlaceListMode.FAVORITES) "想去的地方" else "地点",
-                subtitle = if (mode == PlaceListMode.FAVORITES) {
-                    "想去清单只保存在当前设备。"
+            AppActionTopBar(
+                title = if (mode == PlaceListMode.FAVORITES) "想去的地方" else "探索地点",
+                onLeadingClick = { store.dispatch(PlaceListIntent.BackClicked) },
+                actionIcon = if (mode == PlaceListMode.ALL) AppIconName.MORE else null,
+                actionDescription = "更多操作",
+                onActionClick = if (mode == PlaceListMode.ALL) {
+                    { showMenu = true }
                 } else {
-                    "离线搜索、筛选和维护自己的地点目录。"
+                    null
                 }
             )
-            uiState.notice?.let {
-                Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
-                AppStatusMessage(it.message, tone = it.tone.toAppStatusTone())
-            }
-            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-            AppTextField(
+            Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+            SearchField(
                 value = uiState.query,
-                onValueChange = holder::updateQuery,
-                label = "搜索地点",
-                placeholder = "名称、标签、城市、地址或备注",
-                maxLength = SEARCH_QUERY_MAX_LENGTH,
+                onValueChange = {
+                    store.dispatch(PlaceListIntent.QueryChanged(it))
+                },
+                placeholder = if (mode == PlaceListMode.FAVORITES) {
+                    "搜索想去地点"
+                } else {
+                    "搜索地点、分类或区域"
+                },
                 enabled = uiState.status == PlaceListUiStatus.READY
             )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-            PlaceFilters(uiState, holder)
-            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-            PlaceListContent(uiState, holder, navigator)
-            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-            if (mode == PlaceListMode.ALL) {
-                AppButton(
-                    text = "新建地点",
-                    onClick = { navigator.navigate(AppRoute.PlaceEditor()) },
-                    enabled = !uiState.readOnly &&
-                        uiState.status == PlaceListUiStatus.READY
-                )
-                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+            CategoryChips(uiState, store::dispatch)
+            uiState.notice?.let { notice ->
+                Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+                AppStatusMessage(notice.message, tone = notice.tone.toAppStatusTone())
             }
-            AppButton(
-                text = "重新加载",
-                onClick = holder::load,
-                variant = AppButtonVariant.SECONDARY,
-                enabled = uiState.status == PlaceListUiStatus.READY
+            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+            ResultHeader(uiState, onFilterClick = { showFilters = true })
+            Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+            PlaceListContent(uiState, store::dispatch)
+        }
+
+        AppBottomSheet(
+            visible = showFilters,
+            title = "筛选地点",
+            onDismiss = { showFilters = false },
+            dismissLabel = "完成"
+        ) {
+            AdvancedFilters(uiState, store::dispatch)
+        }
+
+        AppOverflowMenu(
+            expanded = showMenu,
+            items = listOf(
+                AppMenuItem(
+                    id = MENU_CREATE_PLACE,
+                    label = "新建地点",
+                    enabled = !uiState.readOnly && uiState.status == PlaceListUiStatus.READY
+                )
+            ),
+            onSelected = { id ->
+                showMenu = false
+                if (id == MENU_CREATE_PLACE) {
+                    store.dispatch(PlaceListIntent.CreatePlaceClicked)
+                }
+            },
+            onDismiss = { showMenu = false }
+        )
+    }
+}
+
+@Composable
+private fun CategoryChips(
+    state: PlaceListUiState,
+    dispatch: (PlaceListIntent) -> Unit
+) {
+    LazyRow(modifier = Modifier.fillMaxWidth()) {
+        item {
+            AppFilterChip(
+                text = "全部",
+                selected = state.filter.categories.isEmpty(),
+                onClick = { dispatch(PlaceListIntent.CategoriesCleared) },
+                enabled = state.status == PlaceListUiStatus.READY
             )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-            AppButton(
-                text = "返回上一页",
-                onClick = navigator::back,
-                variant = AppButtonVariant.TEXT
+        }
+        PlaceCategory.entries.forEach { category ->
+            item {
+                Spacer(Modifier.width(AppTheme.dimensions.spacingXs))
+                AppFilterChip(
+                    text = category.displayName(),
+                    selected = category in state.filter.categories,
+                    onClick = {
+                        dispatch(PlaceListIntent.CategoryToggled(category))
+                    },
+                    enabled = state.status == PlaceListUiStatus.READY
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultHeader(
+    state: PlaceListUiState,
+    onFilterClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.weight(1f)) {
+            AppSecondaryText(
+                if (state.status == PlaceListUiStatus.LOADING) {
+                    state.directoryContext
+                } else {
+                    "${state.visiblePlaces.size} 个地点 · ${state.directoryContext}"
+                }
+            )
+        }
+        Box(
+            modifier = Modifier
+                .clickable(
+                    enabled = state.status == PlaceListUiStatus.READY,
+                    onClick = onFilterClick
+                )
+                .padding(AppTheme.dimensions.spacingXs),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (state.activeAdvancedFilterCount > 0) {
+                    "筛选 ${state.activeAdvancedFilterCount}"
+                } else {
+                    "筛选"
+                },
+                color = if (state.status == PlaceListUiStatus.READY) {
+                    AppTheme.colors.primary
+                } else {
+                    AppTheme.colors.disabledContent
+                },
+                style = AppTheme.typography.button
             )
         }
     }
 }
 
 @Composable
-private fun PlaceFilters(
+private fun AdvancedFilters(
     state: PlaceListUiState,
-    holder: PlaceListStateHolder
+    dispatch: (PlaceListIntent) -> Unit
 ) {
-    AppSection(
-        title = "筛选",
-        description = "分类内部为任意匹配，分类与城市、区域之间同时满足。"
-    ) {
-        PlaceCategory.entries.forEach { category ->
-            AppChoiceChip(
-                text = category.displayName(),
-                selected = category in state.filter.categories,
-                onClick = { holder.toggleCategory(category) },
-                enabled = state.status == PlaceListUiStatus.READY
-            )
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-        }
-        AppTextField(
-            value = state.filter.city.orEmpty(),
-            onValueChange = holder::updateCity,
-            label = "城市",
-            placeholder = "例如：上海",
-            maxLength = com.y.citycapsule.core.place.PlaceValidator.CITY_MAX_LENGTH,
+    AppTextField(
+        value = state.filter.city.orEmpty(),
+        onValueChange = { dispatch(PlaceListIntent.CityChanged(it)) },
+        label = "城市",
+        placeholder = state.homeCity?.let { "例如：$it" } ?: "例如：上海",
+        maxLength = PlaceValidator.CITY_MAX_LENGTH,
+        enabled = state.status == PlaceListUiStatus.READY
+    )
+    Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+    AppTextField(
+        value = state.filter.district.orEmpty(),
+        onValueChange = { dispatch(PlaceListIntent.DistrictChanged(it)) },
+        label = "区域",
+        placeholder = "例如：徐汇区",
+        maxLength = PlaceValidator.DISTRICT_MAX_LENGTH,
+        enabled = state.status == PlaceListUiStatus.READY
+    )
+    if (state.mode == PlaceListMode.ALL) {
+        Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+        AppChoiceChip(
+            text = "只看想去",
+            selected = state.filter.favoritesOnly,
+            onClick = { dispatch(PlaceListIntent.FavoritesOnlyToggled) },
             enabled = state.status == PlaceListUiStatus.READY
         )
+    }
+    if (state.activeAdvancedFilterCount > 0) {
         Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-        AppTextField(
-            value = state.filter.district.orEmpty(),
-            onValueChange = holder::updateDistrict,
-            label = "区域",
-            placeholder = "例如：徐汇区",
-            maxLength = com.y.citycapsule.core.place.PlaceValidator.DISTRICT_MAX_LENGTH,
-            enabled = state.status == PlaceListUiStatus.READY
+        AppButton(
+            text = "清除高级筛选",
+            onClick = { dispatch(PlaceListIntent.ClearAdvancedFilters) },
+            variant = AppButtonVariant.TEXT
         )
-        if (state.mode == PlaceListMode.ALL) {
-            Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-            AppChoiceChip(
-                text = "只看想去",
-                selected = state.filter.favoritesOnly,
-                onClick = holder::toggleFavoritesOnly,
-                enabled = state.status == PlaceListUiStatus.READY
-            )
-        }
-        if (state.hasActiveFilters) {
-            Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-            AppButton(
-                text = "清除筛选",
-                onClick = holder::clearFilters,
-                variant = AppButtonVariant.TEXT
-            )
-        }
     }
 }
 
 @Composable
 private fun PlaceListContent(
     state: PlaceListUiState,
-    holder: PlaceListStateHolder,
-    navigator: AppNavigator
+    dispatch: (PlaceListIntent) -> Unit
 ) {
     when (state.contentState) {
-        PlaceListContentState.LOADING ->
-            AppSecondaryText("正在读取本地点目录…")
-        PlaceListContentState.EMPTY_CATALOG ->
-            AppSecondaryText("当前没有地点，可以新建第一条记录。")
-        PlaceListContentState.EMPTY_FAVORITES ->
-            AppSecondaryText("还没有想去的地方。")
-        PlaceListContentState.NO_MATCHES ->
-            AppSecondaryText("没有符合当前搜索和筛选条件的地点。")
-        PlaceListContentState.STORAGE_ERROR ->
-            AppSecondaryText("地点数据暂时无法安全读取，写操作已禁用。")
-        PlaceListContentState.RESULTS -> {
-            AppSecondaryText("共 ${state.visiblePlaces.size} 个结果")
-            Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-            state.visiblePlaces.forEach { place ->
-                PlaceSummaryCard(
-                    place = place,
-                    favorite = place.id in state.favoriteIds,
-                    favoriteBusy = state.busyFavoriteId == place.id,
-                    onOpen = { navigator.navigate(AppRoute.PlaceDetail(place.id)) },
-                    onToggleFavorite = { holder.toggleFavorite(place.id) }
-                )
-                Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+        PlaceListContentState.LOADING -> LoadingState("正在整理本地点目录…")
+        PlaceListContentState.EMPTY_CATALOG -> EmptyState(
+            title = "还没有可探索的地点",
+            message = "添加第一个地点后，就可以从这里开始探索。",
+            actionLabel = if (state.mode == PlaceListMode.ALL) "新建地点" else null,
+            onAction = if (state.mode == PlaceListMode.ALL) {
+                { dispatch(PlaceListIntent.CreatePlaceClicked) }
+            } else {
+                null
+            }
+        )
+        PlaceListContentState.EMPTY_FAVORITES -> EmptyState(
+            title = "还没有想去的地方",
+            message = "探索地点时点亮心形，它们会留在这里。",
+            actionLabel = "去探索地点",
+            onAction = { dispatch(PlaceListIntent.ExploreClicked) }
+        )
+        PlaceListContentState.NO_MATCHES -> EmptyState(
+            title = "没有找到匹配地点",
+            message = "换个关键词，或者清除当前筛选后再看看。",
+            actionLabel = "清除筛选",
+            onAction = { dispatch(PlaceListIntent.ClearAllFilters) }
+        )
+        PlaceListContentState.STORAGE_ERROR -> ErrorState(
+            message = "地点数据暂时无法安全读取，当前不会执行写操作。",
+            onRetry = { dispatch(PlaceListIntent.Retry) }
+        )
+        PlaceListContentState.RESULTS -> state.visiblePlaces.forEachIndexed { index, place ->
+            PlaceSummaryCard(
+                place = place,
+                favorite = place.id in state.favoriteIds,
+                favoriteEnabled = !state.readOnly && state.busyFavoriteId == null,
+                onOpen = { dispatch(PlaceListIntent.PlaceClicked(place.id)) },
+                onToggleFavorite = {
+                    dispatch(PlaceListIntent.FavoriteToggled(place.id))
+                }
+            )
+            if (index < state.visiblePlaces.lastIndex) {
+                AppDivider()
             }
         }
     }
 }
 
-private const val SEARCH_QUERY_MAX_LENGTH = 80
+private const val MENU_CREATE_PLACE = "create_place"

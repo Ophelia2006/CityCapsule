@@ -62,11 +62,13 @@ kotlin {
                 implementation("com.tencent.kuikly-open:core:${Version.getKuiklyVersion()}")
                 implementation("com.tencent.kuikly-open:core-annotations:${Version.getKuiklyVersion()}")
                 implementation("com.tencent.kuikly-open:compose:${Version.getKuiklyVersion()}")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
             }
         }
         val androidMain by getting {
