@@ -90,7 +90,7 @@ private fun AppShellScreen(
     LaunchedEffect(requestedTab) {
         requestedTab?.let { target ->
             shellState.selectTab(target)
-            pagerState.animateScrollToPage(target.pageIndex)
+            pagerState.scrollToPage(target.pageIndex)
             AppShellRuntime.consumeTab(target)
         }
     }
@@ -101,7 +101,7 @@ private fun AppShellScreen(
             onTabSelected = { selected ->
                 if (shellState.selectTab(selected)) {
                     coroutineScope.launch {
-                        pagerState.animateScrollToPage(selected.pageIndex)
+                        pagerState.scrollToPage(selected.pageIndex)
                     }
                 }
             }

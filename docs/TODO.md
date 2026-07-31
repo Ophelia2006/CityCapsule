@@ -27,7 +27,7 @@
 - `[Code Scan]` 执行 UI 稳定性专项：发布/编辑/删除 Capsule 后返回时间轴和相册；长列表中段新增最新记录；时间轴/相册中段切换；Editor 选图、保存草稿、移除首张/中间照片；Profile 首次加载、保存和清除。重点检查整页 Loading、滚动归零、状态提示插入下推，以及无稳定 key 导致的缩略图闪白/错图。
 - `[UI/UX Redesign][DONE 2026-07-30]` P0-4 Place Detail 产品化：类别 Hero fallback、地点/城市区域/类型、“想去”图标、关于、真实地址、最近三条城市记忆与“在这里留下城市碎片”主 CTA；编辑/删除已下沉到更多菜单，未展示尚不存在的地图、距离和导航。
 - `[UI/UX Redesign][DONE code 2026-07-30]` P1-1 Explore：搜索置顶、分类横向 chips、整行 PlaceCard、高级筛选 Bottom Sheet、新建地点辅助菜单、想去内容页及档案城市/本地点目录诚实降级；真实摄影接入前继续使用类别 fallback。双端设备验收仍待完成。
-- `[Initial Plan]` 决定 Place source/seed 不可删除规则并迁移现有 catalog；避免无依据直接改 wire schema。
+- `[Initial Plan][DONE code+automation/PARTIAL device 2026-07-31]` P2-1 Place V2：ADR-022、schema v2、`SEED/USER`、可选坐标/视觉引用、v1 精确 seed ID 迁移、seed 删除保护与旧备份恢复已实现；shared 180 项测试通过。仍需 Android/HarmonyOS 使用旧安装数据覆盖升级，并分别导入真实旧/新 ZIP 验证。
 - `[Initial Plan]` 实现 Location capability、坐标字段迁移、距离和权限降级。
 - `[Initial Plan][UI/UX Redesign]` 接入双端真实地图 Native View、Marker、列表/地图切换和外部导航；地图不可用时降级为列表。
 - `[Code Scan]` 如需“按想去时间排序”，新增有迁移方案的数据模型，不能从现有 Set 伪造加入时间；用户文案已经统一为“想去”，底层继续保留 `Favorite*`。
@@ -37,8 +37,8 @@
 - `[Code Scan]` 实现 RouteResult/requestId 结果通道；原生取消/失败/不支持必须回传，不得仅展示参数。
 - `[Code Scan][PARTIAL 2026-07-30]` 路由 Push/Replace/BackTo 诊断已集中在独立 Developer Tools pageName，正式 Settings 无入口；继续清理或隔离 `KRBridgeModule/KRMyModule/KRMyView` 模板 TODO/null 分支，并增加 release 构建完全不可达门禁。
 - `[Code Scan]` 统一 Android 图片加载栈，确认 Glide/Picasso 保留其一或说明不同职责。
-- `[UI/UX Redesign]` 增加平板列表/详情、地图/信息、时间轴/详情双栏 `AdaptivePane`，验证窗口变化不丢状态。
-- `[Code Scan]` 做可访问性检查：大字体、语义、触控目标、颜色非唯一提示、减少动效。
+- `[UI/UX Redesign][PARTIAL code 2026-07-31]` P1-4 大屏：`AdaptivePane`、Explore 地点列表/信息、Record 时间轴/碎片阅读区与 Editor 640dp 可读宽度已落地；真实 Map 仍因坐标、定位、Native View 和双端地图 SDK 未实现而阻塞，不能用占位页冒充完成。窗口变化、双端横屏/平板仍按 `P1_LARGE_SCREEN_ACCESSIBILITY_ACCEPTANCE.md` 验收。
+- `[Code Scan][DONE code/PARTIAL device 2026-07-31]` P1-4 可访问性：核心 Button/IconButton/Bottom Navigation 已补语义与 48dp 触控基线，底栏改为最小高度适配大字体，浅色主色调整至与白字约 4.87:1，对根 Tab 取消非必要位移动画；仍须使用 Android TalkBack/HarmonyOS 屏幕朗读、大字体与系统高对比设置完成真机验收。
 
 ## P2：基础版稳定后再评估的扩展
 

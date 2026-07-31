@@ -71,6 +71,7 @@ private fun CapsuleEditorScreen(
     RuntimeAppTheme(themeHost = themeHost) {
         AppFixedHeaderScaffold(
             statusBarHeight = statusBarHeight,
+            contentMaxWidth = AppTheme.dimensions.readableContentMaxWidth,
             header = {
                 AppActionTopBar(
                 title = if (capsuleId == null) "这一刻" else "编辑城市碎片",

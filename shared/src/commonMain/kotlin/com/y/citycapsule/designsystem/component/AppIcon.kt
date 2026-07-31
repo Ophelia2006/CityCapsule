@@ -14,6 +14,11 @@ import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.geometry.Offset
 import com.tencent.kuikly.compose.ui.graphics.StrokeCap
+import com.tencent.kuikly.compose.ui.semantics.Role
+import com.tencent.kuikly.compose.ui.semantics.contentDescription
+import com.tencent.kuikly.compose.ui.semantics.role
+import com.tencent.kuikly.compose.ui.semantics.semantics
+import com.tencent.kuikly.compose.ui.semantics.stateDescription
 import com.tencent.kuikly.compose.ui.unit.Dp
 import com.y.citycapsule.designsystem.theme.AppTheme
 
@@ -33,7 +38,12 @@ fun AppIcon(
     tint: Color = AppTheme.colors.textPrimary,
     size: Dp = AppTheme.dimensions.iconLg
 ) {
-    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = modifier.size(size).semantics {
+            this.contentDescription = contentDescription
+        },
+        contentAlignment = Alignment.Center
+    ) {
         Text(text = name.glyph, color = tint, style = AppTheme.typography.body)
     }
 }
@@ -52,6 +62,11 @@ fun AppIconButton(
     Box(
         modifier = modifier
             .size(AppTheme.dimensions.minTouchTarget)
+            .semantics {
+                this.contentDescription = contentDescription
+                role = Role.Button
+                if (selected) stateDescription = "已选中"
+            }
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -72,7 +87,7 @@ fun AppIconButton(
             } else {
                 AppIcon(
                     name = icon,
-                    contentDescription = contentDescription,
+                    contentDescription = "",
                     size = if (compactVisual) AppTheme.dimensions.iconSm else AppTheme.dimensions.iconLg,
                     tint = iconTint
                 )

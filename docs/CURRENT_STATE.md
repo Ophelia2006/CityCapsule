@@ -14,27 +14,27 @@
 | --- | --- | --- |
 | Android/HarmonyOS Kuikly 宿主 | DONE | 两端有启动、host、adapter 与平台工程；不代表所有业务双端手测完成 |
 | 强类型共享路由 | DONE | `AppRoute/AppNavigator/AppRouteTable` + 双端 dispatcher/stack tests |
-| 单一 AppShell / 正式一级导航 | DONE（代码）/PARTIAL（设备体验） | 一个 `AppShellPage`、一个 Bottom Navigation、三个常驻根内容；点击 Tab 以 `animateScrollToPage` 切换，根手势关闭，重复点击 no-op；shared/Android/HarmonyOS 测试与双端包构建通过，仍待设备视觉/动画/返回键走查 |
+| 单一 AppShell / 正式一级导航 | DONE（代码）/PARTIAL（设备体验） | 一个 `AppShellPage`、一个 Bottom Navigation、三个常驻根内容；点击 Tab 直接 `scrollToPage`，避免非必要位移动画，根手势关闭，重复点击 no-op；仍待双端设备视觉、屏幕朗读与返回键走查 |
 | MVI 表现层迁移 | PARTIAL | PlaceList/Explore、Profile Overview/Editor 与 Settings/Data Management 已迁为轻量 MVI Store，具备串行 Intent、StateFlow、Channel Effect 与 dispose；shared/Android 自动化已通过，HarmonyOS 与双端生命周期设备 Spike 尚待验收，其余 Feature 仍为 StateHolder |
 | Record 容器 | PARTIAL | Timeline/Gallery 已是同一 `RecordRootContent` 的状态视图并共享 catalog/底栏；点击切换和视图状态保留已实现，内部 HorizontalPager 与左右滑动尚未实现；独立 Gallery route 仅作兼容 |
 | MMKV bridge 与主题旧值迁移 | DONE | 双端 2.4.0、typed protocol、迁移状态和测试资产 |
-| Shared 主题与基础组件 | PARTIAL | 暖白/近黑/暖琥珀 Light/Dark token、统一 AppIcon 入口、PlaceCard/CapsuleCard、状态组件与 Bottom Navigation 已存在；图标仍是文本 glyph，Elevation 未完成视觉落地，缺自适应 pane |
+| Shared 主题与基础组件 | PARTIAL | 暖白/近黑/暖琥珀 Light/Dark token、统一 AppIcon 入口、PlaceCard/CapsuleCard、状态组件、Bottom Navigation 与 `AdaptivePane` 已存在；核心操作具备语义和 48dp 触控基线，浅色 Primary/白字约 4.87:1；图标仍是文本 glyph，Elevation 未完成视觉落地，双端辅助技术仍待验收 |
 | 本地档案与首次引导 | DONE | 启动决策、草稿恢复、保存/重置、双端 launch gate 和页面状态完整 |
-| 地点本地 CRUD | PARTIAL | 新建/编辑/删除/持久化可用；没有 source，seed 地点也可删除，与“系统地点不可删”原计划不一致 |
+| 地点本地 CRUD / Place V2 | DONE（代码与自动化）/PARTIAL（设备升级验收） | schema v2 已加入 `PlaceSource`、可选 `GeoPoint`、可选 `PlaceVisualRef`；v1 按精确 seed ID 集合迁移且保留 ID，seed 禁止删除，用户地点继续执行 Capsule 关联检查；shared 180 项测试通过，仍待双端旧安装覆盖升级验证 |
 | 地点搜索/筛选 | DONE | 纯本地字段搜索、分类/城市/区域/收藏过滤和排序有单测 |
 | 收藏地点 | DONE（技术）/PARTIAL（产品） | 独立 ID 集合、容错、持久化完整；用户可见文案已改“想去”，底层保持 `Favorite*`；仍缺加入时间排序 |
 | 首页 | DONE（代码）/PARTIAL（设备体验） | 已聚合 Profile/Place/Favorite/Capsule Repository，展示档案城市与头像、问候与搜索入口、可解释本地排序 Hero、分类、想去/同城地点、最多 3 条真实最近记忆和真实地点选择后的快速记录；不展示天气、距离或 AI 推荐，仍待双端视觉与交互走查 |
 | 设置 | DONE（代码与双端构建）/PARTIAL（双端设备体验） | Settings 已迁移 MVI；主题、隐私、关于、结构化数据/照片/缓存/恢复包占用、草稿与临时文件缓存清理均有真实实现；正式 UI 无 MMKV/Push/Replace/BackTo 等开发文案 |
-| 地点列表/详情 UI | PARTIAL（设备体验） | Explore 列表已完成搜索置顶、横向分类 chips、高级筛选 Bottom Sheet、整行 PlaceCard、辅助新建菜单和档案城市优先的本地目录；想去复用内容列表。地点详情已有记录 CTA；仍无真实摄影、定位、距离、地图和导航，双端设备体验待验收 |
+| 地点列表/详情 UI | PARTIAL（设备体验） | Explore 列表已完成搜索置顶、横向分类 chips、高级筛选 Bottom Sheet、整行 PlaceCard、辅助新建菜单和档案城市优先的本地目录；宽屏为地点列表/地点信息双栏，手机仍走 typed detail route。地点详情已有记录 CTA；仍无真实摄影、定位、距离、地图和导航，双端设备体验待验收 |
 | Profile UI | DONE（代码与自动化）/PARTIAL（设备体验） | 根页已重构为“我的城市档案”，聚合真实 Profile/Place/Favorite/Capsule 数据，展示碎片数、去过地点数、想去数、城市足迹和最多 3 个想去地点；编辑为 typed 二级 MVI 页面，清除档案位于 Settings 危险操作区；待双端设备验收 |
 | 地图探索 | PLACEHOLDER | 只有 typed route，无 `@Page`、Native View 或平台地图 SDK |
 | 权限原生页 | PLACEHOLDER | Harmony 可达但明确写“具体权限申请待实现”；Android launcher 未注册 |
 | 文件导入原生页 | DEBUG/DEPRECATED | 旧 Harmony native 骨架仍保留但正式 Settings 不再使用；正式导入经跨端 `CCDataArchiveModule` 系统文件选择器完成 |
 | 城市碎片模型/Repository/编辑器 | DONE（代码闭环） | 模型/校验/Codec、catalog/draft Key、Repository、编辑/草稿/发布/更新/退出确认和照片选择均存在；shared/Android 测试通过 |
-| 时间轴/相册/碎片详情 | DONE（代码与视觉结构）/PARTIAL（设备体验） | 时间轴按本地年月分组并以大日期、地点、照片与正文摘录呈现；相册按年月分组、自适应 3/4 列并分批增加最多 18 张原图；详情照片优先，编辑/删除进入更多菜单；仍缺缩略图、平板双栏和设备手测 |
+| 时间轴/相册/碎片详情 | DONE（代码与视觉结构）/PARTIAL（设备体验） | 时间轴按本地年月分组并以大日期、地点、照片与正文摘录呈现；宽屏为时间轴/碎片阅读双栏，手机继续进入 typed detail；相册按年月分组、自适应 3/4 列并分批增加最多 18 张原图；仍缺缩略图和双端设备手测 |
 | 相册与业务文件媒体 | PARTIAL | Android/HarmonyOS 原生 Photo Picker、Pager/native 双侧模块注册、沙箱原图复制及引用保护清理已实现；Android 模拟器已完成系统 Picker 选图、回传和沙箱复制；HarmonyOS 已修复把 `file://media/...` 当普通路径传给 `copyFileSync` 的问题，现先打开受控 URI、使用 fd 复制并关闭文件；共享桥接同步异常会降级为 Failure 而不再使页面进程崩溃；最新 signed HAP 已编译，仍待真机安装和完整交互复验；无相机、缩略图 |
 | 导入导出/备份 | DONE（代码、双端自动化/构建）/PARTIAL（双端设备验收） | 版本化 ZIP、持久数据与已引用照片导出、选择后完整 codec 校验、内容预览、确认前内部恢复包、媒体重定位、失败时结构化数据回滚与新照片清理已实现；草稿缓存不进入备份；shared/Android 测试、Harmony Hvigor test 与 signed HAP 构建通过，仍待双端系统文件选择器与失败场景真机验收 |
-| 定位/距离/外部导航 | NOT_STARTED | Place 无坐标，平台无定位/地图能力 |
+| 定位/距离/外部导航 | NOT_STARTED | Place 已有可选坐标模型，但现有数据默认为 null，平台无定位/地图能力 |
 | 网络/天气/地理编码/路线 | NOT_STARTED | 无业务网络库与 RemoteDataSource |
 | 路线/漫游/轨迹/打卡/扫码/成就 | NOT_STARTED | 进阶规划，无当前模型或页面 |
 | AI/游记/明信片/接续/加密备份 | NOT_STARTED | 复杂版规划，无当前实现 |
@@ -80,7 +80,7 @@
 
 - 基础设计系统、Home、Settings、Profile、地点模块。
 - 原生权限/文件路由仅 Harmony 有骨架。
-- 地点协议偏离原计划，当前不具备地图/距离/图片所需字段。
+- 地点协议 v2 已补齐来源、可选坐标与可选封面引用；地图/距离/图片能力本身尚未实现。
 
 ### 尚未实现
 
@@ -97,7 +97,7 @@
 ### 已偏离 / NEEDS_REEVALUATION
 
 - 地点从“实体独立 Key + 索引”改为单个有上限 catalog。
-- Place 去掉 source/坐标/封面，seed 与用户地点无法区分。
+- Place v1 曾去掉 source/坐标/封面；2026-07-31 已通过 ADR-022 与 schema v2 修复该差异，改变原因仅能确认来自 P2-1 明确需求。
 - 当前状态层没有 UseCase/DataSource，Page/StateHolder 直接调 Repository。
 - 初始 `profile:local` 等 colon key 规划变为 `cc_preferences` store + dotted wire keys；当前协议已冻结，不能强行恢复。
 - 根设置声明不存在的 `h5App/miniApp`；应判断删除声明还是补回模板，不能把它们当产品功能。

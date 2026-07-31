@@ -13,6 +13,10 @@ import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.graphics.Color
+import com.tencent.kuikly.compose.ui.semantics.Role
+import com.tencent.kuikly.compose.ui.semantics.contentDescription
+import com.tencent.kuikly.compose.ui.semantics.role
+import com.tencent.kuikly.compose.ui.semantics.semantics
 import com.y.citycapsule.designsystem.theme.AppTheme
 import com.y.citycapsule.designsystem.tokens.AppColorScheme
 
@@ -75,6 +79,10 @@ fun AppButton(
             .heightIn(min = dimensions.minTouchTarget)
             .clip(RoundedCornerShape(dimensions.radiusLg))
             .background(palette.background)
+            .semantics {
+                contentDescription = if (loading) loadingText else text
+                role = Role.Button
+            }
             .clickable(enabled = canClick, onClick = onClick)
             .padding(
                 horizontal = dimensions.spacingMd,

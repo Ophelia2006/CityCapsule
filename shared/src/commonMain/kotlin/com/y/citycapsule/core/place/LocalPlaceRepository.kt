@@ -113,7 +113,7 @@ class LocalPlaceRepository(
     ) {
         val normalizedDraft = PlaceValidator.normalizeDraftOrNull(draft)
         if (normalizedDraft == null) {
-            callback(invalidRequest("Place draft does not satisfy schema v1 validation."))
+            callback(invalidRequest("Place draft does not satisfy schema v2 validation."))
             return
         }
         enqueueMutation { complete ->
@@ -141,6 +141,7 @@ class LocalPlaceRepository(
                                     address = normalizedDraft.address,
                                     tags = normalizedDraft.tags,
                                     note = normalizedDraft.note,
+                                    source = PlaceSource.USER,
                                     createdAtEpochMs = now,
                                     updatedAtEpochMs = now
                                 )
@@ -205,6 +206,7 @@ class LocalPlaceRepository(
                         val normalized = PlaceValidator.normalizeOrNull(
                             place.copy(
                                 id = existing.id,
+                                source = existing.source,
                                 createdAtEpochMs = existing.createdAtEpochMs,
                                 updatedAtEpochMs = updatedAt
                             )
@@ -212,7 +214,7 @@ class LocalPlaceRepository(
                         if (normalized == null) {
                             deliver(
                                 callback,
-                                invalidRequest("Place update does not satisfy schema v1 validation."),
+                                invalidRequest("Place update does not satisfy schema v2 validation."),
                                 complete
                             )
                             return@getCatalog
@@ -258,8 +260,19 @@ class LocalPlaceRepository(
             getCatalog { result ->
                 when (result) {
                     is StorageResult.Success -> {
-                        if (result.value.places.none { it.id == normalizedId }) {
+                        val existing = result.value.places.firstOrNull {
+                            it.id == normalizedId
+                        }
+                        if (existing == null) {
                             deliver(callback, StorageResult.Missing, complete)
+                            return@getCatalog
+                        }
+                        if (existing.source == PlaceSource.SEED) {
+                            deliver(
+                                callback,
+                                invalidRequest("Built-in seed places cannot be deleted."),
+                                complete
+                            )
                             return@getCatalog
                         }
                         val updated = result.value.copy(

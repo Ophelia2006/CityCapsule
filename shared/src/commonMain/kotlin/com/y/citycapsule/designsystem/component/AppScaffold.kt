@@ -13,6 +13,7 @@ import com.tencent.kuikly.compose.foundation.layout.widthIn
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.unit.Dp
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.y.citycapsule.designsystem.theme.AppTheme
 
@@ -21,6 +22,7 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 fun AppScaffold(
     statusBarHeight: Float,
     modifier: Modifier = Modifier,
+    contentMaxWidth: Dp = AppTheme.dimensions.contentMaxWidth,
     bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -35,7 +37,7 @@ fun AppScaffold(
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = dimensions.contentMaxWidth)
+                .widthIn(max = contentMaxWidth)
                 .fillMaxSize()
         ) {
             LazyColumn(
@@ -66,6 +68,7 @@ fun AppScaffold(
 fun AppFixedHeaderScaffold(
     statusBarHeight: Float,
     modifier: Modifier = Modifier,
+    contentMaxWidth: Dp = AppTheme.dimensions.contentMaxWidth,
     bottomBar: (@Composable () -> Unit)? = null,
     header: @Composable ColumnScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit
@@ -79,7 +82,7 @@ fun AppFixedHeaderScaffold(
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = dimensions.contentMaxWidth)
+                .widthIn(max = contentMaxWidth)
                 .fillMaxSize()
         ) {
             Column(

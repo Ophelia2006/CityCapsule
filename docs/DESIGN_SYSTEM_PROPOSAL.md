@@ -46,7 +46,7 @@
 
 - 全部通过 `AppIcon` 统一语义入口；不混用 Emoji、PNG、文本符号和多套图标库。
 - Motion 仅用于页面切换、想去状态、Bottom Sheet、图片添加/移除；150–250ms，支持减少动态效果。不得以大幅视差或循环动画替代内容。
-- 根级“探索 / 记录 / 我的”使用单一 AppShell 的同一底栏；点击以 `animateScrollToPage` 产生克制的左右切换动画，根 Pager 暂不接受手指横滑。
+- 根级“探索 / 记录 / 我的”使用单一 AppShell 的同一底栏；点击直接切换页面，不使用非必要位移动画，根 Pager 暂不接受手指横滑。
 - Record 内部“时间轴 / 相册”使用同一页面内的 TabRow + HorizontalPager；Pager 拖动负责左右位移，底栏不参与动画并保持固定。
 
 ## 组件使用规则
@@ -54,3 +54,11 @@
 - Primary Button 每页最多一个；整张地点/碎片 Card 可点，不再附“查看详情”。
 - SearchField、SegmentedControl、BottomNavigation、状态组件优先复用现有 API。
 - 设置行、筛选行、元数据行使用无 Card 列表；删除等危险动作进入溢出菜单或设置危险区。
+
+## Adaptive 与 Accessibility
+
+- `< 600dp` 使用单栏和 typed route 详情；`>= 600dp` 可使用 `AdaptivePane`。当前主 pane 420dp、pane gap 24dp、整体最大 1200dp。
+- Explore 宽屏采用地点列表/地点信息；Record 宽屏采用时间轴/碎片阅读。Map/地点信息沿用同一容器，但只有真实地图能力完成后才可接入正式页面。
+- 表单和长文本编辑区最大宽度 640dp；普通单栏内容最大宽度 720dp。
+- 交互目标最小 48dp；固定高度仅可作为最小高度。核心按钮、图标按钮、底栏 Tab 必须有角色、名称和选中状态语义。
+- 正常正文/图标对背景至少 4.5:1；大字至少 3:1。禁用态不作为可操作信息，颜色不能是状态的唯一表达。

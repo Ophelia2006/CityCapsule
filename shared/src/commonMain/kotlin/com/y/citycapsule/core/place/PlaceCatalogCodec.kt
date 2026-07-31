@@ -10,7 +10,7 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
 
     override fun encode(value: PlaceCatalog): String {
         val catalog = requireNotNull(PlaceCatalogValidator.normalizeOrNull(value)) {
-            "Place catalog does not satisfy schema v1 validation."
+            "Place catalog does not satisfy schema v2 validation."
         }
         return JSONObject().apply {
             put(PlaceContract.FIELD_SCHEMA_VERSION, catalog.schemaVersion)
@@ -29,18 +29,24 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
     override fun decode(encoded: String): PlaceCatalog? {
         return try {
             val json = JSONObject(encoded)
+            val encodedSchema = json.optInt(
+                PlaceContract.FIELD_SCHEMA_VERSION,
+                UNSUPPORTED_SCHEMA
+            )
+            if (encodedSchema != PlaceContract.LEGACY_SCHEMA_VERSION &&
+                encodedSchema != PlaceContract.SCHEMA_VERSION
+            ) {
+                return null
+            }
             val placeArray = json.optJSONArray(PlaceContract.FIELD_PLACES) ?: return null
             val places = mutableListOf<Place>()
             for (index in 0 until placeArray.length()) {
                 val placeJson = placeArray.optJSONObject(index) ?: return null
-                places.add(placeJson.toPlaceOrNull() ?: return null)
+                places.add(placeJson.toPlaceOrNull(encodedSchema) ?: return null)
             }
             PlaceCatalogValidator.normalizeOrNull(
                 PlaceCatalog(
-                    schemaVersion = json.optInt(
-                        PlaceContract.FIELD_SCHEMA_VERSION,
-                        UNSUPPORTED_SCHEMA
-                    ),
+                    schemaVersion = PlaceContract.SCHEMA_VERSION,
                     seedVersion = json.optInt(
                         PlaceContract.FIELD_SEED_VERSION,
                         INVALID_SEED_VERSION
@@ -66,11 +72,27 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
             JSONArray().also { array -> tags.forEach { tag -> array.put(tag) } }
         )
         note?.let { put(PlaceContract.FIELD_NOTE, it) }
+        put(PlaceContract.FIELD_SOURCE, source.wireValue)
+        geoPoint?.let { point ->
+            put(PlaceContract.FIELD_GEO_POINT, JSONObject().apply {
+                put(PlaceContract.FIELD_LATITUDE, point.latitude)
+                put(PlaceContract.FIELD_LONGITUDE, point.longitude)
+            })
+        }
+        visualRef?.let { ref ->
+            put(PlaceContract.FIELD_VISUAL_REF, JSONObject().apply {
+                put(PlaceContract.FIELD_VISUAL_TYPE, ref.type.wireValue)
+                put(PlaceContract.FIELD_VISUAL_VALUE, ref.value)
+            })
+        }
         put(PlaceContract.FIELD_CREATED_AT_EPOCH_MS, createdAtEpochMs)
         put(PlaceContract.FIELD_UPDATED_AT_EPOCH_MS, updatedAtEpochMs)
     }
 
-    private fun JSONObject.toPlaceOrNull(): Place? {
+    private fun JSONObject.toPlaceOrNull(catalogSchema: Int): Place? {
+        if (optInt(PlaceContract.FIELD_SCHEMA_VERSION, UNSUPPORTED_SCHEMA) != catalogSchema) {
+            return null
+        }
         val category = PlaceCategory.fromWireValue(
             optString(PlaceContract.FIELD_CATEGORY)
         ) ?: return null
@@ -83,13 +105,38 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
             .toLongOrNull() ?: return null
         val updatedAt = optString(PlaceContract.FIELD_UPDATED_AT_EPOCH_MS)
             .toLongOrNull() ?: return null
+        val id = optString(PlaceContract.FIELD_ID)
+        val source = if (catalogSchema == PlaceContract.LEGACY_SCHEMA_VERSION) {
+            if (id in PlaceSeedData.IDS) PlaceSource.SEED else PlaceSource.USER
+        } else {
+            PlaceSource.fromWireValue(optString(PlaceContract.FIELD_SOURCE)) ?: return null
+        }
+        val geoPoint = if (has(PlaceContract.FIELD_GEO_POINT)) {
+            val json = optJSONObject(PlaceContract.FIELD_GEO_POINT) ?: return null
+            GeoPoint(
+                latitude = json.optString(PlaceContract.FIELD_LATITUDE)
+                    .toDoubleOrNull() ?: return null,
+                longitude = json.optString(PlaceContract.FIELD_LONGITUDE)
+                    .toDoubleOrNull() ?: return null
+            )
+        } else {
+            null
+        }
+        val visualRef = if (has(PlaceContract.FIELD_VISUAL_REF)) {
+            val json = optJSONObject(PlaceContract.FIELD_VISUAL_REF) ?: return null
+            PlaceVisualRef(
+                type = PlaceVisualType.fromWireValue(
+                    json.optString(PlaceContract.FIELD_VISUAL_TYPE)
+                ) ?: return null,
+                value = json.optString(PlaceContract.FIELD_VISUAL_VALUE)
+            )
+        } else {
+            null
+        }
         return PlaceValidator.normalizeOrNull(
             Place(
-                schemaVersion = optInt(
-                    PlaceContract.FIELD_SCHEMA_VERSION,
-                    UNSUPPORTED_SCHEMA
-                ),
-                id = optString(PlaceContract.FIELD_ID),
+                schemaVersion = PlaceContract.SCHEMA_VERSION,
+                id = id,
                 name = optString(PlaceContract.FIELD_NAME),
                 city = optString(PlaceContract.FIELD_CITY),
                 district = optionalString(PlaceContract.FIELD_DISTRICT),
@@ -97,6 +144,9 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
                 address = optionalString(PlaceContract.FIELD_ADDRESS),
                 tags = tags,
                 note = optionalString(PlaceContract.FIELD_NOTE),
+                source = source,
+                geoPoint = geoPoint,
+                visualRef = visualRef,
                 createdAtEpochMs = createdAt,
                 updatedAtEpochMs = updatedAt
             )

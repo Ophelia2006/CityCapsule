@@ -82,7 +82,10 @@ private fun PlaceEditorScreen(
     }
 
     RuntimeAppTheme(themeHost = themeHost) {
-        AppScaffold(statusBarHeight = statusBarHeight) {
+        AppScaffold(
+            statusBarHeight = statusBarHeight,
+            contentMaxWidth = AppTheme.dimensions.readableContentMaxWidth
+        ) {
             AppTopBar(
                 title = if (uiState.mode == PlaceEditorMode.CREATE) "新建地点" else "编辑地点",
                 subtitle = "保存失败时当前输入会继续保留在页面中。"

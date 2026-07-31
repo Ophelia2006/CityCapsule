@@ -52,6 +52,20 @@ class PlaceValidatorTest {
     }
 
     @Test
+    fun validatorRejectsOutOfRangeCoordinatesAndEmptyVisualReference() {
+        val result = PlaceValidator.validate(
+            placeFixture().copy(
+                geoPoint = GeoPoint(latitude = 91.0, longitude = 181.0),
+                visualRef = PlaceVisualRef(PlaceVisualType.MANAGED_FILE, " ")
+            )
+        )
+
+        assertFalse(result.isValid)
+        assertTrue(PlaceValidationError.INVALID_GEO_POINT in result.errors)
+        assertTrue(PlaceValidationError.INVALID_VISUAL_REF in result.errors)
+    }
+
+    @Test
     fun draftValidationDoesNotRequireGeneratedIdentityOrTimestamps() {
         val result = PlaceValidator.validateDraft(
             PlaceDraft(

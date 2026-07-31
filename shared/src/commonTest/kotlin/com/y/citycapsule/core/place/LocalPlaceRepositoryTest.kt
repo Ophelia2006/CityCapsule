@@ -30,6 +30,31 @@ class LocalPlaceRepositoryTest {
             first,
             storage.getNow(AppStorageKeys.Places.CATALOG)
         )
+        assertTrue(first.successValue().places.all { it.source == PlaceSource.SEED })
+    }
+
+    @Test
+    fun seedDeletionIsRejectedWithoutChangingCatalogOrFavorite() {
+        val storage = InMemoryKeyValueStore()
+        val repository = repository(storage)
+        val seedId = repository.catalogNow().successValue().places.first().id
+        storage.putNow(
+            AppStorageKeys.Favorites.PLACE_IDS,
+            FavoritePlaceIds(placeIds = setOf(seedId))
+        )
+
+        val result = repository.deleteNow(seedId)
+
+        assertEquals(
+            StorageErrorCode.INVALID_REQUEST,
+            assertIs<StorageResult.Failure>(result).error.code
+        )
+        assertIs<StorageResult.Success<Place>>(repository.placeNow(seedId))
+        assertEquals(
+            setOf(seedId),
+            storage.getNow(AppStorageKeys.Favorites.PLACE_IDS)
+                .successValue().placeIds
+        )
     }
 
     @Test

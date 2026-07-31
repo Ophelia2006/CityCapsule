@@ -23,6 +23,7 @@ import com.tencent.kuikly.compose.foundation.lazy.LazyListState
 import com.tencent.kuikly.compose.foundation.lazy.LazyListScope
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.platform.LocalConfiguration
 import com.tencent.kuikly.compose.ui.text.style.TextOverflow
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.y.citycapsule.app.navigation.RecordRootView
@@ -34,6 +35,7 @@ import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.designsystem.component.AdaptivePhotoGrid
+import com.y.citycapsule.designsystem.component.AdaptivePane
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppCaptionText
@@ -63,6 +65,7 @@ internal fun RecordRootContent(
 ) {
     var state by remember { mutableStateOf(CapsuleTimelineState()) }
     var visiblePhotoCount by remember { mutableStateOf(GALLERY_INITIAL_PHOTO_COUNT) }
+    var selectedCapsuleId by remember { mutableStateOf<String?>(null) }
     val holder = remember(capsules, places, dateFormatter) {
         CapsuleTimelineStateHolder(capsules, places, dateFormatter) { state = it }
     }
@@ -70,6 +73,9 @@ internal fun RecordRootContent(
     LaunchedEffect(holder, revision) { holder.load() }
 
     val dimensions = AppTheme.dimensions
+    val expanded = LocalConfiguration.current.pageViewWidth.dp >= dimensions.adaptiveGridBreakpoint
+    val selectedItem = state.items.firstOrNull { it.capsule.id == selectedCapsuleId }
+        ?: state.items.firstOrNull()
     Column(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -82,38 +88,62 @@ internal fun RecordRootContent(
         ) {
             RecordHeader(selectedView, onViewSelected)
         }
-        LazyColumn(
+        AdaptivePane(
+            primaryTitle = if (selectedView == RecordRootView.TIMELINE) "时间轴" else "城市相册",
+            secondaryTitle = "城市碎片详情",
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            state = listState,
-            contentPadding = PaddingValues(
-                start = dimensions.screenHorizontalPadding,
-                end = dimensions.screenHorizontalPadding,
-                bottom = dimensions.spacingXl
-            )
-        ) {
-            when {
-                state.status == CapsuleUiStatus.LOADING -> item(key = "record_loading") {
-                    LoadingState("正在翻阅城市记忆…")
-                }
-                state.status == CapsuleUiStatus.ERROR -> item(key = "record_error") {
-                    ErrorState(state.notice.orEmpty(), onRetry = holder::load)
-                }
-                selectedView == RecordRootView.TIMELINE -> timelineItems(state, navigator)
-                else -> item(key = "record_gallery") {
-                    GalleryView(
-                        state = state,
-                        navigator = navigator,
-                        visiblePhotoCount = visiblePhotoCount,
-                        onLoadMore = {
-                            visiblePhotoCount = nextGalleryVisibleCount(
-                                visiblePhotoCount,
-                                galleryPhotos(state).size
+            primary = {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = listState,
+                    contentPadding = PaddingValues(
+                        start = dimensions.screenHorizontalPadding,
+                        end = dimensions.screenHorizontalPadding,
+                        bottom = dimensions.spacingXl
+                    )
+                ) {
+                    when {
+                        state.status == CapsuleUiStatus.LOADING -> item(key = "record_loading") {
+                            LoadingState("正在翻阅城市记忆…")
+                        }
+                        state.status == CapsuleUiStatus.ERROR -> item(key = "record_error") {
+                            ErrorState(state.notice.orEmpty(), onRetry = holder::load)
+                        }
+                        selectedView == RecordRootView.TIMELINE -> timelineItems(
+                            state = state,
+                            onExplore = { navigator.navigate(AppRoute.PlaceList()) },
+                            onOpen = { id ->
+                                if (expanded) selectedCapsuleId = id
+                                else navigator.navigate(AppRoute.CapsuleDetail(id))
+                            }
+                        )
+                        else -> item(key = "record_gallery") {
+                            GalleryView(
+                                state = state,
+                                navigator = navigator,
+                                visiblePhotoCount = visiblePhotoCount,
+                                onLoadMore = {
+                                    visiblePhotoCount = nextGalleryVisibleCount(
+                                        visiblePhotoCount,
+                                        galleryPhotos(state).size
+                                    )
+                                }
                             )
                         }
+                    }
+                }
+            },
+            secondary = {
+                if (selectedView == RecordRootView.TIMELINE) {
+                    RecordDetailPane(selectedItem, navigator)
+                } else {
+                    EmptyState(
+                        title = "选择一张照片",
+                        message = "从左侧相册打开照片后查看对应的城市碎片。"
                     )
                 }
             }
-        }
+        )
     }
 }
 
@@ -140,7 +170,8 @@ private fun RecordHeader(
 
 private fun LazyListScope.timelineItems(
     state: CapsuleTimelineState,
-    navigator: AppNavigator
+    onExplore: () -> Unit,
+    onOpen: (String) -> Unit
 ) {
     if (state.items.isEmpty()) {
         item(key = "timeline_empty") {
@@ -149,7 +180,7 @@ private fun LazyListScope.timelineItems(
                 message = "从一个地点开始，留下第一条城市记忆。",
                 actionLabel = "去探索地点"
             ) {
-                navigator.navigate(AppRoute.PlaceList())
+                onExplore()
             }
         }
         return
@@ -170,7 +201,7 @@ private fun LazyListScope.timelineItems(
                 TimelineMemoryRow(
                     item = timelineItem,
                     onOpen = {
-                        navigator.navigate(AppRoute.CapsuleDetail(timelineItem.capsule.id))
+                        onOpen(timelineItem.capsule.id)
                     }
                 )
                 if (itemIndex < group.items.lastIndex) TimelineDivider()
@@ -180,6 +211,44 @@ private fun LazyListScope.timelineItems(
             item(key = "timeline_gap_${group.monthKey}") {
                 Spacer(Modifier.height(AppTheme.dimensions.spacingXl))
             }
+        }
+    }
+}
+
+@Composable
+private fun RecordDetailPane(item: CapsuleTimelineItem?, navigator: AppNavigator) {
+    val dimensions = AppTheme.dimensions
+    if (item == null) {
+        EmptyState(
+            title = "选择一段城市记忆",
+            message = "从左侧时间轴选择一条记录，在这里回看完整内容。"
+        )
+        return
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = dimensions.screenHorizontalPadding,
+            end = dimensions.screenHorizontalPadding,
+            bottom = dimensions.spacingXl
+        )
+    ) {
+        item {
+            AppSectionTitle(item.place?.name ?: "城市碎片")
+            Spacer(Modifier.height(dimensions.spacingXs))
+            AppCaptionText(item.dateLabel)
+            item.capsule.imagePaths.firstOrNull()?.let { path ->
+                Spacer(Modifier.height(dimensions.spacingMd))
+                CapsulePhoto(path, "${item.place?.name ?: "城市"}的记忆照片")
+            }
+            Spacer(Modifier.height(dimensions.spacingMd))
+            com.y.citycapsule.designsystem.component.AppBodyText(item.capsule.content)
+            Spacer(Modifier.height(dimensions.spacingLg))
+            AppButton(
+                text = "打开城市碎片",
+                onClick = { navigator.navigate(AppRoute.CapsuleDetail(item.capsule.id)) },
+                variant = AppButtonVariant.SECONDARY
+            )
         }
     }
 }

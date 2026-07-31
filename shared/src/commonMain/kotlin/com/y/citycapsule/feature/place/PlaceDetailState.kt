@@ -2,6 +2,7 @@ package com.y.citycapsule.feature.place
 
 import com.y.citycapsule.core.favorite.FavoriteRepository
 import com.y.citycapsule.core.place.Place
+import com.y.citycapsule.core.place.PlaceSource
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.storage.StorageResult
 import com.y.citycapsule.core.capsule.CapsuleRepository
@@ -139,7 +140,16 @@ class PlaceDetailStateHolder(
 
     fun requestDelete() {
         if (!state.isBusy && state.place != null) {
-            if (state.memoryCount > 0) {
+            if (state.place?.source == PlaceSource.SEED) {
+                update(
+                    state.copy(
+                        notice = PlaceFeatureNotice(
+                            "内置地点会随应用保留，不能删除。",
+                            PlaceNoticeTone.WARNING
+                        )
+                    )
+                )
+            } else if (state.memoryCount > 0) {
                 update(
                     state.copy(
                         notice = PlaceFeatureNotice(

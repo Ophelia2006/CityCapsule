@@ -5,6 +5,8 @@ import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
 import com.y.citycapsule.core.storage.StorageResult
 import com.y.citycapsule.core.theme.ThemeMode
+import com.y.citycapsule.core.place.PlaceContract
+import com.y.citycapsule.core.place.PlaceSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -50,6 +52,67 @@ class DataBackupRepositoryTest {
 
         assertIs<BackupDataResult.Failure>(result)
         assertTrue(result.message.contains("版本"))
+    }
+
+    @Test
+    fun oldBackupWithPlaceCatalogV1PreviewsAndRestoresAsV2() {
+        val storage = InMemoryKeyValueStore()
+        val repository = DataBackupRepository(storage)
+        val root = JSONObject(awaitSnapshot(repository).payload)
+        val entries = requireNotNull(root.optJSONArray("entries"))
+        for (index in 0 until entries.length()) {
+            val entry = requireNotNull(entries.optJSONObject(index))
+            if (entry.optString("key") == AppStorageKeys.Places.CATALOG.wireKey) {
+                entry.put("exists", true)
+                entry.put(
+                    "value",
+                    """
+                    {
+                      "schemaVersion":1,
+                      "seedVersion":1,
+                      "places":[{
+                        "schemaVersion":1,
+                        "id":"seed_shanghai_museum",
+                        "name":"Seed",
+                        "city":"Shanghai",
+                        "category":"culture",
+                        "tags":[],
+                        "createdAtEpochMs":10,
+                        "updatedAtEpochMs":20
+                      },{
+                        "schemaVersion":1,
+                        "id":"local_legacy",
+                        "name":"User",
+                        "city":"Shanghai",
+                        "category":"other",
+                        "tags":[],
+                        "createdAtEpochMs":30,
+                        "updatedAtEpochMs":40
+                      }]
+                    }
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val preview = awaitPreview(
+            repository,
+            ImportSelection("legacy-session", root.toString(), "legacy.zip")
+        )
+        val restore = awaitRestore(repository, preview, emptyMap())
+        val catalog = get(storage, AppStorageKeys.Places.CATALOG)
+
+        assertIs<BackupDataResult.Success<Unit>>(restore)
+        assertEquals(2, preview.placeCount)
+        assertEquals(PlaceContract.SCHEMA_VERSION, catalog.schemaVersion)
+        assertEquals(
+            PlaceSource.SEED,
+            catalog.places.first { it.id == "seed_shanghai_museum" }.source
+        )
+        assertEquals(
+            PlaceSource.USER,
+            catalog.places.first { it.id == "local_legacy" }.source
+        )
     }
 
     private fun awaitSnapshot(repository: DataBackupRepository): LocalStorageSnapshot {

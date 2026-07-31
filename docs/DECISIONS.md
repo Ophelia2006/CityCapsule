@@ -148,10 +148,23 @@ Settings 只依赖共享 `DataArchiveCapability`；Android 以系统 Storage Acc
 
 ## 尚无决策依据的议题
 
-- 为什么 Place 删除 source/坐标/封面、为何所有 seed 地点允许删除。
 - 当前是否、何时为具体跨 Repository 规则引入 UseCase/DataSource 层。
 - iOS/H5/小程序是否进入产品支持范围。
 - Android 为什么同时保留 Picasso 与 Glide。
 - 地图供应商、网络库、图片长期加载方案和数据层未来是否改为数据库。
 
 这些议题应在实现相应 Feature 前形成明确 ADR，不能从类名或模板依赖推断。
+
+## ADR-022：Place catalog v2 显式记录来源、可选坐标与可选视觉引用
+
+状态：Accepted。
+
+- `PlaceContract.SCHEMA_VERSION` 从 1 提升为 2；catalog 与其中每个 `Place` 使用相同 schema 版本。
+- `Place.source` 是必填枚举，稳定 wire 值为 `seed` / `user`。
+- `Place.geoPoint` 是可选对象，只包含 `latitude` / `longitude`；`Place.visualRef` 是可选对象，只包含 `type`（`bundled_asset` / `managed_file`）与 `value`。
+- v1 catalog 只在读取时兼容：Place ID 位于当前 `PlaceSeedData` 内置 ID 集合时迁移为 `SEED`，其余迁移为 `USER`；坐标和视觉引用均迁移为 `null`。不得使用 ID 前缀猜测来源。
+- 迁移不改 Place ID，也不改 Favorite 的 Place ID 或 Capsule 的 `placeId`。当前 Key 与备份包版本不变；旧备份中的 v1 Place catalog 通过同一 codec 解码，恢复写入时重新编码为 v2。
+- `SEED` 地点由 Repository 拒绝删除；`USER` 地点沿用既有“先确认无 Capsule 关联，再删除并清理 Favorite”流程。
+- 本 ADR 只冻结本地数据协议和删除边界，不接入地图 SDK、网络 POI、在线图片或媒体下载。
+
+依据：P2-1 明确需求；当前 Place、Favorite、Capsule 均以稳定 Place ID 建立关系，备份导入也复用各 `StorageKey` codec。

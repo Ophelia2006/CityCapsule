@@ -33,7 +33,7 @@ fun AppRootScaffold(
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = AppTheme.dimensions.contentMaxWidth)
+                .widthIn(max = AppTheme.dimensions.adaptiveContentMaxWidth)
                 .fillMaxSize()
         ) {
             Box(modifier = Modifier.weight(1f).fillMaxSize(), content = content)

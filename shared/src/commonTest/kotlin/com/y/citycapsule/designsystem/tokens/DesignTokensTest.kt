@@ -14,7 +14,7 @@ class DesignTokensTest {
     fun colorSchemesExposeStableSemanticBrandAndSurfaceValues() {
         assertFalse(LightAppColorScheme.isDark)
         assertTrue(DarkAppColorScheme.isDark)
-        assertEquals(Color(0xFFC97824), LightAppColorScheme.primary)
+        assertEquals(Color(0xFFA85F16), LightAppColorScheme.primary)
         assertEquals(Color(0xFFF8F6F1), LightAppColorScheme.background)
         assertEquals(Color(0xFF1D1B18), LightAppColorScheme.textPrimary)
         assertEquals(Color(0xFF6F6A62), LightAppColorScheme.textSecondary)
@@ -30,6 +30,12 @@ class DesignTokensTest {
         assertEquals(14.dp, DefaultAppDimensions.radiusLg)
         assertEquals(1.dp, DefaultAppDimensions.strokeThin)
         assertEquals(720.dp, DefaultAppDimensions.contentMaxWidth)
+        assertEquals(640.dp, DefaultAppDimensions.readableContentMaxWidth)
+        assertEquals(1200.dp, DefaultAppDimensions.adaptiveContentMaxWidth)
+        assertTrue(
+            DefaultAppDimensions.adaptivePrimaryPaneWidth <
+                DefaultAppDimensions.adaptiveGridBreakpoint
+        )
     }
 
     @Test

@@ -3,6 +3,8 @@ package com.y.citycapsule.designsystem.component
 import androidx.compose.runtime.Composable
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.semantics.heading
+import com.tencent.kuikly.compose.ui.semantics.semantics
 import com.tencent.kuikly.compose.ui.text.style.TextAlign
 import com.y.citycapsule.designsystem.theme.AppTheme
 
@@ -29,7 +31,7 @@ fun AppPageTitle(
 ) {
     Text(
         text = text,
-        modifier = modifier,
+        modifier = modifier.semantics { heading() },
         color = AppTheme.colors.textPrimary,
         style = AppTheme.typography.pageTitle,
         textAlign = textAlign
@@ -43,7 +45,7 @@ fun AppSectionTitle(
 ) {
     Text(
         text = text,
-        modifier = modifier,
+        modifier = modifier.semantics { heading() },
         color = AppTheme.colors.textPrimary,
         style = AppTheme.typography.sectionTitle
     )

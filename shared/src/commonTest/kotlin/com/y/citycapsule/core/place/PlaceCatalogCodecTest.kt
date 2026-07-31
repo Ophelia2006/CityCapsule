@@ -13,7 +13,13 @@ class PlaceCatalogCodecTest {
             PlaceCatalog(
                 places = listOf(
                     placeFixture(id = "place_b", name = "B"),
-                    placeFixture(id = "place_a", name = "A")
+                    placeFixture(id = "place_a", name = "A").copy(
+                        geoPoint = GeoPoint(31.2304, 121.4737),
+                        visualRef = PlaceVisualRef(
+                            PlaceVisualType.BUNDLED_ASSET,
+                            "places/shanghai_museum.webp"
+                        )
+                    )
                 )
             )
         )
@@ -27,6 +33,56 @@ class PlaceCatalogCodecTest {
         val json = JSONObject(encoded)
         assertEquals(PlaceContract.SCHEMA_VERSION, json.optInt("schemaVersion"))
         assertEquals(PlaceContract.CURRENT_SEED_VERSION, json.optInt("seedVersion"))
+        assertEquals(PlaceSource.USER, decoded?.places?.first()?.source)
+        assertEquals(31.2304, decoded?.places?.first()?.geoPoint?.latitude)
+        assertEquals(
+            PlaceVisualType.BUNDLED_ASSET,
+            decoded?.places?.first()?.visualRef?.type
+        )
+    }
+
+    @Test
+    fun v1CatalogMigratesSourceByExactSeedIdAndPreservesIds() {
+        val decoded = PlaceCatalogCodec.decode(
+            """
+            {
+              "schemaVersion":1,
+              "seedVersion":1,
+              "places":[
+                {
+                  "schemaVersion":1,
+                  "id":"seed_shanghai_museum",
+                  "name":"Seed",
+                  "city":"Shanghai",
+                  "category":"culture",
+                  "tags":[],
+                  "createdAtEpochMs":0,
+                  "updatedAtEpochMs":0
+                },
+                {
+                  "schemaVersion":1,
+                  "id":"seed_not_bundled",
+                  "name":"User",
+                  "city":"Shanghai",
+                  "category":"other",
+                  "tags":[],
+                  "createdAtEpochMs":1,
+                  "updatedAtEpochMs":1
+                }
+              ]
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(PlaceContract.SCHEMA_VERSION, decoded?.schemaVersion)
+        assertEquals(
+            listOf("seed_shanghai_museum", "seed_not_bundled"),
+            decoded?.places?.map(Place::id)
+        )
+        assertEquals(PlaceSource.SEED, decoded?.places?.first()?.source)
+        assertEquals(PlaceSource.USER, decoded?.places?.last()?.source)
+        assertNull(decoded?.places?.first()?.geoPoint)
+        assertNull(decoded?.places?.first()?.visualRef)
     }
 
     @Test
@@ -59,7 +115,7 @@ class PlaceCatalogCodecTest {
     fun malformedSchemaUnknownCategoryMissingTagsAndDuplicateIdsAreRejected() {
         assertNull(
             PlaceCatalogCodec.decode(
-                """{"schemaVersion":2,"seedVersion":1,"places":[]}"""
+                """{"schemaVersion":3,"seedVersion":1,"places":[]}"""
             )
         )
         assertNull(

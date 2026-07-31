@@ -130,7 +130,7 @@ PlaceEditorPage(placeId?)
   → places.catalog 整体重写
 ```
 
-Repository 用内存 mutation queue 串行化本进程内写操作。删除地点后会尽力从收藏集合清理 ID。当前所有 seed 地点与用户新增地点使用同一模型，代码没有 `PlaceSource`，所以没有实现“系统地点不可删除”。
+Repository 用内存 mutation queue 串行化本进程内写操作。Place catalog 当前为 schema v2：`PlaceSource` 区分 `SEED/USER`，`GeoPoint` 与 `PlaceVisualRef` 均可为空；现有 seed 显式标记为 `SEED`，新建地点固定为 `USER`。codec 可读取 v1，并仅按 `PlaceSeedData.IDS` 精确集合迁移来源，坐标和视觉引用默认 `null`，Place ID 不变。`SEED` 在 Repository 边界禁止删除；`USER` 仍由详情状态层先检查 Capsule 关联，成功删除后再尽力清理 Favorite ID。
 
 ### 城市碎片记录与回忆
 
@@ -240,6 +240,13 @@ AppShellPage / RecordRootContent
 ```
 
 时间轴/相册点击切换已在同一 Record 内容树内实现，切换后底栏和 Record 视图状态保留。Timeline 的月份标题和记忆条目直接作为 lazy items；Gallery 的月份与自适应网格也位于同一根滚动容器，并以显式“继续查看”扩大照片批次。Record 内部 `HorizontalPager` 与手指左右滑动尚未实现；独立 `GalleryPage` / `AppRoute.Gallery` 仍作为兼容入口存在，但正式一级 UI 不进入它。
+
+### 当前自适应页面结构
+
+- `AppRootScaffold` 将根内容限制在 1200dp；普通单栏页仍为 720dp，Editor 使用 640dp 可读宽度。
+- 共享 `AdaptivePane` 以 600dp 为断点：紧凑窗口只渲染主 pane，并由 typed route 承担详情；宽窗口渲染 420dp 主 pane、24dp 间距和自适应详情 pane。
+- Explore 当前宽屏为“地点目录 / 地点信息”，Record 当前宽屏为“时间轴 / 城市碎片阅读”；右 pane 的“打开详情”继续进入既有完整详情页。
+- Map 目前没有真实 Page、坐标、定位或 Native View；`AdaptivePane` 可被未来“地图 / 地点信息”复用，但当前架构不包含已实现地图。
 
 ## 数据与缓存
 

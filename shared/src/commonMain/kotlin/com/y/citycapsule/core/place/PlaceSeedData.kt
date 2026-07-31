@@ -95,6 +95,8 @@ object PlaceSeedData {
         ).sortedBy(Place::id)
     )
 
+    val IDS: Set<String> = CATALOG.places.mapTo(mutableSetOf(), Place::id)
+
     private fun seed(
         id: String,
         name: String,
@@ -116,6 +118,7 @@ object PlaceSeedData {
             address = address,
             tags = tags,
             note = note,
+            source = PlaceSource.SEED,
             createdAtEpochMs = timestamp,
             updatedAtEpochMs = timestamp
         )

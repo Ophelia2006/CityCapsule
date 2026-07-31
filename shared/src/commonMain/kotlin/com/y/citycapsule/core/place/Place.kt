@@ -4,10 +4,11 @@ package com.y.citycapsule.core.place
  * Stable wire contract for the bounded, local-only place catalog.
  *
  * It deliberately contains no platform URI, map SDK object, account id, image bytes,
- * latitude/longitude, or remote-service identifier.
+ * or remote-service identifier.
  */
 object PlaceContract {
-    const val SCHEMA_VERSION = 1
+    const val SCHEMA_VERSION = 2
+    const val LEGACY_SCHEMA_VERSION = 1
     const val CURRENT_SEED_VERSION = 1
     const val MAX_CATALOG_SIZE = 500
 
@@ -24,7 +25,46 @@ object PlaceContract {
     const val FIELD_NOTE = "note"
     const val FIELD_CREATED_AT_EPOCH_MS = "createdAtEpochMs"
     const val FIELD_UPDATED_AT_EPOCH_MS = "updatedAtEpochMs"
+    const val FIELD_SOURCE = "source"
+    const val FIELD_GEO_POINT = "geoPoint"
+    const val FIELD_LATITUDE = "latitude"
+    const val FIELD_LONGITUDE = "longitude"
+    const val FIELD_VISUAL_REF = "visualRef"
+    const val FIELD_VISUAL_TYPE = "type"
+    const val FIELD_VISUAL_VALUE = "value"
 }
+
+enum class PlaceSource(val wireValue: String) {
+    SEED("seed"),
+    USER("user");
+
+    companion object {
+        fun fromWireValue(value: String): PlaceSource? = entries.firstOrNull {
+            it.wireValue == value
+        }
+    }
+}
+
+data class GeoPoint(
+    val latitude: Double,
+    val longitude: Double
+)
+
+enum class PlaceVisualType(val wireValue: String) {
+    BUNDLED_ASSET("bundled_asset"),
+    MANAGED_FILE("managed_file");
+
+    companion object {
+        fun fromWireValue(value: String): PlaceVisualType? = entries.firstOrNull {
+            it.wireValue == value
+        }
+    }
+}
+
+data class PlaceVisualRef(
+    val type: PlaceVisualType,
+    val value: String
+)
 
 enum class PlaceCategory(val wireValue: String) {
     LANDMARK("landmark"),
@@ -51,6 +91,9 @@ data class Place(
     val address: String? = null,
     val tags: List<String> = emptyList(),
     val note: String? = null,
+    val source: PlaceSource = PlaceSource.USER,
+    val geoPoint: GeoPoint? = null,
+    val visualRef: PlaceVisualRef? = null,
     val createdAtEpochMs: Long,
     val updatedAtEpochMs: Long
 )

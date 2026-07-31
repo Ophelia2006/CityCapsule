@@ -11,6 +11,7 @@ import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceClock
 import com.y.citycapsule.core.place.PlaceIdGenerator
+import com.y.citycapsule.core.place.PlaceDraft
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
 import com.y.citycapsule.core.storage.StorageKey
@@ -62,8 +63,9 @@ class PlaceFeatureStateTest {
     @Test
     fun detailToggleAndDeletePersistThroughRepositories() {
         val fixture = fixture()
+        val place = fixture.createPlace()
         val holder = PlaceDetailStateHolder(
-            "seed_shanghai_museum",
+            place.id,
             fixture.placeRepository,
             fixture.favoriteRepository,
             fixture.capsuleRepository
@@ -82,7 +84,7 @@ class PlaceFeatureStateTest {
 
         assertTrue(deleted)
         assertTrue(fixture.favoriteIds().placeIds.isEmpty())
-        assertEquals(StorageResult.Missing, fixture.place("seed_shanghai_museum"))
+        assertEquals(StorageResult.Missing, fixture.place(place.id))
     }
 
     @Test
@@ -214,6 +216,18 @@ private data class Fixture(
     fun favoriteIds(): FavoritePlaceIds {
         var captured: StorageResult<FavoritePlaceIds>? = null
         favoriteRepository.getFavoriteIds { captured = it }
+        return (requireNotNull(captured) as StorageResult.Success).value
+    }
+
+    fun createPlace(): Place {
+        var captured: StorageResult<Place>? = null
+        placeRepository.createPlace(
+            PlaceDraft(
+                name = "用户地点",
+                city = "上海",
+                category = PlaceCategory.OTHER
+            )
+        ) { captured = it }
         return (requireNotNull(captured) as StorageResult.Success).value
     }
 }
