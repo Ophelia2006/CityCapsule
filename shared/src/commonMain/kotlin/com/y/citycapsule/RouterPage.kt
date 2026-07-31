@@ -47,13 +47,13 @@ private fun RouteDiagnosticsScreen(
         val dimensions = AppTheme.dimensions
         AppScaffold(statusBarHeight = statusBarHeight) {
             AppTopBar(
-                title = "Typed route diagnostics",
-                subtitle = "All actions use AppRoute and AppNavigator."
+                title = "Developer Tools",
+                subtitle = "仅用于开发构建的路由与宿主诊断"
             )
             Spacer(Modifier.height(dimensions.spacingXl))
             AppSection(
-                title = "Route actions",
-                description = "Use this developer-only page to verify the native route stack."
+                title = "路由诊断",
+                description = "验证共享 typed route 与双端原生路由栈；正式产品没有入口。"
             ) {
                 RouteActionButton("Push Home") { navigator.navigate(AppRoute.Home) }
                 RouteActionButton("Push Settings") { navigator.navigate(AppRoute.Settings) }

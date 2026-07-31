@@ -1,45 +1,53 @@
 package com.y.citycapsule
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import com.tencent.kuikly.compose.foundation.clickable
 import com.tencent.kuikly.compose.foundation.layout.Spacer
 import com.tencent.kuikly.compose.foundation.layout.height
+import com.tencent.kuikly.compose.foundation.layout.padding
 import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.core.annotations.Page
-import com.y.citycapsule.app.theme.AppThemeHost
 import com.y.citycapsule.app.theme.AppThemeRuntime
 import com.y.citycapsule.app.theme.KuiklyAppThemeHost
 import com.y.citycapsule.app.theme.RuntimeAppTheme
 import com.y.citycapsule.base.BasePager
-import com.y.citycapsule.core.navigation.AppNavigator
+import com.y.citycapsule.core.backup.DataBackupRepository
+import com.y.citycapsule.core.backup.KuiklyDataArchiveCapability
+import com.y.citycapsule.core.media.KuiklyManagedMediaFiles
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
-import com.y.citycapsule.core.onboarding.OnboardingRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.core.storage.SettingsRepository
-import com.y.citycapsule.core.storage.StorageResult
-import com.y.citycapsule.core.storage.ThemeModeSnapshot
-import com.y.citycapsule.core.storage.ThemeModeSource
-import com.y.citycapsule.core.theme.ThemeMode
-import com.y.citycapsule.designsystem.component.AppButton
-import com.y.citycapsule.designsystem.component.AppButtonVariant
-import com.y.citycapsule.designsystem.component.AppConfirmDialog
 import com.y.citycapsule.designsystem.component.AppActionTopBar
+import com.y.citycapsule.designsystem.component.AppConfirmDialog
+import com.y.citycapsule.designsystem.component.AppDivider
 import com.y.citycapsule.designsystem.component.AppScaffold
-import com.y.citycapsule.designsystem.component.AppSection
+import com.y.citycapsule.designsystem.component.AppSectionTitle
 import com.y.citycapsule.designsystem.component.AppSettingsRow
 import com.y.citycapsule.designsystem.component.AppStatusMessage
 import com.y.citycapsule.designsystem.component.AppStatusTone
 import com.y.citycapsule.designsystem.component.AppThemeSelector
 import com.y.citycapsule.designsystem.theme.AppTheme
+import com.y.citycapsule.feature.capsule.CapsuleFeatureRuntime
+import com.y.citycapsule.feature.place.PlaceFeatureRuntime
 import com.y.citycapsule.feature.profile.ProfileFeatureRuntime
+import com.y.citycapsule.feature.settings.SettingsEffect
+import com.y.citycapsule.feature.settings.SettingsIntent
+import com.y.citycapsule.feature.settings.SettingsNoticeTone
+import com.y.citycapsule.feature.settings.SettingsOperation
+import com.y.citycapsule.feature.settings.SettingsStore
+import com.y.citycapsule.feature.settings.SettingsUiState
+import com.y.citycapsule.feature.settings.formatBytes
+import kotlinx.coroutines.flow.collect
 
 @Page(AppRouteTable.PAGE_SETTINGS, supportInLocal = true)
 internal class SettingsPager : BasePager() {
@@ -47,201 +55,210 @@ internal class SettingsPager : BasePager() {
         super.willInit()
         val navigator = KuiklyAppNavigator(this)
         val storage = KuiklyKeyValueStore(this)
-        val settingsRepository = SettingsRepository(storage)
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
-            SettingsScreen(
-                navigator,
-                settingsRepository,
-                OnboardingRepository(storage),
-                themeHost
-            )
+            val scope = rememberCoroutineScope()
+            val store = remember {
+                SettingsStore(
+                    settingsRepository = SettingsRepository(storage),
+                    backupRepository = DataBackupRepository(storage),
+                    archive = KuiklyDataArchiveCapability(this),
+                    mediaFiles = KuiklyManagedMediaFiles(this),
+                    parentScope = scope
+                )
+            }
+            val state by store.state.collectAsState()
+            DisposableEffect(store) { onDispose(store::dispose) }
+            LaunchedEffect(store) {
+                store.effects.collect { effect ->
+                    when (effect) {
+                        SettingsEffect.NavigateBack -> navigator.back()
+                        SettingsEffect.NavigateOnboarding ->
+                            navigator.navigate(AppRoute.Onboarding)
+                        is SettingsEffect.PreviewTheme ->
+                            AppThemeRuntime.previewMode(effect.mode)
+                        is SettingsEffect.CommitTheme ->
+                            AppThemeRuntime.applyPersistedMode(effect.mode)
+                        is SettingsEffect.RollbackTheme ->
+                            AppThemeRuntime.rollbackMode(effect.mode)
+                        SettingsEffect.DataImported -> {
+                            ProfileFeatureRuntime.invalidate()
+                            PlaceFeatureRuntime.invalidate()
+                            CapsuleFeatureRuntime.invalidate()
+                        }
+                    }
+                }
+            }
+            LaunchedEffect(store) { store.dispatch(SettingsIntent.Load) }
+            RuntimeAppTheme(themeHost = themeHost) {
+                SettingsScreen(state, store::dispatch)
+            }
         }
     }
 }
 
 @Composable
 private fun SettingsScreen(
-    navigator: AppNavigator,
-    settingsRepository: SettingsRepository,
-    onboardingRepository: OnboardingRepository,
-    themeHost: AppThemeHost
+    state: SettingsUiState,
+    dispatch: (SettingsIntent) -> Unit
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
-    var isSaving by remember { mutableStateOf(false) }
-    var storageStatus by remember {
-        mutableStateOf(
-            SettingsStatus("正在读取主题偏好…", AppStatusTone.NEUTRAL)
+    val d = AppTheme.dimensions
+    AppScaffold(statusBarHeight = statusBarHeight) {
+        AppActionTopBar(
+            title = "设置",
+            subtitle = "管理这台设备上的显示与城市数据",
+            onLeadingClick = { dispatch(SettingsIntent.BackClicked) }
+        )
+        Spacer(Modifier.height(d.spacingXl))
+        AppSectionTitle("显示")
+        Spacer(Modifier.height(d.spacingMd))
+        AppSettingsRow(
+            title = "主题",
+            description = "跟随系统、浅色或深色"
+        ) {
+            AppThemeSelector(
+                selectedMode = state.themeMode,
+                enabled = !state.busy,
+                onModeSelected = { dispatch(SettingsIntent.ThemeSelected(it)) }
+            )
+        }
+        SectionDivider()
+
+        AppSectionTitle("数据与存储")
+        Spacer(Modifier.height(d.spacingMd))
+        AppSettingsRow(
+            title = "存储占用",
+            description = "约 ${formatBytes(state.totalBytesApprox)} · " +
+                "照片 ${formatBytes(state.platformUsage.mediaBytes)} · " +
+                "临时缓存 ${formatBytes(state.platformUsage.cacheBytes)}"
+        )
+        RowAction(
+            title = "清理缓存",
+            description = "删除未发布草稿与临时导入文件，不删除已发布的城市记忆",
+            enabled = !state.busy
+        ) { dispatch(SettingsIntent.ClearCacheClicked) }
+        RowAction(
+            title = "导出备份",
+            description = "导出档案、地点、想去、城市碎片和已引用照片",
+            enabled = !state.busy
+        ) { dispatch(SettingsIntent.ExportClicked) }
+        RowAction(
+            title = "从备份导入",
+            description = "校验并预览后才会写入；导入前自动保留恢复包",
+            enabled = !state.busy
+        ) { dispatch(SettingsIntent.ImportClicked) }
+        if (state.operation != SettingsOperation.NONE) {
+            Spacer(Modifier.height(d.spacingSm))
+            AppStatusMessage(
+                message = operationMessage(state.operation),
+                tone = AppStatusTone.NEUTRAL
+            )
+        }
+        state.notice?.let {
+            Spacer(Modifier.height(d.spacingSm))
+            AppStatusMessage(message = it.message, tone = it.tone.toAppTone())
+        }
+        SectionDivider()
+
+        AppSectionTitle("了解 CityCapsule")
+        Spacer(Modifier.height(d.spacingMd))
+        RowAction(
+            title = "隐私",
+            description = "查看本地数据、照片与系统选择器的使用方式"
+        ) { dispatch(SettingsIntent.PrivacyClicked) }
+        RowAction(
+            title = "关于",
+            description = "产品定位、当前能力与版本信息"
+        ) { dispatch(SettingsIntent.AboutClicked) }
+        RowAction(
+            title = "重新查看首次引导",
+            description = "不会清除已经保存的城市数据"
+        ) { dispatch(SettingsIntent.OnboardingClicked) }
+        Spacer(Modifier.height(d.spacingXl))
+    }
+
+    if (state.confirmClearCache) {
+        AppConfirmDialog(
+            title = "清理临时缓存？",
+            message = "未发布的首次引导草稿、城市碎片草稿和临时导入文件会被删除。已发布记录、想去地点和照片不会被删除。",
+            confirmText = "清理缓存",
+            onConfirm = { dispatch(SettingsIntent.ClearCacheConfirmed) },
+            onDismiss = { dispatch(SettingsIntent.DismissConfirmation) }
         )
     }
-    var showClearConfirmation by remember { mutableStateOf(false) }
-    var isClearingProfile by remember { mutableStateOf(false) }
-    var clearStatus by remember { mutableStateOf<SettingsStatus?>(null) }
-
-    fun applySnapshot(snapshot: ThemeModeSnapshot) {
-        AppThemeRuntime.applyPersistedMode(snapshot.mode)
-        storageStatus = when (snapshot.source) {
-            ThemeModeSource.PERSISTED -> SettingsStatus(
-                "当前偏好：${snapshot.mode.displayName()}",
-                AppStatusTone.NEUTRAL
-            )
-            ThemeModeSource.DEFAULT_MISSING -> SettingsStatus(
-                "尚未保存偏好，当前跟随系统",
-                AppStatusTone.NEUTRAL
-            )
-            ThemeModeSource.DEFAULT_RECOVERY -> SettingsStatus(
-                "存储暂不可用，已安全回退为跟随系统",
-                AppStatusTone.WARNING
-            )
-        }
-    }
-
-    fun selectTheme(targetMode: ThemeMode) {
-        if (isSaving || targetMode == AppThemeRuntime.themeMode) {
-            return
-        }
-
-        val previousMode = AppThemeRuntime.themeMode
-        AppThemeRuntime.previewMode(targetMode)
-        isSaving = true
-        storageStatus = SettingsStatus(
-            "正在保存 ${targetMode.displayName()}…",
-            AppStatusTone.NEUTRAL
+    if (state.confirmImport && state.preview != null) {
+        val preview = state.preview
+        AppConfirmDialog(
+            title = "导入前预览",
+            message = "${preview.fileName}\n\n" +
+                "个人档案 ${preview.profileCount} · 地点 ${preview.placeCount}\n" +
+                "想去 ${preview.favoriteCount} · 城市碎片 ${preview.capsuleCount}\n" +
+                "照片 ${preview.photoCount}\n\n" +
+                "确认后会先创建导入前备份，再替换当前数据。",
+            confirmText = "备份并导入",
+            onConfirm = { dispatch(SettingsIntent.ImportConfirmed) },
+            onDismiss = { dispatch(SettingsIntent.CancelImport) }
         )
-        settingsRepository.setThemeMode(targetMode) { writeResult ->
-            isSaving = false
-            when (writeResult) {
-                is StorageResult.Success -> {
-                    AppThemeRuntime.applyPersistedMode(targetMode)
-                    storageStatus = SettingsStatus(
-                        "已保存：${targetMode.displayName()}",
-                        AppStatusTone.SUCCESS
-                    )
-                }
-                StorageResult.Missing -> {
-                    AppThemeRuntime.rollbackMode(previousMode)
-                    storageStatus = SettingsStatus(
-                        "保存结果未确认，已恢复 ${previousMode.displayName()}",
-                        AppStatusTone.ERROR
-                    )
-                }
-                is StorageResult.Failure -> {
-                    AppThemeRuntime.rollbackMode(previousMode)
-                    storageStatus = SettingsStatus(
-                        "暂时无法保存，已恢复 ${previousMode.displayName()}",
-                        AppStatusTone.ERROR
-                    )
-                }
-            }
-        }
     }
-
-    LaunchedEffect(settingsRepository) {
-        settingsRepository.getThemeModeSnapshot(::applySnapshot)
+    if (state.showPrivacy) {
+        AppConfirmDialog(
+            title = "隐私",
+            message = "CityCapsule 当前不提供账号、云同步或社区功能。档案、地点、想去和城市碎片保存在本机；选择的照片会复制到应用沙箱。\n\n" +
+                "应用只在你主动操作时打开系统照片或文件选择器。导出文件由你选择保存位置；卸载或清除应用数据可能删除未导出的本地内容。",
+            confirmText = "知道了",
+            onConfirm = { dispatch(SettingsIntent.CloseInfo) },
+            onDismiss = { dispatch(SettingsIntent.CloseInfo) }
+        )
     }
-
-    RuntimeAppTheme(themeHost = themeHost) {
-        val dimensions = AppTheme.dimensions
-        AppScaffold(statusBarHeight = statusBarHeight) {
-            AppActionTopBar(
-                title = "设置",
-                subtitle = "调整城市胶囊在当前设备上的使用体验。",
-                onLeadingClick = navigator::back
-            )
-            Spacer(Modifier.height(dimensions.spacingLg))
-            AppSection(
-                title = "主题偏好",
-                description = "选择后立即预览；保存失败会自动恢复原主题。"
-            ) {
-                AppSettingsRow(
-                    title = "显示模式",
-                    description = "跟随系统、浅色或深色"
-                ) {
-                    AppThemeSelector(
-                        selectedMode = AppThemeRuntime.themeMode,
-                        enabled = !isSaving,
-                        onModeSelected = ::selectTheme
-                    )
-                }
-                Spacer(Modifier.height(dimensions.spacingMd))
-                AppStatusMessage(
-                    message = storageStatus.message,
-                    tone = storageStatus.tone
-                )
-            }
-            Spacer(Modifier.height(dimensions.spacingLg))
-            AppSection(
-                title = "首次引导",
-                description = "重新查看引导不会清除已有的本地档案。"
-            ) {
-                AppButton(
-                    text = "重新查看首次引导",
-                    variant = AppButtonVariant.SECONDARY,
-                    onClick = { navigator.navigate(AppRoute.Onboarding) }
-                )
-            }
-            Spacer(Modifier.height(dimensions.spacingLg))
-            AppSection(
-                title = "危险操作",
-                description = "这里只清除个人档案和首次引导状态，不会删除地点、想去清单或城市记忆。"
-            ) {
-                AppButton(
-                    text = "清除本地档案",
-                    variant = AppButtonVariant.DANGER,
-                    enabled = !isClearingProfile,
-                    loading = isClearingProfile,
-                    loadingText = "正在清除…",
-                    onClick = { showClearConfirmation = true }
-                )
-                clearStatus?.let { status ->
-                    Spacer(Modifier.height(dimensions.spacingMd))
-                    AppStatusMessage(message = status.message, tone = status.tone)
-                }
-            }
-        }
-
-        if (showClearConfirmation) {
-            AppConfirmDialog(
-                title = "清除本地档案？",
-                message = "昵称、头像、常驻城市、简介和首次引导状态会被清除；地点、想去清单和城市记忆会保留。此操作无法撤销。",
-                confirmText = "确认清除",
-                onConfirm = {
-                    showClearConfirmation = false
-                    isClearingProfile = true
-                    clearStatus = SettingsStatus(
-                        "正在清除本地档案…",
-                        AppStatusTone.NEUTRAL
-                    )
-                    onboardingRepository.resetLocalState { result ->
-                        isClearingProfile = false
-                        when (result) {
-                            is StorageResult.Success -> {
-                                ProfileFeatureRuntime.invalidate()
-                                navigator.replace(AppRoute.Onboarding)
-                            }
-                            StorageResult.Missing,
-                            is StorageResult.Failure -> {
-                                clearStatus = SettingsStatus(
-                                    "未能完整清除本地档案，请重试。",
-                                    AppStatusTone.ERROR
-                                )
-                            }
-                        }
-                    }
-                },
-                onDismiss = { showClearConfirmation = false }
-            )
-        }
+    if (state.showAbout) {
+        AppConfirmDialog(
+            title = "关于 CityCapsule",
+            message = "城市胶囊是一款“城市探索 + 个人城市记录”工具，核心体验是发现、探索、记录与回忆。\n\n" +
+                "当前版本：1.0.0\n数据方式：本地优先\n支持平台：Android / HarmonyOS",
+            confirmText = "完成",
+            onConfirm = { dispatch(SettingsIntent.CloseInfo) },
+            onDismiss = { dispatch(SettingsIntent.CloseInfo) }
+        )
     }
 }
 
-private data class SettingsStatus(
-    val message: String,
-    val tone: AppStatusTone
-)
+@Composable
+private fun RowAction(
+    title: String,
+    description: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    AppSettingsRow(
+        title = title,
+        description = description,
+        modifier = Modifier
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = AppTheme.dimensions.spacingMd)
+    )
+}
 
-private fun ThemeMode.displayName(): String = when (this) {
-    ThemeMode.SYSTEM -> "跟随系统"
-    ThemeMode.LIGHT -> "浅色"
-    ThemeMode.DARK -> "深色"
+@Composable
+private fun SectionDivider() {
+    Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+    AppDivider()
+    Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+}
+
+private fun operationMessage(operation: SettingsOperation): String = when (operation) {
+    SettingsOperation.NONE -> ""
+    SettingsOperation.LOADING -> "正在读取本地数据…"
+    SettingsOperation.SAVING_THEME -> "正在保存主题…"
+    SettingsOperation.CLEARING_CACHE -> "正在清理缓存…"
+    SettingsOperation.EXPORTING -> "正在创建备份…"
+    SettingsOperation.SELECTING_IMPORT -> "正在读取并校验备份…"
+    SettingsOperation.IMPORTING -> "正在备份当前数据并导入…"
+}
+
+private fun SettingsNoticeTone.toAppTone(): AppStatusTone = when (this) {
+    SettingsNoticeTone.NEUTRAL -> AppStatusTone.NEUTRAL
+    SettingsNoticeTone.SUCCESS -> AppStatusTone.SUCCESS
+    SettingsNoticeTone.WARNING -> AppStatusTone.WARNING
+    SettingsNoticeTone.ERROR -> AppStatusTone.ERROR
 }

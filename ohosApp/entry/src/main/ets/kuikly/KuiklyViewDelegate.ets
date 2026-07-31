@@ -10,6 +10,7 @@ import { KRStorageModule } from './modules/KRStorageModule';
 import { KRThemeHostModule } from './modules/KRThemeHostModule';
 import { KRMediaModule } from './modules/KRMediaModule';
 import { KRLocaleModule } from './modules/KRLocaleModule';
+import { KRDataArchiveModule } from './modules/KRDataArchiveModule';
 
 export class KuiklyViewDelegate extends IKuiklyViewDelegate {
   getCustomRenderViewCreatorRegisterMap(): Map<string, KRRenderViewExportCreator> {
@@ -26,6 +27,7 @@ export class KuiklyViewDelegate extends IKuiklyViewDelegate {
     map.set(KRThemeHostModule.MODULE_NAME, () => new KRThemeHostModule())
     map.set(KRMediaModule.MODULE_NAME, () => new KRMediaModule())
     map.set(KRLocaleModule.MODULE_NAME, () => new KRLocaleModule())
+    map.set(KRDataArchiveModule.MODULE_NAME, () => new KRDataArchiveModule())
     return map;
   }
 }

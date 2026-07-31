@@ -173,6 +173,23 @@ SettingsPage
 
 保存时先预览，失败回滚。Android/HarmonyOS 都有旧主题偏好到 MMKV 的有界重试迁移。
 
+### Settings 与数据归档
+
+```text
+SettingsPage
+  → SettingsIntent
+  → SettingsStore（串行事件 / StateFlow / Effect）
+     ├─ SettingsRepository → settings.theme_mode
+     ├─ DataBackupRepository → 六个长期 persistent keys
+     └─ DataArchiveCapability → CCDataArchiveModule
+        ├─ Android：Storage Access Framework + java.util.zip
+        └─ HarmonyOS：DocumentViewPicker + zlib
+```
+
+归档格式为版本化 ZIP，固定包含 `data/backup.json`、`media/index.json` 与存在的 `media/images/*`。备份保存主题、本地档案、引导完成版本、地点目录、想去 ID 与城市碎片 catalog；`onboarding.draft`、`capsules.draft` 等 cache key 不进入备份。导入必须先解压到 cache staging、校验 backupVersion/完整 key 集合及每个既有 codec、显示数量预览；用户确认后才在应用沙箱创建导入前恢复 ZIP、复制导入媒体并写入数据。写入失败时恢复旧 snapshot 并清理本次创建的托管媒体；自动恢复不完整时保留内部恢复包并显示明确错误。
+
+正式 Settings 只调用共享 capability，不使用旧 `NativeFileImport` 骨架路由。路由 Push/Replace/BackTo 等诊断集中在非业务 `router` pageName（页面标题为 Developer Tools），正式产品 UI 不提供入口。
+
 ## 路由架构
 
 ```text

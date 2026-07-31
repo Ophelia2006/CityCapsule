@@ -28,6 +28,8 @@ import com.y.citycapsule.module.KRMediaModule
 import com.y.citycapsule.module.KRLocaleModule
 import com.y.citycapsule.module.KRStorageModule
 import com.y.citycapsule.module.KRThemeHostModule
+import com.y.citycapsule.module.KRDataArchiveModule
+import com.y.citycapsule.module.DataArchiveFileStore
 import com.y.citycapsule.navigation.AndroidLaunchContract
 import com.y.citycapsule.navigation.AndroidRouteHost
 import com.y.citycapsule.navigation.AndroidRouteRequest
@@ -93,6 +95,46 @@ class KuiklyHostActivity :
                         "无法复制所选照片，请重试。"
                     )
                 )
+            }
+        )
+    }
+    private var pendingArchiveCallback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback? = null
+    private var pendingExportFile: File? = null
+    private val archiveCreator = registerForActivityResult(
+        ActivityResultContracts.CreateDocument()
+    ) { uri ->
+        val callback = pendingArchiveCallback ?: return@registerForActivityResult
+        val file = pendingExportFile
+        pendingArchiveCallback = null
+        pendingExportFile = null
+        if (uri == null || file == null) {
+            file?.delete()
+            callback.invoke(KRDataArchiveModule.response(KRDataArchiveModule.STATUS_CANCELLED))
+        } else {
+            DataArchiveFileStore(this).copyExport(file, uri).fold(
+                onSuccess = {
+                    callback.invoke(KRDataArchiveModule.response(KRDataArchiveModule.STATUS_SUCCESS) {
+                        put("path", uri.toString())
+                    })
+                },
+                onFailure = {
+                    callback.invoke(KRDataArchiveModule.response(
+                        KRDataArchiveModule.STATUS_FAILURE, "无法写入所选位置。"
+                    ))
+                }
+            )
+        }
+    }
+    private val archivePicker = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        val callback = pendingArchiveCallback ?: return@registerForActivityResult
+        pendingArchiveCallback = null
+        callback.invoke(
+            if (uri == null) {
+                KRDataArchiveModule.response(KRDataArchiveModule.STATUS_CANCELLED)
+            } else {
+                DataArchiveFileStore(this).stageImport(uri)
             }
         )
     }
@@ -163,6 +205,9 @@ class KuiklyHostActivity :
             moduleExport(KRThemeHostModule.MODULE_NAME) {
                 KRThemeHostModule()
             }
+            moduleExport(KRDataArchiveModule.MODULE_NAME) {
+                KRDataArchiveModule()
+            }
         }
     }
 
@@ -193,6 +238,43 @@ class KuiklyHostActivity :
         pendingImageLimit = maxCount.coerceIn(1, 9)
         pendingImageCallback = callback
         imagePicker.launch(arrayOf("image/*"))
+    }
+
+    internal fun exportDataArchive(
+        request: String,
+        callback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback
+    ) {
+        if (pendingArchiveCallback != null) {
+            callback.invoke(KRDataArchiveModule.response(
+                KRDataArchiveModule.STATUS_FAILURE, "已有文件操作正在进行。"
+            ))
+            return
+        }
+        DataArchiveFileStore(this).createExport(request).fold(
+            onSuccess = { file ->
+                pendingArchiveCallback = callback
+                pendingExportFile = file
+                archiveCreator.launch("citycapsule-backup-${System.currentTimeMillis()}.zip")
+            },
+            onFailure = {
+                callback.invoke(KRDataArchiveModule.response(
+                    KRDataArchiveModule.STATUS_FAILURE, "无法创建备份文件。"
+                ))
+            }
+        )
+    }
+
+    internal fun selectDataArchive(
+        callback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback
+    ) {
+        if (pendingArchiveCallback != null) {
+            callback.invoke(KRDataArchiveModule.response(
+                KRDataArchiveModule.STATUS_FAILURE, "已有文件操作正在进行。"
+            ))
+            return
+        }
+        pendingArchiveCallback = callback
+        archivePicker.launch(arrayOf("application/zip", "application/octet-stream"))
     }
 
     private fun createPageData(): Map<String, Any> {

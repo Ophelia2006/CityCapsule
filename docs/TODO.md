@@ -32,10 +32,10 @@
 - `[Initial Plan][UI/UX Redesign]` 接入双端真实地图 Native View、Marker、列表/地图切换和外部导航；地图不可用时降级为列表。
 - `[Code Scan]` 如需“按想去时间排序”，新增有迁移方案的数据模型，不能从现有 Set 伪造加入时间；用户文案已经统一为“想去”，底层继续保留 `Favorite*`。
 - `[UI/UX Redesign][DONE code 2026-07-30]` P1-2 Profile Overview：头像/昵称/城市，真实碎片数/去过地点数/想去数，按真实 Capsule→Place 关系计算城市足迹，最多 3 个想去地点预览；编辑为 typed 二级 MVI 页面，清除本地档案下沉 Settings 危险操作区且保留 Place/Favorite/Capsule。shared/Android 自动化通过；HarmonyOS 构建和双端设备验收见 `P1_PROFILE_OVERVIEW_ACCEPTANCE.md`。
-- `[Initial Plan]` 完成设置中的缓存清理、存储占用、隐私/关于与二次确认重置。
-- `[Initial Plan]` 实现备份导出、导入验证/预览、导入前备份和媒体恢复；补齐 Android launcher 与 Harmony 文件选择器。
+- `[Initial Plan][DONE code/PARTIAL device 2026-07-30]` P1-3 Settings 与数据管理：MVI 设置页已提供真实主题、隐私、关于、结构化数据/照片/缓存/恢复包占用与带确认的缓存清理；正式 UI 已移除 MMKV、Push、Replace、BackTo 等开发文案。按 `P1_SETTINGS_DATA_ACCEPTANCE.md` 完成双端设备验收。
+- `[Initial Plan][DONE code+automation/PARTIAL device 2026-07-30]` 版本化 ZIP 导出、导入 codec 校验与预览、导入前恢复包、照片恢复、失败回滚及新媒体清理已实现；shared/Android 测试、Harmony Hvigor test 与 signed HAP 构建通过。仍须在双端执行真实系统选择器、损坏包、未来版本包、取消、空间不足及写入失败验收。
 - `[Code Scan]` 实现 RouteResult/requestId 结果通道；原生取消/失败/不支持必须回传，不得仅展示参数。
-- `[Code Scan]` 清理或隔离 `KRBridgeModule/KRMyModule/KRMyView` 模板 TODO/null 分支；诊断页只在开发入口可达。
+- `[Code Scan][PARTIAL 2026-07-30]` 路由 Push/Replace/BackTo 诊断已集中在独立 Developer Tools pageName，正式 Settings 无入口；继续清理或隔离 `KRBridgeModule/KRMyModule/KRMyView` 模板 TODO/null 分支，并增加 release 构建完全不可达门禁。
 - `[Code Scan]` 统一 Android 图片加载栈，确认 Glide/Picasso 保留其一或说明不同职责。
 - `[UI/UX Redesign]` 增加平板列表/详情、地图/信息、时间轴/详情双栏 `AdaptivePane`，验证窗口变化不丢状态。
 - `[Code Scan]` 做可访问性检查：大字体、语义、触控目标、颜色非唯一提示、减少动效。

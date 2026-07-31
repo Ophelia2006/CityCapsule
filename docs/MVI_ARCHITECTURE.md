@@ -38,7 +38,7 @@ Feature Store
   → UI 执行 typed navigation、关闭页面或一次性系统交互
 ```
 
-现有 `StateHolder` 不因本决策自动变成 MVI；当前只有 PlaceList/Explore 与 Profile Overview/Editor 完成代码迁移和自动化，仍须通过双端设备验证后才能标记为完整验收。
+现有 `StateHolder` 不因本决策自动变成 MVI；当前 PlaceList/Explore、Profile Overview/Editor 与 Settings/Data Management 完成代码迁移，前两组及 Settings shared/Android 自动化已通过，仍须通过双端设备验证后才能标记为完整验收。
 
 ## 项目内最小协议
 

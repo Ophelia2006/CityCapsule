@@ -136,6 +136,16 @@ P0-3 将排序规则冻结为“当前档案城市优先 → 想去或尚未记�
 
 在业务迁移前先完成 Android/HarmonyOS 技术 Spike，验证显式 coroutines 依赖、StateFlow 收集、Effect 单次消费、Intent 顺序与 `dispose()`。Effect 的具体 Flow 实现、Scope/Dispatcher 和 callback/suspend 适配方式由 Spike 结果决定。详细规则见 `MVI_ARCHITECTURE.md`。
 
+## ADR-021：数据备份采用版本化 ZIP，并在确认导入前创建恢复包
+
+状态：Accepted and implemented（shared/Android 已自动化，HarmonyOS signed HAP 已构建，双端设备验收待完成）。
+
+初始三阶段规划明确要求备份同时携带结构化数据与媒体，导入顺序必须是“选择 → 临时解压 → manifest/JSON 校验 → 预览 → 确认 → 生成导入前备份 → 写入”，且验证失败不得覆盖当前数据。当前媒体真实保存在应用沙箱、MMKV 只保存路径，因此只导出 MMKV 字符串不能形成可恢复备份。
+
+当前实现使用版本化 ZIP：`data/backup.json` 保存六个长期 persistent key 的 wire value 与存在性，`media/index.json` 保存旧沙箱路径到归档 entry 的映射，`media/images/*` 保存仍被已发布 Capsule 引用的托管照片。两个 cache draft key 不进入备份。导入先在 cache staging 解压，由共享层用当前 codec 校验完整 key 集合并生成数量预览；用户确认后平台先在 `filesDir/backups/recovery` 创建当前数据恢复 ZIP，再复制导入媒体并写入结构化数据。写入失败时恢复旧 snapshot 并删除本次创建的媒体；恢复不完整时保留恢复 ZIP 并停止宣称成功。
+
+Settings 只依赖共享 `DataArchiveCapability`；Android 以系统 Storage Access Framework 与 `java.util.zip` 实现，HarmonyOS 以 `DocumentViewPicker` 与 `zlib` 实现。旧 `NativeFileImport` 骨架不再属于正式调用链。
+
 ## 尚无决策依据的议题
 
 - 为什么 Place 删除 source/坐标/封面、为何所有 seed 地点允许删除。
