@@ -3,6 +3,7 @@ package com.y.citycapsule
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -13,6 +14,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
@@ -92,6 +94,8 @@ class KuiklyHostActivity :
         }
     }
     private var pendingImageCallback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback? = null
+    private var pendingCameraCallback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback? = null
+    private var pendingCameraFile: File? = null
     private val imagePicker = registerForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
@@ -138,6 +142,25 @@ class KuiklyHostActivity :
                     )
                 )
             }
+        )
+    }
+    private val cameraCapture = registerForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { captured ->
+        val callback = pendingCameraCallback ?: return@registerForActivityResult
+        val target = pendingCameraFile
+        pendingCameraCallback = null
+        pendingCameraFile = null
+        if (!captured || target == null || !target.isFile || target.length() <= 0L) {
+            target?.delete()
+            callback.invoke(KRMediaModule.response(KRMediaModule.STATUS_CANCELLED))
+            return@registerForActivityResult
+        }
+        callback.invoke(
+            KRMediaModule.response(
+                KRMediaModule.STATUS_SUCCESS,
+                paths = listOf("file://${target.absolutePath}")
+            )
         )
     }
     private var pendingArchiveCallback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback? = null
@@ -211,6 +234,9 @@ class KuiklyHostActivity :
 
     override fun onDestroy() {
         cancelLocationRequest()
+        pendingCameraFile?.delete()
+        pendingCameraFile = null
+        pendingCameraCallback = null
         AndroidRouteStackCoordinator.shared.unregister(this)
         kuiklyRenderViewDelegator.onDetach()
         super.onDestroy()
@@ -271,7 +297,7 @@ class KuiklyHostActivity :
         maxCount: Int,
         callback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback
     ) {
-        if (pendingImageCallback != null) {
+        if (pendingImageCallback != null || pendingCameraCallback != null) {
             callback.invoke(
                 KRMediaModule.response(
                     KRMediaModule.STATUS_FAILURE,
@@ -283,6 +309,57 @@ class KuiklyHostActivity :
         pendingImageLimit = maxCount.coerceIn(1, 9)
         pendingImageCallback = callback
         imagePicker.launch(arrayOf("image/*"))
+    }
+
+    internal fun captureImage(
+        callback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback
+    ) {
+        if (pendingImageCallback != null || pendingCameraCallback != null) {
+            callback.invoke(KRMediaModule.response(
+                KRMediaModule.STATUS_FAILURE,
+                "已有照片操作正在进行。"
+            ))
+            return
+        }
+        val target = runCatching {
+            val directory = File(filesDir, "images/original").apply {
+                check(mkdirs() || isDirectory)
+            }
+            File.createTempFile("camera_", ".jpg", directory)
+        }.getOrElse {
+            callback.invoke(KRMediaModule.response(
+                KRMediaModule.STATUS_FAILURE,
+                "无法创建拍照目标文件。"
+            ))
+            return
+        }
+        val uri = runCatching {
+            FileProvider.getUriForFile(this, "$packageName.fileprovider", target)
+        }.getOrElse {
+            target.delete()
+            callback.invoke(KRMediaModule.response(
+                KRMediaModule.STATUS_FAILURE,
+                "无法准备系统相机。"
+            ))
+            return
+        }
+        pendingCameraFile = target
+        pendingCameraCallback = callback
+        try {
+            cameraCapture.launch(uri)
+        } catch (_: ActivityNotFoundException) {
+            finishCameraLaunchFailure(KRMediaModule.STATUS_UNSUPPORTED, "当前设备没有可用的系统相机。")
+        } catch (_: Throwable) {
+            finishCameraLaunchFailure(KRMediaModule.STATUS_FAILURE, "无法打开系统相机。")
+        }
+    }
+
+    private fun finishCameraLaunchFailure(status: String, message: String) {
+        val callback = pendingCameraCallback
+        pendingCameraCallback = null
+        pendingCameraFile?.delete()
+        pendingCameraFile = null
+        callback?.invoke(KRMediaModule.response(status, message))
     }
 
     internal fun exportDataArchive(

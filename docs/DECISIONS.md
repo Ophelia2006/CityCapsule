@@ -180,3 +180,14 @@ Settings 只依赖共享 `DataArchiveCapability`；Android 以系统 Storage Acc
 - Store 将 callback 结果送回串行 Event → Mutation → Reducer；请求序号丢弃旧结果，`dispose()` 后禁止回写已销毁 Store。
 
 依据：P2-2 明确需求，以及现有 Explore MVI 的串行事件与生命周期边界。
+
+## ADR-024：第一版拍照委托系统相机并直写受控沙箱文件
+
+状态：Accepted；双端代码与构建完成，真机验收待完成。
+
+- 用户明确要求第一版不自建 CameraX / Camera Kit 预览页，不实现滤镜、裁剪、美颜或自定义取景器。
+- shared 只依赖 `CameraCapability` 与显式 Success / Cancelled / Failure / Unsupported 结果；业务页面不接触 Android、ArkTS 或相机对象。
+- Android 使用系统 `TakePicture` contract 与私有 `FileProvider`；HarmonyOS 使用系统 `cameraPicker` 与 `PickerProfile.saveUri`。两端都在打开相机前于 `filesDir/images/original` 创建目标文件。
+- 取消、启动失败或没有有效内容时立即删除预创建文件；成功只返回该目录内的 `file://` 路径。
+- 拍摄路径继续写入既有 `CapsuleDraft.imagePaths`，不修改 Capsule wire/schema；后续移除、丢弃和删除继续走 ADR-014 的全引用保护清理。
+- 相机不可用不是编辑器阻断条件：相册与纯文字记录继续可用。

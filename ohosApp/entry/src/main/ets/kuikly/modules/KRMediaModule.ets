@@ -1,6 +1,7 @@
 import { BusinessError } from '@kit.BasicServicesKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
+import { camera, cameraPicker } from '@kit.CameraKit';
 import hilog from '@ohos.hilog';
 import {
   KRAny,
@@ -11,12 +12,14 @@ import {
 export class KRMediaModule extends KuiklyRenderBaseModule {
   static readonly MODULE_NAME: string = 'CCMediaModule';
   private static readonly METHOD_PICK_IMAGES: string = 'pickImages';
+  private static readonly METHOD_CAPTURE_IMAGE: string = 'captureImage';
   private static readonly METHOD_DELETE_IMAGES: string = 'deleteImages';
   private static readonly MAX_IMAGES: number = 9;
   private static readonly MAX_DELETE_BATCH: number = 32;
   private static readonly LOG_DOMAIN: number = 0x0000;
   private static readonly LOG_TAG: string = 'CityCapsuleMedia';
   private pickerInFlight: boolean = false;
+  private cameraInFlight: boolean = false;
 
   syncMode(): boolean {
     return false;
@@ -25,6 +28,8 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
   call(method: string, params: KRAny, callback: KuiklyRenderCallback): KRAny {
     if (method === KRMediaModule.METHOD_PICK_IMAGES) {
       this.pickImages(params, callback);
+    } else if (method === KRMediaModule.METHOD_CAPTURE_IMAGE) {
+      this.captureImage(callback);
     } else if (method === KRMediaModule.METHOD_DELETE_IMAGES) {
       this.deleteImages(params, callback);
     } else {
@@ -43,7 +48,7 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
       return;
     }
 
-    if (this.pickerInFlight) {
+    if (this.pickerInFlight || this.cameraInFlight) {
       callback(JSON.stringify({ 'status': 'failure', 'message': '已有照片选择操作正在进行。', 'paths': [] }));
       return;
     }
@@ -110,6 +115,100 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
         }
       });
       throw new Error('Failed to copy selected images into the app sandbox.');
+    }
+  }
+
+  private captureImage(callback: KuiklyRenderCallback): void {
+    if (this.pickerInFlight || this.cameraInFlight) {
+      callback(JSON.stringify({ 'status': 'failure', 'message': '已有照片操作正在进行。', 'paths': [] }));
+      return;
+    }
+    const context = this.controller?.getUIAbilityContext();
+    if (context === null || context === undefined) {
+      callback(JSON.stringify({ 'status': 'unsupported', 'message': '当前页面不支持拍照。', 'paths': [] }));
+      return;
+    }
+    let targetPath: string;
+    try {
+      const directory = `${context.filesDir}/images/original`;
+      if (!fileIo.accessSync(directory)) {
+        fileIo.mkdirSync(directory, true);
+      }
+      targetPath = `${directory}/camera_${Date.now()}.jpg`;
+      const reserved = fileIo.openSync(
+        targetPath,
+        fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE
+      );
+      fileIo.closeSync(reserved);
+    } catch (error) {
+      this.logFailure('camera_prepare', error as Error);
+      callback(JSON.stringify({ 'status': 'failure', 'message': '无法创建拍照目标文件。', 'paths': [] }));
+      return;
+    }
+    const targetUri = `file://${targetPath}`;
+    const profile: cameraPicker.PickerProfile = {
+      cameraPosition: camera.CameraPosition.CAMERA_POSITION_BACK,
+      saveUri: targetUri
+    };
+    this.cameraInFlight = true;
+    cameraPicker.pick(context, [cameraPicker.PickerMediaType.PHOTO], profile)
+      .then((result: cameraPicker.PickerResult): void => {
+        this.cameraInFlight = false;
+        try {
+          const completed = this.ensureCapturedImage(
+            targetPath,
+            targetUri,
+            result.resultUri
+          );
+          if (completed) {
+            callback(JSON.stringify({ 'status': 'success', 'message': '', 'paths': [targetUri] }));
+            return;
+          }
+          this.deleteReservedCameraFile(targetPath);
+          callback(JSON.stringify({ 'status': 'cancelled', 'message': '', 'paths': [] }));
+        } catch (error) {
+          this.deleteReservedCameraFile(targetPath);
+          this.logFailure('camera_result_copy', error as Error);
+          callback(JSON.stringify({
+            'status': 'failure',
+            'message': '无法保存拍摄的照片，可以改用相册或纯文字记录。',
+            'paths': []
+          }));
+        }
+      })
+      .catch((error: BusinessError): void => {
+        this.cameraInFlight = false;
+        this.deleteReservedCameraFile(targetPath);
+        this.logFailure('camera_picker', error);
+        callback(JSON.stringify({
+          'status': 'failure',
+          'message': '无法打开系统相机，可以改用相册或纯文字记录。',
+          'paths': []
+        }));
+      });
+  }
+
+  private ensureCapturedImage(targetPath: string, targetUri: string, resultUri: string): boolean {
+    if (fileIo.accessSync(targetPath) && fileIo.statSync(targetPath).size > 0) {
+      return true;
+    }
+    if (resultUri.length === 0 || resultUri === targetUri) {
+      return false;
+    }
+    // Some HarmonyOS camera providers return a scoped media URI instead of
+    // writing PickerProfile.saveUri. Copy that result into the target that was
+    // reserved before launching the system camera.
+    this.copyMediaUri(resultUri, targetPath);
+    return fileIo.accessSync(targetPath) && fileIo.statSync(targetPath).size > 0;
+  }
+
+  private deleteReservedCameraFile(path: string): void {
+    try {
+      if (fileIo.accessSync(path)) {
+        fileIo.unlinkSync(path);
+      }
+    } catch (error) {
+      this.logFailure('camera_cleanup', error as Error);
     }
   }
 

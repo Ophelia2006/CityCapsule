@@ -44,4 +44,18 @@ class KRMediaModuleTest {
         assertEquals(listOf(managed.toURI().toString()), deleted.deletedPaths)
         assertFalse(managed.exists())
     }
+
+    @Test
+    fun managedStoreAlsoDeletesCameraTargetsInTheSameDirectory() {
+        val filesDir = Files.createTempDirectory("citycapsule_camera").toFile()
+        val cameraFile = filesDir.resolve("images/original/camera_1.jpg").apply {
+            parentFile.mkdirs()
+            writeText("photo")
+        }
+
+        val result = ManagedImageFileStore(filesDir).delete(listOf(cameraFile.toURI().toString()))
+
+        assertFalse(result.rejected)
+        assertFalse(cameraFile.exists())
+    }
 }

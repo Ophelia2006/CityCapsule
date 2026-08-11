@@ -59,6 +59,46 @@ class PhotoPickerCapabilityTest {
     }
 
     @Test
+    fun cameraReturnsExactlyOneManagedPath() {
+        val camera = KuiklyCameraCapability(CameraTransport { _, callback ->
+            callback(JSONObject().apply {
+                put(KuiklyCameraCapability.FIELD_STATUS, KuiklyCameraCapability.STATUS_SUCCESS)
+                put(
+                    KuiklyCameraCapability.FIELD_PATHS,
+                    JSONArray().put("file:///sandbox/images/original/camera.jpg")
+                )
+            })
+        })
+        var result: CameraCaptureResult? = null
+
+        camera.captureImage { result = it }
+
+        assertEquals(
+            "file:///sandbox/images/original/camera.jpg",
+            assertIs<CameraCaptureResult.Success>(result).path
+        )
+    }
+
+    @Test
+    fun cameraCancellationAndMissingModuleRemainExplicit() {
+        val cancelled = KuiklyCameraCapability(CameraTransport { _, callback ->
+            callback(JSONObject().apply {
+                put(KuiklyCameraCapability.FIELD_STATUS, KuiklyCameraCapability.STATUS_CANCELLED)
+            })
+        })
+        var cancelledResult: CameraCaptureResult? = null
+        cancelled.captureImage { cancelledResult = it }
+        assertIs<CameraCaptureResult.Cancelled>(cancelledResult)
+
+        val missing = KuiklyCameraCapability(CameraTransport { _, _ ->
+            error("CCMediaModule is not registered")
+        })
+        var missingResult: CameraCaptureResult? = null
+        missing.captureImage { missingResult = it }
+        assertIs<CameraCaptureResult.Failure>(missingResult)
+    }
+
+    @Test
     fun managedDeleteNormalizesCandidatesAndParsesDeletedPaths() {
         var requestedPaths = emptyList<String>()
         val files = KuiklyManagedMediaFiles(ManagedMediaTransport { request, callback ->

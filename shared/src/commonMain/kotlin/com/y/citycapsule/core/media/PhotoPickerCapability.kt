@@ -12,6 +12,13 @@ sealed interface PhotoPickerResult {
     data object Unsupported : PhotoPickerResult
 }
 
+sealed interface CameraCaptureResult {
+    data class Success(val path: String) : CameraCaptureResult
+    data object Cancelled : CameraCaptureResult
+    data class Failure(val message: String) : CameraCaptureResult
+    data object Unsupported : CameraCaptureResult
+}
+
 sealed interface ManagedMediaDeleteResult {
     data class Success(val deletedPaths: List<String>) : ManagedMediaDeleteResult
     data class Failure(val message: String) : ManagedMediaDeleteResult
@@ -20,6 +27,10 @@ sealed interface ManagedMediaDeleteResult {
 
 fun interface PhotoPickerCapability {
     fun pickImages(maxCount: Int, callback: (PhotoPickerResult) -> Unit)
+}
+
+fun interface CameraCapability {
+    fun captureImage(callback: (CameraCaptureResult) -> Unit)
 }
 
 fun interface ManagedMediaFileCapability {
@@ -94,6 +105,51 @@ class KuiklyPhotoPicker internal constructor(
     }
 }
 
+class KuiklyCameraCapability internal constructor(
+    private val transport: CameraTransport
+) : CameraCapability {
+    constructor(pager: Pager) : this(PagerCameraTransport(pager))
+
+    override fun captureImage(callback: (CameraCaptureResult) -> Unit) {
+        try {
+            transport.capture(JSONObject()) { response ->
+                if (response == null) {
+                    callback(CameraCaptureResult.Failure("相机没有返回结果。"))
+                    return@capture
+                }
+                when (response.optString(FIELD_STATUS)) {
+                    STATUS_SUCCESS -> {
+                        val path = response.optJSONArray(FIELD_PATHS)
+                            ?.optString(0)
+                            ?.takeIf(String::isNotBlank)
+                        if (path == null) callback(CameraCaptureResult.Failure("相机没有返回照片。"))
+                        else callback(CameraCaptureResult.Success(path))
+                    }
+                    STATUS_CANCELLED -> callback(CameraCaptureResult.Cancelled)
+                    STATUS_UNSUPPORTED -> callback(CameraCaptureResult.Unsupported)
+                    else -> callback(
+                        CameraCaptureResult.Failure(
+                            response.optString(FIELD_MESSAGE).ifBlank { "拍照失败，请重试。" }
+                        )
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            callback(CameraCaptureResult.Failure("相机能力不可用，可以改用相册或纯文字记录。"))
+        }
+    }
+
+    companion object {
+        const val METHOD_CAPTURE_IMAGE = "captureImage"
+        const val FIELD_STATUS = KuiklyPhotoPicker.FIELD_STATUS
+        const val FIELD_PATHS = KuiklyPhotoPicker.FIELD_PATHS
+        const val FIELD_MESSAGE = KuiklyPhotoPicker.FIELD_MESSAGE
+        const val STATUS_SUCCESS = KuiklyPhotoPicker.STATUS_SUCCESS
+        const val STATUS_CANCELLED = KuiklyPhotoPicker.STATUS_CANCELLED
+        const val STATUS_UNSUPPORTED = KuiklyPhotoPicker.STATUS_UNSUPPORTED
+    }
+}
+
 class KuiklyManagedMediaFiles internal constructor(
     private val transport: ManagedMediaTransport
 ) : ManagedMediaFileCapability {
@@ -162,6 +218,10 @@ internal fun interface PhotoPickerTransport {
     fun pick(request: JSONObject, callback: (JSONObject?) -> Unit)
 }
 
+internal fun interface CameraTransport {
+    fun capture(request: JSONObject, callback: (JSONObject?) -> Unit)
+}
+
 internal fun interface ManagedMediaTransport {
     fun delete(request: JSONObject, callback: (JSONObject?) -> Unit)
 }
@@ -173,8 +233,21 @@ internal class KuiklyMediaModule : Module() {
         asyncToNativeMethod(KuiklyPhotoPicker.METHOD_PICK_IMAGES, request, callback)
     }
 
+    fun capture(request: JSONObject, callback: (JSONObject?) -> Unit) {
+        asyncToNativeMethod(KuiklyCameraCapability.METHOD_CAPTURE_IMAGE, request, callback)
+    }
+
     fun delete(request: JSONObject, callback: (JSONObject?) -> Unit) {
         asyncToNativeMethod(KuiklyManagedMediaFiles.METHOD_DELETE_IMAGES, request, callback)
+    }
+}
+
+private class PagerCameraTransport(
+    private val pager: Pager
+) : CameraTransport {
+    override fun capture(request: JSONObject, callback: (JSONObject?) -> Unit) {
+        pager.acquireModule<KuiklyMediaModule>(KuiklyPhotoPicker.MODULE_NAME)
+            .capture(request, callback)
     }
 }
 

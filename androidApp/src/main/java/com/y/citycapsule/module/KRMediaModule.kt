@@ -30,6 +30,14 @@ class KRMediaModule : KuiklyRenderBaseModule() {
                 }
                 host.pickImages(maxCount, callback)
             }
+            METHOD_CAPTURE_IMAGE -> {
+                val host = activity as? KuiklyHostActivity
+                if (host == null) {
+                    callback.invoke(response(STATUS_UNSUPPORTED, "当前页面不支持拍照。"))
+                    return null
+                }
+                host.captureImage(callback)
+            }
             METHOD_DELETE_IMAGES -> deleteImages(params, callback)
             else -> callback.invoke(response(STATUS_UNSUPPORTED, "当前媒体方法不受支持。"))
         }
@@ -66,6 +74,7 @@ class KRMediaModule : KuiklyRenderBaseModule() {
     companion object {
         const val MODULE_NAME = "CCMediaModule"
         private const val METHOD_PICK_IMAGES = "pickImages"
+        private const val METHOD_CAPTURE_IMAGE = "captureImage"
         private const val METHOD_DELETE_IMAGES = "deleteImages"
         private const val FIELD_MAX_COUNT = "maxCount"
         private const val FIELD_PATHS = "paths"

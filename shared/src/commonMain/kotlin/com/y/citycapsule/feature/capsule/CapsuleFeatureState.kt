@@ -15,6 +15,8 @@ import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.storage.StorageResult
 import com.y.citycapsule.core.media.PhotoPickerCapability
 import com.y.citycapsule.core.media.PhotoPickerResult
+import com.y.citycapsule.core.media.CameraCapability
+import com.y.citycapsule.core.media.CameraCaptureResult
 
 enum class CapsuleUiStatus { LOADING, READY, SAVING, NOT_FOUND, ERROR }
 
@@ -25,6 +27,8 @@ data class CapsuleEditorState(
     val validationMessage: String? = null,
     val notice: String? = null,
     val pickingImages: Boolean = false,
+    val capturingImage: Boolean = false,
+    val showMediaSourcePicker: Boolean = false,
     val showDiscardConfirmation: Boolean = false
 )
 
@@ -103,14 +107,59 @@ class CapsuleEditorStateHolder(
         cleanupMedia(setOf(path))
     }
 
+    fun openMediaSourcePicker() {
+        if (state.status != CapsuleUiStatus.READY || state.pickingImages || state.capturingImage) return
+        if (state.draft.imagePaths.size >= CapsuleContract.IMAGE_MAX_COUNT) {
+            update(state.copy(notice = "每条城市碎片最多添加 ${CapsuleContract.IMAGE_MAX_COUNT} 张照片。"))
+            return
+        }
+        update(state.copy(showMediaSourcePicker = true, notice = null))
+    }
+    fun dismissMediaSourcePicker() = update(state.copy(showMediaSourcePicker = false))
+
+    fun captureImage(camera: CameraCapability) {
+        if (state.status != CapsuleUiStatus.READY || state.pickingImages || state.capturingImage) return
+        if (state.draft.imagePaths.size >= CapsuleContract.IMAGE_MAX_COUNT) {
+            update(state.copy(showMediaSourcePicker = false, notice = "每条城市碎片最多添加 ${CapsuleContract.IMAGE_MAX_COUNT} 张照片。"))
+            return
+        }
+        update(state.copy(capturingImage = true, showMediaSourcePicker = false, notice = null))
+        camera.captureImage { result ->
+            when (result) {
+                is CameraCaptureResult.Success -> {
+                    val accepted = (state.draft.imagePaths + result.path)
+                        .distinct()
+                        .take(CapsuleContract.IMAGE_MAX_COUNT)
+                    val rejected = if (result.path in accepted) emptyList() else listOf(result.path)
+                    update(state.copy(
+                        draft = state.draft.copy(imagePaths = accepted),
+                        capturingImage = false,
+                        notice = null
+                    ))
+                    cleanupMedia(rejected)
+                }
+                CameraCaptureResult.Cancelled -> update(state.copy(capturingImage = false))
+                is CameraCaptureResult.Failure -> update(
+                    state.copy(capturingImage = false, notice = result.message)
+                )
+                CameraCaptureResult.Unsupported -> update(
+                    state.copy(
+                        capturingImage = false,
+                        notice = "当前设备无法拍照，可以从相册选择或继续保存文字记录。"
+                    )
+                )
+            }
+        }
+    }
+
     fun pickImages(photoPicker: PhotoPickerCapability) {
-        if (state.status != CapsuleUiStatus.READY || state.pickingImages) return
+        if (state.status != CapsuleUiStatus.READY || state.pickingImages || state.capturingImage) return
         val available = CapsuleContract.IMAGE_MAX_COUNT - state.draft.imagePaths.size
         if (available <= 0) {
             update(state.copy(notice = "每条城市碎片最多添加 ${CapsuleContract.IMAGE_MAX_COUNT} 张照片。"))
             return
         }
-        update(state.copy(pickingImages = true, notice = null))
+        update(state.copy(pickingImages = true, showMediaSourcePicker = false, notice = null))
         photoPicker.pickImages(available) { result ->
             when (result) {
                 is PhotoPickerResult.Success -> {

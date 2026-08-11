@@ -18,7 +18,9 @@ import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.capsule.*
 import com.y.citycapsule.core.navigation.*
 import com.y.citycapsule.core.media.KuiklyPhotoPicker
+import com.y.citycapsule.core.media.KuiklyCameraCapability
 import com.y.citycapsule.core.media.KuiklyManagedMediaFiles
+import com.y.citycapsule.core.media.CameraCapability
 import com.y.citycapsule.core.media.PhotoPickerCapability
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
@@ -37,6 +39,7 @@ internal class CapsuleEditorPager : BasePager() {
             CapsuleEditorScreen(
                 capsuleId, placeId, KuiklyAppNavigator(this),
                 capsuleRepository, LocalPlaceRepository(storage),
+                KuiklyCameraCapability(this),
                 KuiklyPhotoPicker(this),
                 RepositoryCapsuleMediaCleanup(
                     capsuleRepository,
@@ -52,6 +55,7 @@ internal class CapsuleEditorPager : BasePager() {
 private fun CapsuleEditorScreen(
     capsuleId: String?, placeId: String?, navigator: AppNavigator,
     capsuleRepository: CapsuleRepository, placeRepository: LocalPlaceRepository,
+    camera: CameraCapability,
     photoPicker: PhotoPickerCapability,
     mediaCleanup: CapsuleMediaCleanup,
     themeHost: AppThemeHost
@@ -100,10 +104,30 @@ private fun CapsuleEditorScreen(
                 )
                 CapsuleUiStatus.READY, CapsuleUiStatus.SAVING -> CapsuleEditorContent(
                     state = state,
-                    holder = holder,
-                    photoPicker = photoPicker
+                    holder = holder
                 )
             }
+        }
+        AppBottomSheet(
+            visible = state.showMediaSourcePicker,
+            title = "添加照片",
+            onDismiss = holder::dismissMediaSourcePicker,
+            dismissLabel = "取消"
+        ) {
+            AppButton(
+                text = "拍照",
+                onClick = { holder.captureImage(camera) },
+                enabled = state.status == CapsuleUiStatus.READY,
+            )
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            AppButton(
+                text = "从相册选择",
+                onClick = { holder.pickImages(photoPicker) },
+                variant = AppButtonVariant.SECONDARY,
+                enabled = state.status == CapsuleUiStatus.READY
+            )
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            AppSecondaryText("相机不可用时，仍可从相册选择或只记录文字。")
         }
         AppBottomSheet(
             visible = state.showDiscardConfirmation,
@@ -144,8 +168,7 @@ private fun CapsuleEditorScreen(
 @Composable
 private fun CapsuleEditorContent(
     state: CapsuleEditorState,
-    holder: CapsuleEditorStateHolder,
-    photoPicker: PhotoPickerCapability
+    holder: CapsuleEditorStateHolder
 ) {
     val dimensions = AppTheme.dimensions
     state.notice?.let {
@@ -173,8 +196,9 @@ private fun CapsuleEditorContent(
             .clickable(
                 enabled = state.status == CapsuleUiStatus.READY &&
                     !state.pickingImages &&
+                    !state.capturingImage &&
                     state.draft.imagePaths.size < CapsuleContract.IMAGE_MAX_COUNT
-            ) { holder.pickImages(photoPicker) }
+            ) { holder.openMediaSourcePicker() }
             .padding(vertical = dimensions.spacingSm),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -182,7 +206,8 @@ private fun CapsuleEditorContent(
         Spacer(Modifier.width(dimensions.spacingXs))
         AppBodyText(
             if (state.pickingImages) "正在打开相册…"
-            else if (state.draft.imagePaths.isEmpty()) "从相册选择照片"
+            else if (state.capturingImage) "正在打开相机…"
+            else if (state.draft.imagePaths.isEmpty()) "拍照或从相册选择"
             else "继续添加照片"
         )
         Spacer(Modifier.weight(1f))

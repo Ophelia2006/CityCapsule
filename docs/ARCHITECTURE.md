@@ -263,7 +263,7 @@ AppShellPage / RecordRootContent
 - `AppRootScaffold` 将根内容限制在 1200dp；普通单栏页仍为 720dp，Editor 使用 640dp 可读宽度。
 - 共享 `AdaptivePane` 以 600dp 为断点：紧凑窗口只渲染主 pane，并由 typed route 承担详情；宽窗口渲染 420dp 主 pane、24dp 间距和自适应详情 pane。
 - Explore 当前宽屏为“地点目录 / 地点信息”，Record 当前宽屏为“时间轴 / 城市碎片阅读”；右 pane 的“打开详情”继续进入既有完整详情页。
-- Map 目前没有真实 Page、坐标、定位或 Native View；`AdaptivePane` 可被未来“地图 / 地点信息”复用，但当前架构不包含已实现地图。
+- Map 已作为 Explore 内部“列表 / 地图”视图实现，不是独立一级 Tab；双端 Native View 与 Marker 已接入。`AdaptivePane` 仍可供后续大屏“地图 / 地点信息”布局复用，当前设备验收重点仍是手机单栏流程。
 
 ## 数据与缓存
 
@@ -284,8 +284,8 @@ AppShellPage / RecordRootContent
 
 ## 平台与网络能力
 
-- Android：在 Kuikly host 注册 `CCMediaModule`，使用系统多选文档契约选择图片并复制到 `filesDir/images/original`；取消、并发请求、复制失败均回传显式状态。没有相机、定位、地图或通用文件导入 launcher。
-- HarmonyOS：注册 `CCMediaModule`，使用 `PhotoViewPicker` 选择图片、`fileIo` 复制到 `filesDir/images/original`，结果用同一 JSON 状态协议回传。Permission/FileImport 页仍是骨架；`KRMyView/KRMyModule/KRBridgeModule` 保留模板/临时代码。
+- Android：Kuikly host 注册媒体、一次性前台定位、外部导航与 `CCAmapView`；地图由高德 Android `MapView` 实现。相册图片复制到 `filesDir/images/original`；仍没有相机能力。
+- HarmonyOS：注册媒体、一次性前台定位、外部导航与 `CCAmapView`；地图由高德 `MapViewComponent` 实现，并必须位于明确全尺寸的 `Stack` 宿主中以保证 Surface 与 Kuikly 稳定合成。Permission/FileImport 页仍是骨架；`KRMyView/KRMyModule/KRBridgeModule` 保留模板/临时代码。
 - 图片 adapter 的 HTTP 示例只存在于诊断页，不是业务网络层。
 - 没有 OkHttp/Ktor/Retrofit/NetStack 业务封装、RemoteDataSource、天气、地理编码、路线或 AI 调用。
 
@@ -304,7 +304,7 @@ PlaceListPage
   → typed PlaceDetail(placeId)
 ```
 
-地图仍是 Explore 内部视图，不是一级 Tab。首次选择地图先由共享 UI 获取明确同意，Native View 只在同意后调用高德隐私接口和 SDK 初始化。缺 Key 或初始化失败通过 `MapAvailability` 回到列表。seed catalog v2 为 8 个内置地点补充 WGS-84 坐标；旧 seed 数据解码时只为缺坐标的精确 seed ID 补坐标，不覆盖用户地点或已有坐标。Android 使用高德 `CoordinateConverter`，HarmonyOS adapter 在渲染边界执行 WGS-84 → GCJ-02；供应商坐标不写回 catalog。
+地图仍是 Explore 内部视图，不是一级 Tab。首次选择地图先由共享 UI 获取明确同意，Native View 只在同意后调用高德隐私接口和 SDK 初始化。缺 Key 或初始化失败通过 `MapAvailability` 回到列表；这些降级分支已有代码但尚未完成双端场景验收。seed catalog v2 为 8 个内置地点补充 WGS-84 坐标；旧 seed 数据解码时只为缺坐标的精确 seed ID 补坐标，不覆盖用户地点或已有坐标。Android 使用高德 `CoordinateConverter`，HarmonyOS adapter 在渲染边界执行 WGS-84 → GCJ-02；供应商坐标不写回 catalog。
 
 地点详情只在 `geoPoint != null` 时显示外部导航操作，通过 `ExternalNavigationCapability` 唤起系统/已安装地图应用，不实现路线算法。
 
@@ -329,3 +329,19 @@ Feature Store
 PlaceList/Explore 与 Profile Overview/Editor 已完成 Store 代码迁移；其余 callback 型 StateHolder 仍是实际架构，不能据此宣称全项目已迁移。显式 coroutines、Reducer/Store/Effect/dispose 的 shared 与 Android 自动化已通过；Kuikly StateFlow 收集、前后台 Effect 与销毁行为仍待 Android/HarmonyOS 设备验收。详细契约与迁移门禁见 `MVI_ARCHITECTURE.md`。
 
 MVI 只解决表现层状态流。简单 CRUD Store 可以直接调用 Repository；存在真实跨 Repository 业务规则时才引入 UseCase，出现本地/远端来源时再引入 Local/RemoteDataSource。不要为了形式先创建空层，也不建立全局 Redux Store。
+
+## 相机与托管媒体调用链
+
+```text
+CapsuleEditorPage
+  → 添加照片 Bottom Sheet
+  → CameraCapability / PhotoPickerCapability
+  → CCMediaModule
+  → Android TakePicture + FileProvider
+    或 HarmonyOS cameraPicker + saveUri
+  → filesDir/images/original/<managed file>
+  → CapsuleDraft.imagePaths
+  → Capsule Repository / MMKV（仅保存 file:// 路径）
+```
+
+系统相机启动前由平台宿主创建受控目标；取消、失败或空结果由平台立即清理。成功路径与相册复制路径进入相同的 `imagePaths` 协议，移除照片、丢弃草稿和删除碎片继续经 `RepositoryCapsuleMediaCleanup` 做 catalog/草稿全引用保护，再由双端 `CCMediaModule.deleteImages` 限定删除 `images/original` 直属文件。

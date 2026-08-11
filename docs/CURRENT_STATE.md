@@ -4,7 +4,7 @@
 
 ## 总体判断
 
-项目处于基础版中后期：跨端宿主、统一路由、双端 MMKV、本地档案/首次引导、离线地点，以及“地点详情 → 城市碎片 → 时间轴/相册 → 回忆”已经形成代码闭环。正式“探索 / 记录 / 我的”一级导航、Home、Place Detail、Record、Explore、Profile 与 Settings/Data Management 首版代码已经接通；一次性前台定位与纯 shared 距离计算已有双端代码，仍待真机权限场景验收。地图、相机与缩略图尚未完成，所以整个 App 仍不是完整基础版。
+项目处于基础版中后期：跨端宿主、统一路由、双端 MMKV、本地档案/首次引导、离线地点，以及“地点详情 → 城市碎片 → 时间轴/相册 → 回忆”已经形成代码闭环。正式“探索 / 记录 / 我的”一级导航、Home、Place Detail、Record、Explore、Profile 与 Settings/Data Management 首版代码已经接通。P2-3 双端高德真实地图、Marker、地点摘要、详情入口和外部导航代码已落地，Android 与 HarmonyOS 真机均已显示真实地图；异常降级矩阵、外部导航四态、20 次生命周期压力测试和自动化全绿仍未完成。P2-4 系统相机的双端代码与构建已完成、真机矩阵待验收；缩略图尚未完成，所以整个 App 仍不是完整基础版。
 
 状态定义：DONE 为已形成真实闭环；PARTIAL 为可用但缺计划中的关键环节；PLACEHOLDER 为协议/骨架/开发验证；NOT_STARTED 为规划存在而无实现；BLOCKED 为有明确外部阻塞；UNKNOWN 为仅凭仓库无法确认。
 
@@ -25,14 +25,14 @@
 | 收藏地点 | DONE（技术）/PARTIAL（产品） | 独立 ID 集合、容错、持久化完整；用户可见文案已改“想去”，底层保持 `Favorite*`；仍缺加入时间排序 |
 | 首页 | DONE（代码）/PARTIAL（设备体验） | 已聚合 Profile/Place/Favorite/Capsule Repository，展示档案城市与头像、问候与搜索入口、可解释本地排序 Hero、分类、想去/同城地点、最多 3 条真实最近记忆和真实地点选择后的快速记录；不展示天气、距离或 AI 推荐，仍待双端视觉与交互走查 |
 | 设置 | DONE（代码与双端构建）/PARTIAL（双端设备体验） | Settings 已迁移 MVI；主题、隐私、关于、结构化数据/照片/缓存/恢复包占用、草稿与临时文件缓存清理均有真实实现；正式 UI 无 MMKV/Push/Replace/BackTo 等开发文案 |
-| 地点列表/详情 UI | PARTIAL（设备体验） | Explore 列表已完成搜索置顶、横向分类 chips、高级筛选 Bottom Sheet、整行 PlaceCard、主动一次性定位和真实坐标距离；宽屏为地点列表/地点信息双栏，手机仍走 typed detail route。地点详情已有记录 CTA；仍无真实摄影、地图和导航，定位权限场景及整体双端体验待验收 |
+| 地点列表/详情 UI | PARTIAL（设备体验） | Explore 列表已完成搜索、筛选、主动定位、列表/地图切换、Marker 摘要与 typed detail route；地点详情已有记录 CTA 和有坐标地点的外部导航入口。仍无真实摄影；定位拒绝、地图异常降级及导航失败场景待双端验收 |
 | Profile UI | DONE（代码与自动化）/PARTIAL（设备体验） | 根页已重构为“我的城市档案”，聚合真实 Profile/Place/Favorite/Capsule 数据，展示碎片数、去过地点数、想去数、城市足迹和最多 3 个想去地点；编辑为 typed 二级 MVI 页面，清除档案位于 Settings 危险操作区；待双端设备验收 |
-| 地图探索 | PLACEHOLDER | 只有 typed route，无 `@Page`、Native View 或平台地图 SDK |
+| 地图探索与外部导航 | PARTIAL（双端正常路径已验收） | Explore MVI → shared map contract → Android/HarmonyOS 高德 Native View 已接通；双端真机真实地图已显示，Android Marker/摘要/详情和外部高德拉起已通过。HarmonyOS 完整 Marker 链、异常降级、导航四态与双端 20 次生命周期压力测试仍缺验收记录 |
 | 权限原生页 | PLACEHOLDER | Harmony 可达但明确写“具体权限申请待实现”；Android launcher 未注册 |
 | 文件导入原生页 | DEBUG/DEPRECATED | 旧 Harmony native 骨架仍保留但正式 Settings 不再使用；正式导入经跨端 `CCDataArchiveModule` 系统文件选择器完成 |
 | 城市碎片模型/Repository/编辑器 | DONE（代码闭环） | 模型/校验/Codec、catalog/draft Key、Repository、编辑/草稿/发布/更新/退出确认和照片选择均存在；shared/Android 测试通过 |
 | 时间轴/相册/碎片详情 | DONE（代码与视觉结构）/PARTIAL（设备体验） | 时间轴按本地年月分组并以大日期、地点、照片与正文摘录呈现；宽屏为时间轴/碎片阅读双栏，手机继续进入 typed detail；相册按年月分组、自适应 3/4 列并分批增加最多 18 张原图；仍缺缩略图和双端设备手测 |
-| 相册与业务文件媒体 | PARTIAL | Android/HarmonyOS 原生 Photo Picker、Pager/native 双侧模块注册、沙箱原图复制及引用保护清理已实现；Android 模拟器已完成系统 Picker 选图、回传和沙箱复制；HarmonyOS 已修复把 `file://media/...` 当普通路径传给 `copyFileSync` 的问题，现先打开受控 URI、使用 fd 复制并关闭文件；共享桥接同步异常会降级为 Failure 而不再使页面进程崩溃；最新 signed HAP 已编译，仍待真机安装和完整交互复验；无相机、缩略图 |
+| 相册、相机与业务文件媒体 | DONE（代码与双端构建）/PARTIAL（真机体验） | Editor 通过“拍照 / 从相册选择” Bottom Sheet 进入共享 capability；Android `TakePicture + FileProvider`、HarmonyOS `cameraPicker + saveUri/resultUri fallback` 均在拍照前创建 `images/original` 受控目标。HarmonyOS 首次真机暴露部分相机只返回 `resultUri`，现已回拷到预创建目标；取消/失败/空文件即时删除，成功只返回沙箱 `file://` 路径并复用既有 `imagePaths` 与引用保护清理。相机不可用时相册与纯文字仍可用；修复后仍待真机复验及取消/不可用/生命周期矩阵，且尚无缩略图。 |
 | 导入导出/备份 | DONE（代码、双端自动化/构建）/PARTIAL（双端设备验收） | 版本化 ZIP、持久数据与已引用照片导出、选择后完整 codec 校验、内容预览、确认前内部恢复包、媒体重定位、失败时结构化数据回滚与新照片清理已实现；草稿缓存不进入备份；shared/Android 测试、Harmony Hvigor test 与 signed HAP 构建通过，仍待双端系统文件选择器与失败场景真机验收 |
 | 定位/距离 | DONE（代码、自动化与双端构建）/PARTIAL（真机权限验收） | Explore 仅在用户主动点击时通过 `LocationCapability` 请求一次性前台位置；双端支持允许、拒绝、永久拒绝、服务关闭、不可用、失败/超时结果；位置不持久化，失败即隐藏距离，shared Haversine 只为具备坐标的地点计算直线距离；现有 seed 坐标仍为 null。外部导航尚未实现 |
 | 网络/天气/地理编码/路线 | NOT_STARTED | 无业务网络库与 RemoteDataSource |
@@ -63,7 +63,7 @@
 | Capsule Detail | DONE（代码与视觉结构）/PARTIAL（设备体验） | Capsule/Place Repository | Editor/Timeline/Gallery | Place Detail/Editor/Record root | 照片优先，日期/心情/正文/标签/地点形成阅读层级；编辑与删除只在更多菜单，删除后回 Record root |
 | Timeline | DONE（代码与视觉结构）/PARTIAL（设备体验） | Capsule/Place Repository | AppShell 记录 Tab/Place Detail/Capsule Detail | Capsule Detail | 按本地年月分组，每条记忆为独立 lazy item，使用大日期、地点、缩略照片位与正文摘录；内部 Pager 动画/手势未做 |
 | Gallery | DONE（代码与视觉结构）/PARTIAL（缩略图/兼容清理/设备体验） | 同 Timeline | AppShell Record segmented control；兼容 route | Capsule Detail/Timeline | 按本地年月分组的自适应 3/4 列网格；当前无缩略图能力，以 18 张一批限制原图同时加载；独立 GalleryPage/route 暂留兼容 |
-| MapExplore | NOT_STARTED | 无 | 当前正式 UI 无入口 | 无 | 仅路由协议 |
+| Explore Map View | PARTIAL | Place catalog + Explore MVI + 双端高德 Native View | Place List 的“地图”切换 | Marker 摘要/Place Detail | 双端真实地图已显示；异常与压力场景待验收 |
 
 ## 规划对照
 
@@ -84,7 +84,7 @@
 
 ### 尚未实现
 
-- 基础版核心仍缺：地图、外部导航、相机与缩略图；一次性定位、备份和完整设置已有代码，仍待设备验收。
+- 基础版核心仍缺完整验收的地图/外部导航/相机，以及尚未实现的缩略图；一次性定位、备份和完整设置已有代码，仍待设备验收。
 - 进阶版与复杂版全部产品功能。
 
 ### 后续新增（初始规划未明确为当前阶段实现）
@@ -118,15 +118,17 @@
 - 当前 repository mutation queue 只保证单实例/单进程顺序，不能等同数据库事务或跨页面全局并发控制。
 - Home、地点列表与地点详情的想去切换已避免成功提示插入、当前内容重排和页面自身 revision 重载；Record/Profile/Editor 的加载替换、共享滚动状态和照片位置组合仍是待设备验证的抖动高风险区。
 
-## 2026-08-10 P2-3 地图实现状态
+## 2026-08-11 P2-3 地图实现与验收状态
 
-- Android：`CCAmapView` 已注册到 Kuikly host，高德 `MapView`、隐私同意后初始化、WGS-84 转换、Marker、当前位置标记、Marker 点击回传和生命周期代码已实现；Debug APK 构建通过，仍待 iQOO 真机地图瓦片与交互验收。
-- HarmonyOS：`CCAmapView` 已注册到 `KuiklyViewDelegate`，高德 `MapViewComponent`、隐私接口、Key 注入、Marker、点击回传、坐标转换和销毁代码已实现；命令行 Hvigor 被本机 DevEco `SDK component missing` 阻塞，必须从 DevEco Studio 修复 SDK/执行构建后才能确认 ArkTS 与真机结果。
+- Android：`CCAmapView` 已注册到 Kuikly host，高德 `MapView`、隐私同意后初始化、WGS-84 转换、Marker、当前位置标记、Marker 点击回传和生命周期代码已实现；iQOO 真机已通过地图显示、Marker 摘要、详情进入、地图手势和外部高德拉起的正常路径验收。
+- HarmonyOS：`CCAmapView` 已注册到 `KuiklyViewDelegate`，高德 `MapViewComponent`、隐私接口、Key 注入、Marker、点击回传、坐标转换和销毁代码已实现；signed HAP 已由命令行 Hvigor 构建、安装，真机真实地图显示通过。空白地图根因是 `MapViewComponent` 作为条件分支根节点时 Surface 合成不稳定；当前以明确全尺寸 `Stack` 承载默认 `MapViewComponent()`，真机复验正常。
 - Explore：MVI 已增加列表/地图、隐私提示、Marker 选择、相机状态和失败回列表；摘要整卡进入 typed `PlaceDetail(placeId)`。
 - 数据：seedVersion 升至 2，8 个内置地点有 WGS-84 坐标；旧 seed catalog 解码时补缺失坐标。用户自建地点编辑器仍没有坐标录入，因此这类地点继续只在列表显示。
-- 外部导航：地点详情已有真实入口和四态结果处理；双端 bridge 已实现，仍待真机兼容 App 验收。
+- 外部导航：地点详情已有真实入口和四态结果处理；Android 已验证 `Opened` 并成功拉起高德，`NoCompatibleApp / Unsupported / Failure` 及 HarmonyOS 四态仍待逐项验收。
+- 安全：Android/HarmonyOS 本机 Key 配置文件均由 `.gitignore` 排除，当前未发现写入 MMKV 或日志的代码；尚需完成 Git 历史扫描和导出/备份包检查后才能关闭此门槛。
+- 自动化：2026-08-11 HarmonyOS signed HAP 构建成功，Android Debug APK 构建成功；同轮 Android 43 项单测有 1 项失败：`AppShellArchitectureGuardTest.appShellSwitchesRetainedRootsWithoutRouteReplace`。shared 测试因组合 Gradle 任务在 Android 失败后中止，需修复后重跑完整套件。
 
-状态为 `PARTIAL（代码完成，双端设备验收未完成）`，不得在 Android 与 HarmonyOS 真机通过 `P2_MAP_NAVIGATION_ACCEPTANCE.md` 前标记 DONE。
+状态保持 `PARTIAL（正常地图显示已双端通过，完整共同门槛未通过）`。在异常降级、定位拒绝、导航四态、自动化全绿、安全审计和双端各 20 次生命周期压力验证完成前不得标记 DONE。
 
 ## 验证状态
 

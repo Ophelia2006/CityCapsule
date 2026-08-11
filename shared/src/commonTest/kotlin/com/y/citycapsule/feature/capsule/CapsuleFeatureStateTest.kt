@@ -9,6 +9,8 @@ import com.y.citycapsule.core.capsule.CityCapsule
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.media.PhotoPickerCapability
 import com.y.citycapsule.core.media.PhotoPickerResult
+import com.y.citycapsule.core.media.CameraCapability
+import com.y.citycapsule.core.media.CameraCaptureResult
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteKey
@@ -163,6 +165,45 @@ class CapsuleFeatureStateTest {
 
         assertEquals("2026 年 7 月 28 日", timeline.state.items.single().dateLabel)
         assertEquals("2026 年 7 月 28 日", detail.state.dateLabel)
+    }
+
+    @Test
+    fun capturedPhotoEntersTheExistingDraftImagePathsProtocol() {
+        val fixture = fixture()
+        val editor = CapsuleEditorStateHolder(null, PLACE_ID, fixture.capsules, fixture.places)
+        editor.load()
+        editor.openMediaSourcePicker()
+        assertTrue(editor.state.showMediaSourcePicker)
+
+        editor.captureImage(CameraCapability { callback ->
+            callback(CameraCaptureResult.Success("file:///sandbox/images/original/camera.jpg"))
+        })
+
+        assertFalse(editor.state.showMediaSourcePicker)
+        assertFalse(editor.state.capturingImage)
+        assertEquals(
+            listOf("file:///sandbox/images/original/camera.jpg"),
+            editor.state.draft.imagePaths
+        )
+    }
+
+    @Test
+    fun unavailableCameraLeavesAlbumAndTextEditingAvailable() {
+        val fixture = fixture()
+        val editor = CapsuleEditorStateHolder(null, PLACE_ID, fixture.capsules, fixture.places)
+        editor.load()
+
+        editor.captureImage(CameraCapability { callback ->
+            callback(CameraCaptureResult.Unsupported)
+        })
+        editor.pickImages(PhotoPickerCapability { _, callback ->
+            callback(PhotoPickerResult.Success(listOf("file:///sandbox/images/original/album.jpg")))
+        })
+        editor.updateContent("没有相机也能记录")
+
+        assertEquals(listOf("file:///sandbox/images/original/album.jpg"), editor.state.draft.imagePaths)
+        assertEquals("没有相机也能记录", editor.state.draft.content)
+        assertEquals(CapsuleUiStatus.READY, editor.state.status)
     }
 
     @Test
