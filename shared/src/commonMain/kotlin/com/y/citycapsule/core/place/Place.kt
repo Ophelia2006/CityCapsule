@@ -9,7 +9,7 @@ package com.y.citycapsule.core.place
 object PlaceContract {
     const val SCHEMA_VERSION = 2
     const val LEGACY_SCHEMA_VERSION = 1
-    const val CURRENT_SEED_VERSION = 1
+    const val CURRENT_SEED_VERSION = 2
     const val MAX_CATALOG_SIZE = 500
 
     const val FIELD_SCHEMA_VERSION = "schemaVersion"
@@ -45,6 +45,11 @@ enum class PlaceSource(val wireValue: String) {
     }
 }
 
+/**
+ * Provider-neutral WGS-84 coordinate used by persistence and shared business logic.
+ * Platform map adapters must convert it to the provider's display coordinate system;
+ * provider-specific coordinates must never be written back as [GeoPoint].
+ */
 data class GeoPoint(
     val latitude: Double,
     val longitude: Double

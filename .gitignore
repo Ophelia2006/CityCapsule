@@ -31,6 +31,8 @@ local.properties
 *.secret
 *.secrets
 *.credentials
+/androidApp/agconnect-services.json
+/ohosApp/entry/src/main/ets/config/AmapLocalConfig.ets
 
 # Signing keys and certificates
 *.jks

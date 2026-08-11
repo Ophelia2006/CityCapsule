@@ -12,6 +12,10 @@ import com.y.citycapsule.core.capsule.KuiklyLocalCapsuleDateFormatter
 import com.y.citycapsule.core.capsule.KuiklyLocaleModule
 import com.y.citycapsule.core.media.KuiklyMediaModule
 import com.y.citycapsule.core.media.KuiklyPhotoPicker
+import com.y.citycapsule.core.location.KuiklyLocationCapability
+import com.y.citycapsule.core.location.KuiklyLocationModule
+import com.y.citycapsule.core.navigation.KuiklyExternalNavigationCapability
+import com.y.citycapsule.core.navigation.KuiklyExternalNavigationModule
 import com.y.citycapsule.core.storage.KuiklyStorageModule
 import com.y.citycapsule.core.storage.StorageProtocol
 import com.y.citycapsule.core.theme.ThemeBootstrapContract
@@ -29,6 +33,8 @@ internal abstract class BasePager : ComposeContainer() {
         externalModules[KuiklyPhotoPicker.MODULE_NAME] = KuiklyMediaModule()
         externalModules[KuiklyLocalCapsuleDateFormatter.MODULE_NAME] = KuiklyLocaleModule()
         externalModules[KuiklyDataArchiveCapability.MODULE_NAME] = KuiklyDataArchiveModule()
+        externalModules[KuiklyLocationCapability.MODULE_NAME] = KuiklyLocationModule()
+        externalModules[KuiklyExternalNavigationCapability.MODULE_NAME] = KuiklyExternalNavigationModule()
         return externalModules
     }
 

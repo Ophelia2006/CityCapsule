@@ -3,6 +3,15 @@ package com.y.citycapsule.feature.place
 import com.y.citycapsule.core.favorite.FavoritePlaceIds
 import com.y.citycapsule.core.favorite.FavoriteRepository
 import com.y.citycapsule.core.mvi.MviStore
+import com.y.citycapsule.core.location.GeoDistance
+import com.y.citycapsule.core.location.LocationCapability
+import com.y.citycapsule.core.location.LocationResult
+import com.y.citycapsule.core.map.ExploreMapViewState
+import com.y.citycapsule.core.map.MapAvailability
+import com.y.citycapsule.core.map.MapCameraModel
+import com.y.citycapsule.core.map.MapMarkerModel
+import com.y.citycapsule.core.map.MapViewEvent
+import com.y.citycapsule.core.place.GeoPoint
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCatalogSnapshot
 import com.y.citycapsule.core.place.PlaceCatalogSource
@@ -44,6 +53,13 @@ enum class PlaceListContentState {
     STORAGE_ERROR
 }
 
+enum class PlaceLocationStatus {
+    IDLE, REQUESTING, AVAILABLE, PERMISSION_DENIED,
+    PERMISSION_PERMANENTLY_DENIED, SERVICE_DISABLED, UNAVAILABLE, FAILURE
+}
+
+enum class PlaceDirectoryViewMode { LIST, MAP }
+
 data class PlaceListUiState(
     val status: PlaceListUiStatus = PlaceListUiStatus.LOADING,
     val mode: PlaceListMode = PlaceListMode.ALL,
@@ -56,7 +72,16 @@ data class PlaceListUiState(
     val catalogSource: PlaceCatalogSource? = null,
     val readOnly: Boolean = false,
     val busyFavoriteId: String? = null,
-    val notice: PlaceFeatureNotice? = null
+    val notice: PlaceFeatureNotice? = null,
+    val locationStatus: PlaceLocationStatus = PlaceLocationStatus.IDLE,
+    val currentLocation: GeoPoint? = null,
+    val locationAccuracyMeters: Double? = null,
+    val locationMessage: String? = null,
+    val viewMode: PlaceDirectoryViewMode = PlaceDirectoryViewMode.LIST,
+    val showMapPrivacyPrompt: Boolean = false,
+    val mapPrivacyAccepted: Boolean = false,
+    val selectedMapPlaceId: String? = null,
+    val mapCamera: MapCameraModel? = null
 ) {
     val hasActiveFilters: Boolean
         get() = filter.categories.isNotEmpty() || activeAdvancedFilterCount > 0
@@ -83,6 +108,27 @@ data class PlaceListUiState(
                 PlaceListContentState.EMPTY_FAVORITES
             else -> PlaceListContentState.NO_MATCHES
         }
+
+    fun distanceLabel(place: Place): String? {
+        val origin = currentLocation ?: return null
+        val destination = place.geoPoint ?: return null
+        return GeoDistance.label(GeoDistance.meters(origin, destination))
+    }
+
+    val mapViewState: ExploreMapViewState
+        get() {
+            val markers = visiblePlaces.mapNotNull { place ->
+                place.geoPoint?.let { MapMarkerModel(place.id, place.name, it) }
+            }
+            val fallbackCenter = markers.firstOrNull()?.position
+            return ExploreMapViewState(
+                markers = markers,
+                selectedPlaceId = selectedMapPlaceId,
+                camera = mapCamera ?: fallbackCenter?.let { MapCameraModel(it, 12.0) },
+                currentLocation = currentLocation,
+                showCurrentLocation = currentLocation != null
+            )
+        }
 }
 
 sealed interface PlaceListIntent {
@@ -101,6 +147,12 @@ sealed interface PlaceListIntent {
     data object CreatePlaceClicked : PlaceListIntent
     data object BackClicked : PlaceListIntent
     data object ExploreClicked : PlaceListIntent
+    data object CurrentLocationRequested : PlaceListIntent
+    data object ListViewSelected : PlaceListIntent
+    data object MapViewSelected : PlaceListIntent
+    data object MapPrivacyAccepted : PlaceListIntent
+    data object MapPrivacyDeclined : PlaceListIntent
+    data class MapEventReceived(val event: MapViewEvent) : PlaceListIntent
 }
 
 sealed interface PlaceListEffect {
@@ -135,6 +187,16 @@ internal sealed interface PlaceListMutation {
         val favorite: Boolean
     ) : PlaceListMutation
     data object FavoriteToggleFailed : PlaceListMutation
+    data object LocationStarted : PlaceListMutation
+    data class LocationResolved(val result: LocationResult) : PlaceListMutation
+    data object ListViewSelected : PlaceListMutation
+    data object MapViewSelected : PlaceListMutation
+    data object MapPrivacyPrompted : PlaceListMutation
+    data object MapPrivacyAccepted : PlaceListMutation
+    data object MapPrivacyDeclined : PlaceListMutation
+    data class MapMarkerSelected(val placeId: String) : PlaceListMutation
+    data class MapCameraChanged(val camera: MapCameraModel) : PlaceListMutation
+    data class MapUnavailable(val reason: MapAvailability) : PlaceListMutation
 }
 
 internal object PlaceListReducer {
@@ -240,6 +302,72 @@ internal object PlaceListReducer {
                 PlaceNoticeTone.ERROR
             )
         )
+        PlaceListMutation.LocationStarted -> state.copy(
+            locationStatus = PlaceLocationStatus.REQUESTING,
+            currentLocation = null,
+            locationAccuracyMeters = null,
+            locationMessage = null
+        )
+        is PlaceListMutation.LocationResolved -> when (val result = mutation.result) {
+            is LocationResult.Success -> state.copy(
+                locationStatus = PlaceLocationStatus.AVAILABLE,
+                currentLocation = result.point,
+                locationAccuracyMeters = result.accuracyMeters,
+                locationMessage = "已按当前位置显示直线距离。"
+            )
+            LocationResult.PermissionDenied -> state.locationFailure(
+                PlaceLocationStatus.PERMISSION_DENIED, "未获得定位权限，地点目录仍可浏览。"
+            )
+            LocationResult.PermissionPermanentlyDenied -> state.locationFailure(
+                PlaceLocationStatus.PERMISSION_PERMANENTLY_DENIED,
+                "定位权限已被长期拒绝，可在系统设置中重新开启。"
+            )
+            LocationResult.ServiceDisabled -> state.locationFailure(
+                PlaceLocationStatus.SERVICE_DISABLED, "系统定位服务已关闭。"
+            )
+            LocationResult.Unavailable -> state.locationFailure(
+                PlaceLocationStatus.UNAVAILABLE, "当前设备暂不支持定位。"
+            )
+            is LocationResult.Failure -> state.locationFailure(
+                PlaceLocationStatus.FAILURE, result.message
+            )
+        }
+        PlaceListMutation.ListViewSelected -> state.copy(
+            viewMode = PlaceDirectoryViewMode.LIST,
+            showMapPrivacyPrompt = false
+        )
+        PlaceListMutation.MapViewSelected -> state.copy(
+            viewMode = PlaceDirectoryViewMode.MAP,
+            showMapPrivacyPrompt = false
+        )
+        PlaceListMutation.MapPrivacyPrompted -> state.copy(showMapPrivacyPrompt = true)
+        PlaceListMutation.MapPrivacyAccepted -> state.copy(
+            mapPrivacyAccepted = true,
+            showMapPrivacyPrompt = false,
+            viewMode = PlaceDirectoryViewMode.MAP
+        )
+        PlaceListMutation.MapPrivacyDeclined -> state.copy(
+            showMapPrivacyPrompt = false,
+            viewMode = PlaceDirectoryViewMode.LIST
+        )
+        is PlaceListMutation.MapMarkerSelected -> state.copy(
+            selectedMapPlaceId = mutation.placeId
+        )
+        is PlaceListMutation.MapCameraChanged -> state.copy(mapCamera = mutation.camera)
+        is PlaceListMutation.MapUnavailable -> state.copy(
+            viewMode = PlaceDirectoryViewMode.LIST,
+            selectedMapPlaceId = null,
+            notice = PlaceFeatureNotice(
+                when (mutation.reason) {
+                    MapAvailability.MissingConfiguration -> "地图尚未配置，已返回地点列表。"
+                    MapAvailability.Offline -> "当前网络不可用，已返回地点列表。"
+                    MapAvailability.Unsupported -> "当前设备不支持地图，已返回地点列表。"
+                    is MapAvailability.Failure -> mutation.reason.message
+                    MapAvailability.Ready -> "地图暂时不可用，已返回地点列表。"
+                },
+                PlaceNoticeTone.WARNING
+            )
+        )
     }
 
     private fun ifReady(
@@ -270,6 +398,9 @@ class PlaceListStore(
     private val profileRepository: LocalProfileRepository,
     private val placeRepository: PlaceRepository,
     private val favoriteRepository: FavoriteRepository,
+    private val locationCapability: LocationCapability = LocationCapability {
+        it(LocationResult.Unavailable)
+    },
     parentScope: CoroutineScope,
     mode: PlaceListMode = PlaceListMode.ALL,
     initialCategory: PlaceCategory? = null
@@ -285,6 +416,10 @@ class PlaceListStore(
             val placeId: String,
             val result: StorageResult<Boolean>
         ) : Event
+        data class LocationResultEvent(
+            val operation: Long,
+            val result: LocationResult
+        ) : Event
     }
 
     private val job = SupervisorJob(parentScope.coroutineContext[Job])
@@ -294,6 +429,7 @@ class PlaceListStore(
     private val mutableState = MutableStateFlow(initialState(mode, initialCategory))
     private var loadGeneration = 0L
     private var favoriteOperation = 0L
+    private var locationOperation = 0L
     private var disposed = false
 
     override val state: StateFlow<PlaceListUiState> = mutableState.asStateFlow()
@@ -306,6 +442,7 @@ class PlaceListStore(
                     is Event.Intent -> handleIntent(event.value)
                     is Event.Mutation -> handleMutation(event)
                     is Event.FavoriteResult -> handleFavoriteResult(event)
+                    is Event.LocationResultEvent -> handleLocationResult(event)
                 }
             }
         }
@@ -364,6 +501,33 @@ class PlaceListStore(
             PlaceListIntent.ExploreClicked -> effectChannel.send(
                 PlaceListEffect.BackToExplore
             )
+            PlaceListIntent.CurrentLocationRequested -> startLocationRequest()
+            PlaceListIntent.ListViewSelected -> reduce(PlaceListMutation.ListViewSelected)
+            PlaceListIntent.MapViewSelected -> reduce(
+                if (mutableState.value.mapPrivacyAccepted) {
+                    PlaceListMutation.MapViewSelected
+                } else {
+                    PlaceListMutation.MapPrivacyPrompted
+                }
+            )
+            PlaceListIntent.MapPrivacyAccepted -> reduce(PlaceListMutation.MapPrivacyAccepted)
+            PlaceListIntent.MapPrivacyDeclined -> reduce(PlaceListMutation.MapPrivacyDeclined)
+            is PlaceListIntent.MapEventReceived -> when (val event = intent.event) {
+                is MapViewEvent.Ready -> event.camera?.let {
+                    reduce(PlaceListMutation.MapCameraChanged(it))
+                }
+                is MapViewEvent.MarkerSelected -> {
+                    if (mutableState.value.visiblePlaces.any { it.id == event.placeId }) {
+                        reduce(PlaceListMutation.MapMarkerSelected(event.placeId))
+                    }
+                }
+                is MapViewEvent.CameraChanged -> reduce(
+                    PlaceListMutation.MapCameraChanged(event.camera)
+                )
+                is MapViewEvent.Unavailable -> reduce(
+                    PlaceListMutation.MapUnavailable(event.reason)
+                )
+            }
         }
     }
 
@@ -428,6 +592,20 @@ class PlaceListStore(
                 PlaceListMutation.FavoriteToggleFailed
             )
         }
+    }
+
+    private fun startLocationRequest() {
+        if (mutableState.value.locationStatus == PlaceLocationStatus.REQUESTING) return
+        val operation = ++locationOperation
+        reduce(PlaceListMutation.LocationStarted)
+        locationCapability.getCurrentLocation { result ->
+            if (!disposed) events.trySend(Event.LocationResultEvent(operation, result))
+        }
+    }
+
+    private fun handleLocationResult(event: Event.LocationResultEvent) {
+        if (event.operation != locationOperation) return
+        reduce(PlaceListMutation.LocationResolved(event.result))
     }
 
     private fun enqueue(generation: Long, mutation: PlaceListMutation) {
@@ -498,3 +676,13 @@ private fun sourceNotice(source: PlaceCatalogSource): PlaceFeatureNotice? = when
 }
 
 private const val FAVORITE_FAILURE_NOTICE = "想去操作失败，页面状态已保持不变。"
+
+private fun PlaceListUiState.locationFailure(
+    status: PlaceLocationStatus,
+    message: String
+) = copy(
+    locationStatus = status,
+    currentLocation = null,
+    locationAccuracyMeters = null,
+    locationMessage = message
+)

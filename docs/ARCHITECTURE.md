@@ -92,7 +92,24 @@ PlaceListPage / FavoritesPager
 
 Home 的分类入口通过 typed `AppRoute.PlaceList(initialCategory)` 携带可选分类 wire value；`PlaceListPager` 解析为 `PlaceCategory` 并初始化筛选。未知或缺失值安全降级为无分类筛选。
 
-PlaceList/Explore 是当前首个轻量 MVI Feature。UI 只读取 State、派发 Intent，并在 UI 边界消费 typed navigation Effect；Store 不持有 Navigator 或平台对象，`DisposableEffect` 负责 `dispose()`。搜索置顶，分类为横向 chips，高级城市/区域/只看想去筛选位于 Bottom Sheet；地点整行进入详情，想去心形独立操作。当前没有定位能力，默认只按档案城市稳定优先并展示“本地点目录”，不使用“附近”或距离语义。
+PlaceList/Explore 是当前首个轻量 MVI Feature。UI 只读取 State、派发 Intent，并在 UI 边界消费 typed navigation Effect；Store 不持有 Navigator 或平台对象，`DisposableEffect` 负责 `dispose()`。搜索置顶，分类为横向 chips，高级城市/区域/只看想去筛选位于 Bottom Sheet；地点整行进入详情，想去心形独立操作。默认仍按档案城市稳定优先并展示“本地点目录”；只有用户主动请求定位且成功、地点本身也有真实坐标时，才附加直线距离。
+
+### 一次性当前位置与距离
+
+```text
+Explore CurrentLocationRequested Intent
+  → LocationCapability.getCurrentLocation()
+  → CCLocationModule
+     ├─ Android runtime permission → GPS/Network 双 provider single update，首个结果完成（10s timeout）
+     └─ HarmonyOS permission → Location Kit getCurrentLocation（10s timeout）
+  → LocationResult
+  → Store Event（request operation guard）
+  → LocationResolved Mutation
+  → pure Reducer → PlaceListUiState
+  → GeoDistance.meters(current, place.geoPoint)
+```
+
+`LocationResult` 明确区分 Success、PermissionDenied、PermissionPermanentlyDenied、ServiceDisabled、Unavailable 与 Failure。位置只存在于当前 Store State，不写 MMKV；失败结果清空位置与精度，因此 UI 无法继续显示旧距离。Store dispose 后回调不能再进入事件队列，请求序号也会阻止旧请求覆盖新请求。定位不在启动时触发，也不是浏览地点或未来地图 Marker 的前置条件。
 
 ### 探索首页聚合与本地推荐
 
@@ -271,6 +288,25 @@ AppShellPage / RecordRootContent
 - HarmonyOS：注册 `CCMediaModule`，使用 `PhotoViewPicker` 选择图片、`fileIo` 复制到 `filesDir/images/original`，结果用同一 JSON 状态协议回传。Permission/FileImport 页仍是骨架；`KRMyView/KRMyModule/KRBridgeModule` 保留模板/临时代码。
 - 图片 adapter 的 HTTP 示例只存在于诊断页，不是业务网络层。
 - 没有 OkHttp/Ktor/Retrofit/NetStack 业务封装、RemoteDataSource、天气、地理编码、路线或 AI 调用。
+
+## Explore 地图与外部导航（P2-3 当前实现）
+
+```text
+PlaceListPage
+  → PlaceListIntent（列表/地图、隐私同意、MapViewEvent）
+  → PlaceListStore / pure reducer
+  → ExploreMapViewState
+  → Kuikly CCAmapView
+     ├─ Android KRAmapView → 高德 Android MapView
+     └─ HarmonyOS KRAmapView → 高德 MapViewComponent
+  → MarkerSelected(placeId)
+  → shared catalog 解析摘要
+  → typed PlaceDetail(placeId)
+```
+
+地图仍是 Explore 内部视图，不是一级 Tab。首次选择地图先由共享 UI 获取明确同意，Native View 只在同意后调用高德隐私接口和 SDK 初始化。缺 Key 或初始化失败通过 `MapAvailability` 回到列表。seed catalog v2 为 8 个内置地点补充 WGS-84 坐标；旧 seed 数据解码时只为缺坐标的精确 seed ID 补坐标，不覆盖用户地点或已有坐标。Android 使用高德 `CoordinateConverter`，HarmonyOS adapter 在渲染边界执行 WGS-84 → GCJ-02；供应商坐标不写回 catalog。
+
+地点详情只在 `geoPoint != null` 时显示外部导航操作，通过 `ExternalNavigationCapability` 唤起系统/已安装地图应用，不实现路线算法。
 
 ## Target Architecture（已批准目标，非当前全量现状）
 

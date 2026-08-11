@@ -11,6 +11,10 @@
     {
       "name": "EntryAbility_label",
       "value": "kuiklydemo"
+    },
+    {
+      "name": "location_permission_reason",
+      "value": "用于在您主动请求时计算与地点的距离"
     }
   ]
 }

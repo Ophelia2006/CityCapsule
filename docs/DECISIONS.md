@@ -168,3 +168,15 @@ Settings 只依赖共享 `DataArchiveCapability`；Android 以系统 Storage Acc
 - 本 ADR 只冻结本地数据协议和删除边界，不接入地图 SDK、网络 POI、在线图片或媒体下载。
 
 依据：P2-1 明确需求；当前 Place、Favorite、Capsule 均以稳定 Place ID 建立关系，备份导入也复用各 `StorageKey` codec。
+
+## ADR-023：第一版定位只提供用户主动触发的一次性前台位置
+
+状态：Accepted；双端代码与构建完成，真机权限矩阵待验收。
+
+- 启动和普通地点目录加载不申请权限；只响应 Explore 的主动 Intent，未来打开真实地图时也可复用同一 capability。
+- shared 只依赖 `LocationCapability` 与六类 `LocationResult`，平台权限、系统定位开关和 provider/Location Kit 留在 Android/HarmonyOS host。
+- 精确位置只保留在当前 Feature Store State，不进入 MMKV、备份或日志；失败结果清空位置，不复用旧距离。
+- 距离使用 shared 纯 Haversine 函数，只在当前位置成功且地点存在真实 `GeoPoint` 时展示。定位失败不阻止浏览地点，未来地图 Marker 也不得依赖用户定位成功。
+- Store 将 callback 结果送回串行 Event → Mutation → Reducer；请求序号丢弃旧结果，`dispose()` 后禁止回写已销毁 Store。
+
+依据：P2-2 明确需求，以及现有 Explore MVI 的串行事件与生命周期边界。

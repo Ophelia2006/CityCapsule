@@ -4,7 +4,7 @@
 
 ## 总体判断
 
-项目处于基础版中后期：跨端宿主、统一路由、双端 MMKV、本地档案/首次引导、离线地点，以及“地点详情 → 城市碎片 → 时间轴/相册 → 回忆”已经形成代码闭环。正式“探索 / 记录 / 我的”一级导航、Home、Place Detail、Record、Explore、Profile 与 Settings/Data Management 首版代码已经接通；这些页面仍有双端设备验收，地图/定位、相机与缩略图尚未完成，所以整个 App 仍不是完整基础版。
+项目处于基础版中后期：跨端宿主、统一路由、双端 MMKV、本地档案/首次引导、离线地点，以及“地点详情 → 城市碎片 → 时间轴/相册 → 回忆”已经形成代码闭环。正式“探索 / 记录 / 我的”一级导航、Home、Place Detail、Record、Explore、Profile 与 Settings/Data Management 首版代码已经接通；一次性前台定位与纯 shared 距离计算已有双端代码，仍待真机权限场景验收。地图、相机与缩略图尚未完成，所以整个 App 仍不是完整基础版。
 
 状态定义：DONE 为已形成真实闭环；PARTIAL 为可用但缺计划中的关键环节；PLACEHOLDER 为协议/骨架/开发验证；NOT_STARTED 为规划存在而无实现；BLOCKED 为有明确外部阻塞；UNKNOWN 为仅凭仓库无法确认。
 
@@ -25,7 +25,7 @@
 | 收藏地点 | DONE（技术）/PARTIAL（产品） | 独立 ID 集合、容错、持久化完整；用户可见文案已改“想去”，底层保持 `Favorite*`；仍缺加入时间排序 |
 | 首页 | DONE（代码）/PARTIAL（设备体验） | 已聚合 Profile/Place/Favorite/Capsule Repository，展示档案城市与头像、问候与搜索入口、可解释本地排序 Hero、分类、想去/同城地点、最多 3 条真实最近记忆和真实地点选择后的快速记录；不展示天气、距离或 AI 推荐，仍待双端视觉与交互走查 |
 | 设置 | DONE（代码与双端构建）/PARTIAL（双端设备体验） | Settings 已迁移 MVI；主题、隐私、关于、结构化数据/照片/缓存/恢复包占用、草稿与临时文件缓存清理均有真实实现；正式 UI 无 MMKV/Push/Replace/BackTo 等开发文案 |
-| 地点列表/详情 UI | PARTIAL（设备体验） | Explore 列表已完成搜索置顶、横向分类 chips、高级筛选 Bottom Sheet、整行 PlaceCard、辅助新建菜单和档案城市优先的本地目录；宽屏为地点列表/地点信息双栏，手机仍走 typed detail route。地点详情已有记录 CTA；仍无真实摄影、定位、距离、地图和导航，双端设备体验待验收 |
+| 地点列表/详情 UI | PARTIAL（设备体验） | Explore 列表已完成搜索置顶、横向分类 chips、高级筛选 Bottom Sheet、整行 PlaceCard、主动一次性定位和真实坐标距离；宽屏为地点列表/地点信息双栏，手机仍走 typed detail route。地点详情已有记录 CTA；仍无真实摄影、地图和导航，定位权限场景及整体双端体验待验收 |
 | Profile UI | DONE（代码与自动化）/PARTIAL（设备体验） | 根页已重构为“我的城市档案”，聚合真实 Profile/Place/Favorite/Capsule 数据，展示碎片数、去过地点数、想去数、城市足迹和最多 3 个想去地点；编辑为 typed 二级 MVI 页面，清除档案位于 Settings 危险操作区；待双端设备验收 |
 | 地图探索 | PLACEHOLDER | 只有 typed route，无 `@Page`、Native View 或平台地图 SDK |
 | 权限原生页 | PLACEHOLDER | Harmony 可达但明确写“具体权限申请待实现”；Android launcher 未注册 |
@@ -34,7 +34,7 @@
 | 时间轴/相册/碎片详情 | DONE（代码与视觉结构）/PARTIAL（设备体验） | 时间轴按本地年月分组并以大日期、地点、照片与正文摘录呈现；宽屏为时间轴/碎片阅读双栏，手机继续进入 typed detail；相册按年月分组、自适应 3/4 列并分批增加最多 18 张原图；仍缺缩略图和双端设备手测 |
 | 相册与业务文件媒体 | PARTIAL | Android/HarmonyOS 原生 Photo Picker、Pager/native 双侧模块注册、沙箱原图复制及引用保护清理已实现；Android 模拟器已完成系统 Picker 选图、回传和沙箱复制；HarmonyOS 已修复把 `file://media/...` 当普通路径传给 `copyFileSync` 的问题，现先打开受控 URI、使用 fd 复制并关闭文件；共享桥接同步异常会降级为 Failure 而不再使页面进程崩溃；最新 signed HAP 已编译，仍待真机安装和完整交互复验；无相机、缩略图 |
 | 导入导出/备份 | DONE（代码、双端自动化/构建）/PARTIAL（双端设备验收） | 版本化 ZIP、持久数据与已引用照片导出、选择后完整 codec 校验、内容预览、确认前内部恢复包、媒体重定位、失败时结构化数据回滚与新照片清理已实现；草稿缓存不进入备份；shared/Android 测试、Harmony Hvigor test 与 signed HAP 构建通过，仍待双端系统文件选择器与失败场景真机验收 |
-| 定位/距离/外部导航 | NOT_STARTED | Place 已有可选坐标模型，但现有数据默认为 null，平台无定位/地图能力 |
+| 定位/距离 | DONE（代码、自动化与双端构建）/PARTIAL（真机权限验收） | Explore 仅在用户主动点击时通过 `LocationCapability` 请求一次性前台位置；双端支持允许、拒绝、永久拒绝、服务关闭、不可用、失败/超时结果；位置不持久化，失败即隐藏距离，shared Haversine 只为具备坐标的地点计算直线距离；现有 seed 坐标仍为 null。外部导航尚未实现 |
 | 网络/天气/地理编码/路线 | NOT_STARTED | 无业务网络库与 RemoteDataSource |
 | 路线/漫游/轨迹/打卡/扫码/成就 | NOT_STARTED | 进阶规划，无当前模型或页面 |
 | AI/游记/明信片/接续/加密备份 | NOT_STARTED | 复杂版规划，无当前实现 |
@@ -47,7 +47,7 @@
 | LaunchGate | DONE | profile/onboarding MMKV | 系统冷启动 | Home/Onboarding replace | 启动反馈页 |
 | Onboarding | DONE | OnboardingRepository | LaunchGate/Settings | Home | 四步真实表单，但“默认档案”削弱引导意图，后续随产品视觉调整 |
 | Home | DONE（代码）/PARTIAL（设备体验） | Profile/Place/Favorite/Capsule Repository | LaunchGate/探索 Tab | 地点列表/详情、想去、碎片详情、带 placeId 的碎片编辑器 | 已完成 P0-3 产品化内容与真实空/加载/部分失败降级；待双端视觉验收 |
-| Place List | DONE（代码与自动化）/PARTIAL（设备体验） | Profile/Place/Favorite Repository | Home | Editor/Detail/back | 首个 MVI 试点；搜索、横向分类、高级筛选 Sheet、整行点击和本地目录降级已完成；待双端手验 |
+| Place List | DONE（代码与自动化）/PARTIAL（设备体验） | Profile/Place/Favorite Repository + Location Capability | Home | Editor/Detail/back | 首个 MVI 试点；定位只由用户主动触发，结果经 Mutation/Reducer 入 State；成功且地点有坐标才显示直线距离，失败保持完整目录；待双端权限场景手验 |
 | Favorites | DONE（代码与自动化）/PARTIAL（设备体验） | 同上 | Home/Profile | Detail/Explore/back | 以地点内容呈现，支持搜索与即时移出想去；不伪造加入时间排序；待双端手验 |
 | Place Detail | PARTIAL | Place/Favorite/Capsule Repository | 列表/回忆详情 | Capsule Editor/Timeline/Place Editor/back | 记录主 CTA 和记忆计数已接通；地点内容仍缺摄影、位置与导航 |
 | Place Editor | DONE（当前模型范围） | Place Repository | 列表/详情 | Detail/back | 表单 CRUD 完整；不应成为核心探索视觉模板 |
@@ -84,7 +84,7 @@
 
 ### 尚未实现
 
-- 基础版核心仍缺：地图/定位、相机、缩略图、备份与完整设置；Home/Explore/Profile 已完成代码，仍待设备验收。
+- 基础版核心仍缺：地图、外部导航、相机与缩略图；一次性定位、备份和完整设置已有代码，仍待设备验收。
 - 进阶版与复杂版全部产品功能。
 
 ### 后续新增（初始规划未明确为当前阶段实现）
@@ -118,7 +118,21 @@
 - 当前 repository mutation queue 只保证单实例/单进程顺序，不能等同数据库事务或跨页面全局并发控制。
 - Home、地点列表与地点详情的想去切换已避免成功提示插入、当前内容重排和页面自身 revision 重载；Record/Profile/Editor 的加载替换、共享滚动状态和照片位置组合仍是待设备验证的抖动高风险区。
 
+## 2026-08-10 P2-3 地图实现状态
+
+- Android：`CCAmapView` 已注册到 Kuikly host，高德 `MapView`、隐私同意后初始化、WGS-84 转换、Marker、当前位置标记、Marker 点击回传和生命周期代码已实现；Debug APK 构建通过，仍待 iQOO 真机地图瓦片与交互验收。
+- HarmonyOS：`CCAmapView` 已注册到 `KuiklyViewDelegate`，高德 `MapViewComponent`、隐私接口、Key 注入、Marker、点击回传、坐标转换和销毁代码已实现；命令行 Hvigor 被本机 DevEco `SDK component missing` 阻塞，必须从 DevEco Studio 修复 SDK/执行构建后才能确认 ArkTS 与真机结果。
+- Explore：MVI 已增加列表/地图、隐私提示、Marker 选择、相机状态和失败回列表；摘要整卡进入 typed `PlaceDetail(placeId)`。
+- 数据：seedVersion 升至 2，8 个内置地点有 WGS-84 坐标；旧 seed catalog 解码时补缺失坐标。用户自建地点编辑器仍没有坐标录入，因此这类地点继续只在列表显示。
+- 外部导航：地点详情已有真实入口和四态结果处理；双端 bridge 已实现，仍待真机兼容 App 验收。
+
+状态为 `PARTIAL（代码完成，双端设备验收未完成）`，不得在 Android 与 HarmonyOS 真机通过 `P2_MAP_NAVIGATION_ACCEPTANCE.md` 前标记 DONE。
+
 ## 验证状态
+
+2026-08-10：P2-3 Android Map Kit 环境接入完成：`agconnect-services.json` 保持本机且已由 Git 忽略，Huawei Maven、AG Connect Gradle 插件 `1.9.6.300`、HMS Map Kit `6.15.1.322` 与网络状态权限已配置。Gradle 已成功执行 AGC 配置处理、解析 Map Kit 运行时依赖并构建 Debug APK。此状态只证明 Android SDK/凭据配置进入构建，不等于 Native Map View、Marker 或 Explore 地图流程完成。
+
+2026-08-04：P2-3 完成供应商核对和诚实边界落盘：新增 provider-neutral Map Contract、ADR-022、Android `ACTION_VIEW + geo:` 与 HarmonyOS `startAbility + geo:` 外部导航 bridge，结果覆盖 `Opened / NoCompatibleApp / Unsupported / Failure`。仓库没有合法 Map Kit Key/AGC 配置，因此未伪造 Native 地图；列表/地图 MVI 状态、双端 Native View、Marker/摘要尚未完成，当前状态为 PARTIAL。验收见 `P2_MAP_NAVIGATION_ACCEPTANCE.md`。
 
 2026-07-30 完成 P1-1 Explore 代码收尾：PlaceList/Want To Go 迁为首个轻量 MVI Feature；搜索置顶、分类横向 chips、高级筛选 Bottom Sheet、整行地点点击、新建地点辅助菜单、想去内容列表及档案城市优先/本地点目录降级已落地。新增 MVI 等价回归测试，未以删除旧 StateHolder 测试换取通过。shared、Android 单测与 Android Debug 构建通过；HarmonyOS 构建和双端设备视觉/Effect/lifecycle 行为仍按 `P1_EXPLORE_ACCEPTANCE.md` 验收。
 

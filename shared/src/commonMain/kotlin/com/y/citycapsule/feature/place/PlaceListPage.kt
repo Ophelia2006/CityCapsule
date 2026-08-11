@@ -38,6 +38,9 @@ import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
+import com.y.citycapsule.core.location.KuiklyLocationCapability
+import com.y.citycapsule.core.location.LocationCapability
+import com.y.citycapsule.core.map.AmapNativeView
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceValidator
@@ -49,6 +52,7 @@ import com.y.citycapsule.designsystem.component.AppBottomSheet
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppChoiceChip
+import com.y.citycapsule.designsystem.component.AppConfirmDialog
 import com.y.citycapsule.designsystem.component.AppDivider
 import com.y.citycapsule.designsystem.component.AppFilterChip
 import com.y.citycapsule.designsystem.component.AppIconName
@@ -94,6 +98,7 @@ internal class PlaceListPager : BasePager() {
                 profileRepository = LocalProfileRepository(storage),
                 placeRepository = placeRepository,
                 favoriteRepository = favoriteRepository,
+                locationCapability = KuiklyLocationCapability(this),
                 themeHost = themeHost,
                 initialCategory = initialCategory
             )
@@ -117,6 +122,7 @@ internal class FavoritesPager : BasePager() {
                 profileRepository = LocalProfileRepository(storage),
                 placeRepository = placeRepository,
                 favoriteRepository = favoriteRepository,
+                locationCapability = KuiklyLocationCapability(this),
                 themeHost = themeHost
             )
         }
@@ -130,6 +136,7 @@ private fun PlaceListScreen(
     profileRepository: LocalProfileRepository,
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
+    locationCapability: LocationCapability,
     themeHost: AppThemeHost,
     initialCategory: PlaceCategory? = null
 ) {
@@ -140,6 +147,7 @@ private fun PlaceListScreen(
         profileRepository,
         placeRepository,
         favoriteRepository,
+        locationCapability,
         mode,
         initialCategory
     ) {
@@ -147,6 +155,7 @@ private fun PlaceListScreen(
             profileRepository = profileRepository,
             placeRepository = placeRepository,
             favoriteRepository = favoriteRepository,
+            locationCapability = locationCapability,
             parentScope = storeScope,
             mode = mode,
             initialCategory = initialCategory
@@ -226,16 +235,36 @@ private fun PlaceListScreen(
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
             }
             ResultHeader(uiState, onFilterClick = { showFilters = true })
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            DirectoryViewSelector(uiState, store::dispatch)
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            LocationControl(uiState, store::dispatch)
             Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-            PlaceListContent(
-                state = uiState,
-                dispatch = store::dispatch,
-                expanded = expanded,
-                selectedPlaceId = selectedPlaceId,
-                onPlaceSelected = { id ->
-                    if (expanded) selectedPlaceId = id
-                    else store.dispatch(PlaceListIntent.PlaceClicked(id))
-                }
+            if (uiState.viewMode == PlaceDirectoryViewMode.MAP) {
+                PlaceMapContent(uiState, store::dispatch)
+            } else {
+                PlaceListContent(
+                    state = uiState,
+                    dispatch = store::dispatch,
+                    expanded = expanded,
+                    selectedPlaceId = selectedPlaceId,
+                    onPlaceSelected = { id ->
+                        if (expanded) selectedPlaceId = id
+                        else store.dispatch(PlaceListIntent.PlaceClicked(id))
+                    }
+                )
+            }
+        }
+
+        if (uiState.showMapPrivacyPrompt) {
+            AppConfirmDialog(
+                title = "启用地图服务",
+                message = "地图由高德地图 SDK 提供。启用后会联网加载地图；只有在你主动请求定位时才会申请位置权限。",
+                confirmText = "同意并打开地图",
+                confirmVariant = AppButtonVariant.PRIMARY,
+                dismissText = "继续使用列表",
+                onConfirm = { store.dispatch(PlaceListIntent.MapPrivacyAccepted) },
+                onDismiss = { store.dispatch(PlaceListIntent.MapPrivacyDeclined) }
             )
         }
 
@@ -265,6 +294,99 @@ private fun PlaceListScreen(
             },
             onDismiss = { showMenu = false }
         )
+    }
+}
+
+@Composable
+private fun DirectoryViewSelector(
+    state: PlaceListUiState,
+    dispatch: (PlaceListIntent) -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        AppChoiceChip(
+            text = "列表",
+              selected = state.viewMode == PlaceDirectoryViewMode.LIST,
+              onClick = { dispatch(PlaceListIntent.ListViewSelected) },
+              modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(AppTheme.dimensions.spacingXs))
+        AppChoiceChip(
+            text = "地图",
+              selected = state.viewMode == PlaceDirectoryViewMode.MAP,
+              onClick = { dispatch(PlaceListIntent.MapViewSelected) },
+              modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun PlaceMapContent(
+    state: PlaceListUiState,
+    dispatch: (PlaceListIntent) -> Unit
+) {
+    AmapNativeView(
+        state = state.mapViewState,
+        privacyAccepted = state.mapPrivacyAccepted,
+        onEvent = { dispatch(PlaceListIntent.MapEventReceived(it)) },
+        modifier = Modifier.fillMaxWidth().height(AppTheme.dimensions.mapViewportHeight)
+    )
+    val selected = state.visiblePlaces.firstOrNull { it.id == state.selectedMapPlaceId }
+    Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+    if (selected == null) {
+        AppSecondaryText(
+            if (state.mapViewState.markers.isEmpty()) {
+                "当前地点没有可显示的坐标，仍可切回列表浏览。"
+            } else {
+                "点击地图标记查看地点摘要。"
+            }
+        )
+    } else {
+        PlaceListDetailPane(
+            place = selected,
+            favorite = selected.id in state.favoriteIds,
+            onOpen = { dispatch(PlaceListIntent.PlaceClicked(selected.id)) },
+            onToggleFavorite = { dispatch(PlaceListIntent.FavoriteToggled(selected.id)) }
+        )
+    }
+}
+
+@Composable
+private fun LocationControl(
+    state: PlaceListUiState,
+    dispatch: (PlaceListIntent) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(Modifier.weight(1f))
+            AppButton(
+                text = when (state.locationStatus) {
+                    PlaceLocationStatus.REQUESTING -> "定位中…"
+                    PlaceLocationStatus.AVAILABLE -> "重新定位"
+                    else -> "获取当前位置"
+                },
+                onClick = { dispatch(PlaceListIntent.CurrentLocationRequested) },
+                variant = AppButtonVariant.TEXT,
+                enabled = state.locationStatus != PlaceLocationStatus.REQUESTING
+            )
+        }
+        state.locationMessage?.let { message ->
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            AppStatusMessage(
+                message = message,
+                tone = when (state.locationStatus) {
+                    PlaceLocationStatus.AVAILABLE ->
+                        com.y.citycapsule.designsystem.component.AppStatusTone.SUCCESS
+                    PlaceLocationStatus.PERMISSION_DENIED,
+                    PlaceLocationStatus.PERMISSION_PERMANENTLY_DENIED,
+                    PlaceLocationStatus.SERVICE_DISABLED ->
+                        com.y.citycapsule.designsystem.component.AppStatusTone.WARNING
+                    else -> com.y.citycapsule.designsystem.component.AppStatusTone.ERROR
+                }
+            )
+        }
     }
 }
 
@@ -465,6 +587,7 @@ private fun PlaceResults(
             place = place,
             favorite = place.id in state.favoriteIds,
             favoriteEnabled = !state.readOnly && state.busyFavoriteId == null,
+            distanceLabel = state.distanceLabel(place),
             onOpen = { onPlaceSelected(place.id) },
             onToggleFavorite = { dispatch(PlaceListIntent.FavoriteToggled(place.id)) }
         )

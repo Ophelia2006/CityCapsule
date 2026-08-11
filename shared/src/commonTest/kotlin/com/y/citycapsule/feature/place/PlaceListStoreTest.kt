@@ -1,6 +1,11 @@
 package com.y.citycapsule.feature.place
 
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
+import com.y.citycapsule.core.location.LocationCapability
+import com.y.citycapsule.core.location.LocationResult
+import com.y.citycapsule.core.map.MapAvailability
+import com.y.citycapsule.core.map.MapViewEvent
+import com.y.citycapsule.core.place.GeoPoint
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
@@ -157,6 +162,91 @@ class PlaceListStoreTest {
         assertEquals(PlaceListUiStatus.LOADING, store.state.value.status)
     }
 
+    @Test
+    fun mapRequiresConsentThenExposesOnlyCoordinateMarkers() = runTest {
+        val fixture = fixture()
+        val store = fixture.store()
+        store.dispatch(PlaceListIntent.Load)
+        advanceUntilIdle()
+
+        store.dispatch(PlaceListIntent.MapViewSelected)
+        advanceUntilIdle()
+        assertTrue(store.state.value.showMapPrivacyPrompt)
+        assertEquals(PlaceDirectoryViewMode.LIST, store.state.value.viewMode)
+
+        store.dispatch(PlaceListIntent.MapPrivacyAccepted)
+        advanceUntilIdle()
+        assertEquals(PlaceDirectoryViewMode.MAP, store.state.value.viewMode)
+        assertEquals(8, store.state.value.mapViewState.markers.size)
+        assertTrue(store.state.value.mapViewState.markers.all { it.position.latitude != 0.0 })
+        store.dispose()
+    }
+
+    @Test
+    fun markerSelectionIsValidatedAndMapFailureReturnsToList() = runTest {
+        val fixture = fixture()
+        val store = fixture.store()
+        store.dispatch(PlaceListIntent.Load)
+        store.dispatch(PlaceListIntent.MapPrivacyAccepted)
+        advanceUntilIdle()
+
+        store.dispatch(PlaceListIntent.MapEventReceived(
+            MapViewEvent.MarkerSelected("missing_place")
+        ))
+        store.dispatch(PlaceListIntent.MapEventReceived(
+            MapViewEvent.MarkerSelected("seed_shanghai_museum")
+        ))
+        advanceUntilIdle()
+        assertEquals("seed_shanghai_museum", store.state.value.selectedMapPlaceId)
+
+        store.dispatch(PlaceListIntent.MapEventReceived(
+            MapViewEvent.Unavailable(MapAvailability.MissingConfiguration)
+        ))
+        advanceUntilIdle()
+        assertEquals(PlaceDirectoryViewMode.LIST, store.state.value.viewMode)
+        assertTrue(store.state.value.notice?.message?.contains("未配置") == true)
+        store.dispose()
+    }
+
+    @Test
+    fun locationResultFlowsThroughStoreAndFailureRemovesDistances() = runTest {
+        val fixture = fixture()
+        var callback: ((LocationResult) -> Unit)? = null
+        val store = fixture.store(LocationCapability { callback = it })
+
+        store.dispatch(PlaceListIntent.CurrentLocationRequested)
+        advanceUntilIdle()
+        assertEquals(PlaceLocationStatus.REQUESTING, store.state.value.locationStatus)
+
+        callback?.invoke(LocationResult.Success(GeoPoint(31.0, 121.0), 12.0))
+        advanceUntilIdle()
+        assertEquals(PlaceLocationStatus.AVAILABLE, store.state.value.locationStatus)
+        assertEquals(GeoPoint(31.0, 121.0), store.state.value.currentLocation)
+
+        store.dispatch(PlaceListIntent.CurrentLocationRequested)
+        advanceUntilIdle()
+        callback?.invoke(LocationResult.ServiceDisabled)
+        advanceUntilIdle()
+        assertEquals(PlaceLocationStatus.SERVICE_DISABLED, store.state.value.locationStatus)
+        assertEquals(null, store.state.value.currentLocation)
+        store.dispose()
+    }
+
+    @Test
+    fun lateLocationCallbackCannotWriteDisposedStore() = runTest {
+        val fixture = fixture()
+        var callback: ((LocationResult) -> Unit)? = null
+        val store = fixture.store(LocationCapability { callback = it })
+        store.dispatch(PlaceListIntent.CurrentLocationRequested)
+        advanceUntilIdle()
+        store.dispose()
+
+        callback?.invoke(LocationResult.Success(GeoPoint(31.0, 121.0)))
+        advanceUntilIdle()
+        assertEquals(PlaceLocationStatus.REQUESTING, store.state.value.locationStatus)
+        assertEquals(null, store.state.value.currentLocation)
+    }
+
     private fun kotlinx.coroutines.test.TestScope.fixture(
         storage: InMemoryKeyValueStore = InMemoryKeyValueStore()
     ): StoreFixture {
@@ -177,12 +267,16 @@ private data class StoreFixture(
     val scope: kotlinx.coroutines.CoroutineScope
 ) {
     fun store(
+        locationCapability: LocationCapability = LocationCapability {
+            it(LocationResult.Unavailable)
+        },
         mode: PlaceListMode = PlaceListMode.ALL,
         initialCategory: PlaceCategory? = null
     ) = PlaceListStore(
         profileRepository = profileRepository,
         placeRepository = placeRepository,
         favoriteRepository = favoriteRepository,
+        locationCapability = locationCapability,
         parentScope = scope,
         mode = mode,
         initialCategory = initialCategory

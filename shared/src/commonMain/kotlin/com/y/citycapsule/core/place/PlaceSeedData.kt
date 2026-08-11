@@ -13,6 +13,7 @@ object PlaceSeedData {
                 address = "人民大道 201 号",
                 tags = listOf("博物馆", "历史"),
                 note = "适合安静地了解城市历史。",
+                geoPoint = GeoPoint(31.2303, 121.4703),
                 order = 1
             ),
             seed(
@@ -24,6 +25,7 @@ object PlaceSeedData {
                 address = "淮海中路 1850 号",
                 tags = listOf("建筑", "街区"),
                 note = "适合步行观察周边街道。",
+                geoPoint = GeoPoint(31.1990, 121.4374),
                 order = 2
             ),
             seed(
@@ -35,6 +37,7 @@ object PlaceSeedData {
                 address = "龙腾大道 2600 号",
                 tags = listOf("美术馆", "滨江"),
                 note = "可以和滨江散步安排在同一天。",
+                geoPoint = GeoPoint(31.1773, 121.4630),
                 order = 3
             ),
             seed(
@@ -46,6 +49,7 @@ object PlaceSeedData {
                 address = "军工路 2000 号",
                 tags = listOf("公园", "散步"),
                 note = "适合留出半天慢慢游览。",
+                geoPoint = GeoPoint(31.3228, 121.5481),
                 order = 4
             ),
             seed(
@@ -57,6 +61,7 @@ object PlaceSeedData {
                 address = "湖滨路",
                 tags = listOf("湖泊", "散步"),
                 note = "清晨和傍晚更适合步行。",
+                geoPoint = GeoPoint(30.2507, 120.1536),
                 order = 5
             ),
             seed(
@@ -68,6 +73,7 @@ object PlaceSeedData {
                 address = "龙井路 88 号",
                 tags = listOf("博物馆", "茶文化"),
                 note = "室内外空间都值得预留时间。",
+                geoPoint = GeoPoint(30.2294, 120.1188),
                 order = 6
             ),
             seed(
@@ -79,6 +85,7 @@ object PlaceSeedData {
                 address = "河坊街",
                 tags = listOf("街区", "小店"),
                 note = "适合顺路体验本地小吃和店铺。",
+                geoPoint = GeoPoint(30.2372, 120.1704),
                 order = 7
             ),
             seed(
@@ -90,12 +97,14 @@ object PlaceSeedData {
                 address = "霞湾巷",
                 tags = listOf("美食", "市集"),
                 note = "适合多人一起探索不同风味。",
+                geoPoint = GeoPoint(30.3150, 120.1510),
                 order = 8
             )
         ).sortedBy(Place::id)
     )
 
     val IDS: Set<String> = CATALOG.places.mapTo(mutableSetOf(), Place::id)
+    val BY_ID: Map<String, Place> = CATALOG.places.associateBy(Place::id)
 
     private fun seed(
         id: String,
@@ -106,6 +115,7 @@ object PlaceSeedData {
         address: String,
         tags: List<String>,
         note: String,
+        geoPoint: GeoPoint,
         order: Int
     ): Place {
         val timestamp = BASE_TIMESTAMP + order
@@ -119,6 +129,7 @@ object PlaceSeedData {
             tags = tags,
             note = note,
             source = PlaceSource.SEED,
+            geoPoint = geoPoint,
             createdAtEpochMs = timestamp,
             updatedAtEpochMs = timestamp
         )

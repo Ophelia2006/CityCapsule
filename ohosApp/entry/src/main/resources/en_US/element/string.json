@@ -11,6 +11,10 @@
     {
       "name": "EntryAbility_label",
       "value": "kuiklydemo"
+    },
+    {
+      "name": "location_permission_reason",
+      "value": "Used to calculate place distances only when you request it"
     }
   ]
 }

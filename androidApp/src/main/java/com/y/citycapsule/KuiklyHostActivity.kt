@@ -4,6 +4,15 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.util.Log
+import androidx.core.content.ContextCompat
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
@@ -26,10 +35,13 @@ import com.y.citycapsule.module.KRBridgeModule
 import com.y.citycapsule.module.KRShareModule
 import com.y.citycapsule.module.KRMediaModule
 import com.y.citycapsule.module.KRLocaleModule
+import com.y.citycapsule.module.KRLocationModule
+import com.y.citycapsule.module.KRExternalNavigationModule
 import com.y.citycapsule.module.KRStorageModule
 import com.y.citycapsule.module.KRThemeHostModule
 import com.y.citycapsule.module.KRDataArchiveModule
 import com.y.citycapsule.module.DataArchiveFileStore
+import com.y.citycapsule.map.KRAmapView
 import com.y.citycapsule.navigation.AndroidLaunchContract
 import com.y.citycapsule.navigation.AndroidRouteHost
 import com.y.citycapsule.navigation.AndroidRouteRequest
@@ -49,6 +61,36 @@ class KuiklyHostActivity :
 
     private val kuiklyRenderViewDelegator = KuiklyRenderViewBaseDelegator(this)
     private var pendingImageLimit: Int = 0
+    private var pendingLocationCallback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback? = null
+    private var activeLocationListener: LocationListener? = null
+    private val locationHandler = Handler(Looper.getMainLooper())
+    private val locationTimeout = Runnable {
+        logLocationWarning("location_timeout", "failure")
+        finishLocation(KRLocationModule.response(KRLocationModule.STATUS_FAILURE, "定位超时，请重试。"))
+    }
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            logLocationInfo("permission_granted")
+            startOneShotLocation()
+        }
+        else {
+            val canExplain = shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) ||
+                shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)
+            logLocationWarning(
+                "permission_rejected",
+                if (canExplain) KRLocationModule.STATUS_PERMISSION_DENIED
+                else KRLocationModule.STATUS_PERMISSION_PERMANENTLY_DENIED
+            )
+            finishLocation(KRLocationModule.response(
+                if (canExplain) KRLocationModule.STATUS_PERMISSION_DENIED
+                else KRLocationModule.STATUS_PERMISSION_PERMANENTLY_DENIED
+            ))
+        }
+    }
     private var pendingImageCallback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback? = null
     private val imagePicker = registerForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
@@ -168,6 +210,7 @@ class KuiklyHostActivity :
     }
 
     override fun onDestroy() {
+        cancelLocationRequest()
         AndroidRouteStackCoordinator.shared.unregister(this)
         kuiklyRenderViewDelegator.onDetach()
         super.onDestroy()
@@ -208,13 +251,15 @@ class KuiklyHostActivity :
             moduleExport(KRDataArchiveModule.MODULE_NAME) {
                 KRDataArchiveModule()
             }
+            moduleExport(KRLocationModule.MODULE_NAME) { KRLocationModule() }
+            moduleExport(KRExternalNavigationModule.MODULE_NAME) { KRExternalNavigationModule() }
         }
     }
 
     override fun registerExternalRenderView(kuiklyRenderExport: IKuiklyRenderExport) {
         super.registerExternalRenderView(kuiklyRenderExport)
         with(kuiklyRenderExport) {
-
+            renderViewExport(KRAmapView.VIEW_NAME, ::KRAmapView, null)
         }
     }
 
@@ -277,6 +322,154 @@ class KuiklyHostActivity :
         archivePicker.launch(arrayOf("application/zip", "application/octet-stream"))
     }
 
+    internal fun requestCurrentLocation(
+        callback: com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback
+    ) {
+        if (pendingLocationCallback != null) {
+            logLocationWarning("request_rejected_in_flight", KRLocationModule.STATUS_FAILURE)
+            callback.invoke(KRLocationModule.response(KRLocationModule.STATUS_FAILURE, "已有定位请求正在进行。"))
+            return
+        }
+        logLocationInfo("request_started")
+        pendingLocationCallback = callback
+        val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED) {
+            logLocationInfo(
+                if (fine == PackageManager.PERMISSION_GRANTED) "permission_already_granted_fine"
+                else "permission_already_granted_coarse"
+            )
+            startOneShotLocation()
+        } else {
+            logLocationInfo("permission_request_started")
+            locationPermissionLauncher.launch(arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ))
+        }
+    }
+
+    private fun startOneShotLocation() {
+        val manager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        if (manager == null) {
+            logLocationWarning("location_manager_unavailable", KRLocationModule.STATUS_UNAVAILABLE)
+            finishLocation(KRLocationModule.response(KRLocationModule.STATUS_UNAVAILABLE))
+            return
+        }
+        val enabled = runCatching {
+            manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }.getOrDefault(false)
+        if (!enabled) {
+            logLocationWarning("service_disabled", KRLocationModule.STATUS_SERVICE_DISABLED)
+            finishLocation(KRLocationModule.response(KRLocationModule.STATUS_SERVICE_DISABLED))
+            return
+        }
+        logLocationInfo("service_enabled")
+        val providers = listOf(
+            LocationManager.GPS_PROVIDER,
+            LocationManager.NETWORK_PROVIDER
+        ).filter { provider ->
+            runCatching { manager.isProviderEnabled(provider) }.getOrDefault(false)
+        }
+        if (providers.isEmpty()) {
+            logLocationWarning("provider_unavailable", KRLocationModule.STATUS_UNAVAILABLE)
+            finishLocation(KRLocationModule.response(KRLocationModule.STATUS_UNAVAILABLE))
+            return
+        }
+        Log.i(
+            LOCATION_LOG_TAG,
+            "stage=providers_selected providers=${providers.joinToString(",") { it.safeProviderName() }}"
+        )
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                if (pendingLocationCallback == null) return
+                Log.i(
+                    LOCATION_LOG_TAG,
+                    "stage=location_succeeded provider=${location.provider.safeProviderName()} " +
+                        "hasAccuracy=${location.hasAccuracy()}"
+                )
+                finishLocation(KRLocationModule.response(
+                    KRLocationModule.STATUS_SUCCESS,
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    accuracyMeters = location.accuracy.toDouble()
+                ))
+            }
+            override fun onProviderDisabled(provider: String) {
+                Log.w(
+                    LOCATION_LOG_TAG,
+                    "stage=provider_disabled provider=${provider.safeProviderName()}"
+                )
+                val hasEnabledProvider = providers.any { candidate ->
+                    runCatching { manager.isProviderEnabled(candidate) }.getOrDefault(false)
+                }
+                if (!hasEnabledProvider) {
+                    logLocationWarning("all_providers_disabled", KRLocationModule.STATUS_SERVICE_DISABLED)
+                    finishLocation(KRLocationModule.response(KRLocationModule.STATUS_SERVICE_DISABLED))
+                }
+            }
+            override fun onProviderEnabled(provider: String) = Unit
+            @Deprecated("Legacy callback")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
+        }
+        activeLocationListener = listener
+        runCatching {
+            @Suppress("MissingPermission")
+            providers.forEach { provider ->
+                manager.requestSingleUpdate(provider, listener, Looper.getMainLooper())
+            }
+            locationHandler.postDelayed(locationTimeout, LOCATION_TIMEOUT_MS)
+            logLocationInfo("location_request_started")
+        }.onFailure { error ->
+            Log.e(
+                LOCATION_LOG_TAG,
+                "stage=location_request_failed errorType=${error.javaClass.simpleName} " +
+                    "mappedStatus=${KRLocationModule.STATUS_FAILURE}"
+            )
+            finishLocation(KRLocationModule.response(KRLocationModule.STATUS_FAILURE, "无法启动定位，请重试。"))
+        }
+    }
+
+    private fun finishLocation(response: String) {
+        val callback = pendingLocationCallback ?: return
+        cancelLocationListener()
+        pendingLocationCallback = null
+        logLocationInfo("request_finished")
+        callback.invoke(response)
+    }
+
+    private fun cancelLocationListener() {
+        locationHandler.removeCallbacks(locationTimeout)
+        val listener = activeLocationListener ?: return
+        activeLocationListener = null
+        val manager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        runCatching { manager?.removeUpdates(listener) }
+    }
+
+    private fun cancelLocationRequest() {
+        if (pendingLocationCallback != null) logLocationInfo("request_cancelled_on_destroy")
+        cancelLocationListener()
+        pendingLocationCallback = null
+    }
+
+    private fun logLocationInfo(stage: String) {
+        Log.i(LOCATION_LOG_TAG, "stage=$stage")
+    }
+
+    private fun logLocationWarning(stage: String, mappedStatus: String) {
+        Log.w(LOCATION_LOG_TAG, "stage=$stage mappedStatus=$mappedStatus")
+    }
+
+    private fun String?.safeProviderName(): String = when (this) {
+        LocationManager.GPS_PROVIDER -> "gps"
+        LocationManager.NETWORK_PROVIDER -> "network"
+        LocationManager.PASSIVE_PROVIDER -> "passive"
+        "fused" -> "fused"
+        null -> "none"
+        else -> "other"
+    }
+
     private fun createPageData(): Map<String, Any> {
         val param = argsToMap()
         param["appId"] = 1
@@ -292,6 +485,9 @@ class KuiklyHostActivity :
     }
 
     companion object {
+
+        private const val LOCATION_TIMEOUT_MS = 10_000L
+        private const val LOCATION_LOG_TAG = "CityCapsuleLocation"
 
         private const val KEY_PAGE_NAME = "pageName"
         private const val KEY_PAGE_DATA = "pageData"

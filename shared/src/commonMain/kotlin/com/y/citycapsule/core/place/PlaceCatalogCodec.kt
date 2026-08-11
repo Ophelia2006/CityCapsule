@@ -44,14 +44,27 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
                 val placeJson = placeArray.optJSONObject(index) ?: return null
                 places.add(placeJson.toPlaceOrNull(encodedSchema) ?: return null)
             }
+            val encodedSeedVersion = json.optInt(
+                PlaceContract.FIELD_SEED_VERSION,
+                INVALID_SEED_VERSION
+            )
+            val migratedPlaces = if (encodedSeedVersion < PlaceContract.CURRENT_SEED_VERSION) {
+                places.map { place ->
+                    val currentSeed = PlaceSeedData.BY_ID[place.id]
+                    if (place.source == PlaceSource.SEED && place.geoPoint == null) {
+                        place.copy(geoPoint = currentSeed?.geoPoint)
+                    } else {
+                        place
+                    }
+                }
+            } else {
+                places
+            }
             PlaceCatalogValidator.normalizeOrNull(
                 PlaceCatalog(
                     schemaVersion = PlaceContract.SCHEMA_VERSION,
-                    seedVersion = json.optInt(
-                        PlaceContract.FIELD_SEED_VERSION,
-                        INVALID_SEED_VERSION
-                    ),
-                    places = places
+                    seedVersion = maxOf(encodedSeedVersion, PlaceContract.CURRENT_SEED_VERSION),
+                    places = migratedPlaces
                 )
             )
         } catch (_: Throwable) {

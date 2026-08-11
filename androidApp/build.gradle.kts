@@ -1,6 +1,20 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     kotlin("android")
+}
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.isFile) file.inputStream().use(::load)
+}
+val amapAndroidApiKey = localProperties.getProperty("AMAP_ANDROID_API_KEY").orEmpty()
+val isAmapAndroidApiKeyValid = amapAndroidApiKey.isEmpty() ||
+    amapAndroidApiKey.matches(Regex("[A-Za-z0-9]{20,64}"))
+check(isAmapAndroidApiKeyValid) {
+    "AMAP_ANDROID_API_KEY in local.properties is not a valid AMap console key. " +
+        "Replace the placeholder text with the generated key, without quotes or spaces."
 }
 
 android {
@@ -16,6 +30,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["AMAP_ANDROID_API_KEY"] = amapAndroidApiKey
     }
 
     buildTypes {
@@ -34,6 +49,7 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    implementation("com.amap.api:3dmap:10.0.600")
 
     implementation("androidx.recyclerview:recyclerview:1.2.1")
     implementation("androidx.appcompat:appcompat:1.3.1")

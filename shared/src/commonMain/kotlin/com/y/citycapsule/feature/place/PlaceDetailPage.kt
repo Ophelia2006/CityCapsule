@@ -32,6 +32,9 @@ import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteKey
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
+import com.y.citycapsule.core.navigation.ExternalNavigationCapability
+import com.y.citycapsule.core.navigation.ExternalNavigationResult
+import com.y.citycapsule.core.navigation.KuiklyExternalNavigationCapability
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
@@ -80,6 +83,7 @@ internal class PlaceDetailPager : BasePager() {
                 favoriteRepository,
                 LocalCapsuleRepository(storage),
                 KuiklyLocalCapsuleDateFormatter(this),
+                KuiklyExternalNavigationCapability(this),
                 themeHost
             )
         }
@@ -95,11 +99,13 @@ private fun PlaceDetailScreen(
     favoriteRepository: LocalFavoriteRepository,
     capsuleRepository: CapsuleRepository,
     dateFormatter: KuiklyLocalCapsuleDateFormatter,
+    externalNavigation: ExternalNavigationCapability,
     themeHost: AppThemeHost
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
     var uiState by remember { mutableStateOf(PlaceDetailUiState()) }
     var menuExpanded by remember { mutableStateOf(false) }
+    var navigationMessage by remember { mutableStateOf<String?>(null) }
     val invalidationOwner = remember { PlaceFeatureRuntime.newOwnerToken() }
     val holder = remember(placeId, placeRepository, favoriteRepository, capsuleRepository) {
         PlaceDetailStateHolder(
@@ -164,6 +170,31 @@ private fun PlaceDetailScreen(
                 }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
                 PlaceDetails(place)
+                place.geoPoint?.let { point ->
+                    Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+                    AppButton(
+                        text = "使用外部地图导航",
+                        variant = AppButtonVariant.SECONDARY,
+                        onClick = {
+                            externalNavigation.open(
+                                point.latitude,
+                                point.longitude,
+                                place.name
+                            ) { result ->
+                                navigationMessage = when (result) {
+                                    ExternalNavigationResult.Opened -> null
+                                    ExternalNavigationResult.NoCompatibleApp -> "没有找到可用的地图应用。"
+                                    ExternalNavigationResult.Unsupported -> "当前设备不支持外部导航。"
+                                    is ExternalNavigationResult.Failure -> result.message
+                                }
+                            }
+                        }
+                    )
+                    navigationMessage?.let { message ->
+                        Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+                        AppStatusMessage(message)
+                    }
+                }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     AppBodyText(if (uiState.favorite) "已加入想去" else "想去")

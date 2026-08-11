@@ -81,7 +81,11 @@ class PlaceCatalogCodecTest {
         )
         assertEquals(PlaceSource.SEED, decoded?.places?.first()?.source)
         assertEquals(PlaceSource.USER, decoded?.places?.last()?.source)
-        assertNull(decoded?.places?.first()?.geoPoint)
+        assertEquals(PlaceContract.CURRENT_SEED_VERSION, decoded?.seedVersion)
+        assertEquals(
+            PlaceSeedData.BY_ID["seed_shanghai_museum"]?.geoPoint,
+            decoded?.places?.first()?.geoPoint
+        )
         assertNull(decoded?.places?.first()?.visualRef)
     }
 

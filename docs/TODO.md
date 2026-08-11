@@ -28,8 +28,8 @@
 - `[UI/UX Redesign][DONE 2026-07-30]` P0-4 Place Detail 产品化：类别 Hero fallback、地点/城市区域/类型、“想去”图标、关于、真实地址、最近三条城市记忆与“在这里留下城市碎片”主 CTA；编辑/删除已下沉到更多菜单，未展示尚不存在的地图、距离和导航。
 - `[UI/UX Redesign][DONE code 2026-07-30]` P1-1 Explore：搜索置顶、分类横向 chips、整行 PlaceCard、高级筛选 Bottom Sheet、新建地点辅助菜单、想去内容页及档案城市/本地点目录诚实降级；真实摄影接入前继续使用类别 fallback。双端设备验收仍待完成。
 - `[Initial Plan][DONE code+automation/PARTIAL device 2026-07-31]` P2-1 Place V2：ADR-022、schema v2、`SEED/USER`、可选坐标/视觉引用、v1 精确 seed ID 迁移、seed 删除保护与旧备份恢复已实现；shared 180 项测试通过。仍需 Android/HarmonyOS 使用旧安装数据覆盖升级，并分别导入真实旧/新 ZIP 验证。
-- `[Initial Plan]` 实现 Location capability、坐标字段迁移、距离和权限降级。
-- `[Initial Plan][UI/UX Redesign]` 接入双端真实地图 Native View、Marker、列表/地图切换和外部导航；地图不可用时降级为列表。
+- `[Initial Plan][DONE code+automation/PARTIAL device 2026-07-31]` P2-2 Location Capability：Explore 主动 Intent → 双端一次性前台定位 → Result → Mutation → State 已实现；结果覆盖允许、拒绝、永久拒绝、服务关闭、不可用和失败/超时；位置不持久化，失败隐藏距离，shared 纯函数仅对有坐标地点计算。Android/shared 测试与双端构建通过；按 `P2_LOCATION_ACCEPTANCE.md` 完成真机权限、系统服务、前后台与销毁验收。
+- `[Initial Plan][UI/UX Redesign][PARTIAL code 2026-08-10]` P2-3：双端已迁移高德；Explore MVI 列表/地图、隐私提示、共享 `CCAmapView`、Android/HarmonyOS Native View、8 个 seed 坐标与旧 seed 补坐标、Marker 摘要 → typed PlaceDetail、外部导航入口和失败回列表均已实现。Android Debug APK 与 shared 187 项测试通过；HarmonyOS 命令行构建被本机 DevEco SDK component missing 阻塞。剩余任务是 DevEco ArkTS/HAP 构建修正、双端 Key 真机瓦片/Marker/生命周期/降级/外部导航验收。
 - `[Code Scan]` 如需“按想去时间排序”，新增有迁移方案的数据模型，不能从现有 Set 伪造加入时间；用户文案已经统一为“想去”，底层继续保留 `Favorite*`。
 - `[UI/UX Redesign][DONE code 2026-07-30]` P1-2 Profile Overview：头像/昵称/城市，真实碎片数/去过地点数/想去数，按真实 Capsule→Place 关系计算城市足迹，最多 3 个想去地点预览；编辑为 typed 二级 MVI 页面，清除本地档案下沉 Settings 危险操作区且保留 Place/Favorite/Capsule。shared/Android 自动化通过；HarmonyOS 构建和双端设备验收见 `P1_PROFILE_OVERVIEW_ACCEPTANCE.md`。
 - `[Initial Plan][DONE code/PARTIAL device 2026-07-30]` P1-3 Settings 与数据管理：MVI 设置页已提供真实主题、隐私、关于、结构化数据/照片/缓存/恢复包占用与带确认的缓存清理；正式 UI 已移除 MMKV、Push、Replace、BackTo 等开发文案。按 `P1_SETTINGS_DATA_ACCEPTANCE.md` 完成双端设备验收。

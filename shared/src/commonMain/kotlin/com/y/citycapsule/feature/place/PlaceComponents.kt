@@ -16,13 +16,16 @@ internal fun PlaceSummaryCard(
     place: Place,
     favorite: Boolean,
     favoriteEnabled: Boolean,
+    distanceLabel: String? = null,
     onOpen: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
     PlaceCard(
         model = PlaceCardModel(
             name = place.name,
-            metadata = listOfNotNull(place.city, place.district, place.category.displayName()).joinToString(" · "),
+            metadata = listOfNotNull(
+                place.city, place.district, place.category.displayName(), distanceLabel
+            ).joinToString(" · "),
             supportingText = place.address ?: place.tags.takeIf { it.isNotEmpty() }?.joinToString("  ") { "#$it" },
             favorite = favorite,
             fallbackKind = place.category.toFallbackKind()
