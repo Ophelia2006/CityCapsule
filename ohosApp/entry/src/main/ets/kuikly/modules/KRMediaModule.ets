@@ -2,6 +2,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { camera, cameraPicker } from '@kit.CameraKit';
+import { image } from '@kit.ImageKit';
 import hilog from '@ohos.hilog';
 import {
   KRAny,
@@ -14,6 +15,10 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
   private static readonly METHOD_PICK_IMAGES: string = 'pickImages';
   private static readonly METHOD_CAPTURE_IMAGE: string = 'captureImage';
   private static readonly METHOD_DELETE_IMAGES: string = 'deleteImages';
+  private static readonly METHOD_ENSURE_THUMBNAIL: string = 'ensureThumbnail';
+  private static readonly METHOD_MEDIA_STATISTICS: string = 'mediaStatistics';
+  private static readonly METHOD_CLEAR_THUMBNAILS: string = 'clearThumbnails';
+  private static readonly METHOD_CLEANUP_UNREFERENCED: string = 'cleanupUnreferenced';
   private static readonly MAX_IMAGES: number = 9;
   private static readonly MAX_DELETE_BATCH: number = 32;
   private static readonly LOG_DOMAIN: number = 0x0000;
@@ -32,6 +37,14 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
       this.captureImage(callback);
     } else if (method === KRMediaModule.METHOD_DELETE_IMAGES) {
       this.deleteImages(params, callback);
+    } else if (method === KRMediaModule.METHOD_ENSURE_THUMBNAIL) {
+      this.ensureThumbnail(params, callback);
+    } else if (method === KRMediaModule.METHOD_MEDIA_STATISTICS) {
+      this.mediaStatistics(callback);
+    } else if (method === KRMediaModule.METHOD_CLEAR_THUMBNAILS) {
+      this.clearThumbnails(callback);
+    } else if (method === KRMediaModule.METHOD_CLEANUP_UNREFERENCED) {
+      this.cleanupUnreferenced(params, callback);
     } else {
       callback(JSON.stringify({ 'status': 'unsupported', 'message': '当前媒体方法不受支持。', 'paths': [] }));
     }
@@ -280,12 +293,94 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
         if (fileIo.accessSync(filePath)) {
           fileIo.unlinkSync(filePath);
         }
+        const thumbnail = this.thumbnailPath(directory, filePath.substring(directory.length + 1));
+        if (fileIo.accessSync(thumbnail)) fileIo.unlinkSync(thumbnail);
         deleted.push(path);
       });
       callback(JSON.stringify({ 'status': 'success', 'message': '', 'paths': deleted }));
     } catch (_) {
       callback(JSON.stringify({ 'status': 'failure', 'message': '照片文件暂时无法清理。', 'paths': deleted }));
     }
+  }
+
+  private ensureThumbnail(params: KRAny, callback: KuiklyRenderCallback): void {
+    const context = this.controller?.getUIAbilityContext();
+    if (context === null || context === undefined) return callback(JSON.stringify({ 'status': 'unsupported' }));
+    let originalUri = '';
+    try { originalUri = (JSON.parse(params as string) as MediaThumbnailRequest).path; } catch (_) {}
+    const originalDir = `${context.filesDir}/images/original`;
+    const prefix = `file://${originalDir}/`;
+    if (!this.isManagedPath(originalUri, prefix)) return callback(JSON.stringify({ 'status': 'failure', 'message': '原图路径无效。' }));
+    const original = originalUri.substring('file://'.length);
+    const target = this.thumbnailPath(originalDir, original.substring(originalDir.length + 1));
+    try {
+      const thumbnailDir = `${context.filesDir}/images/thumbnail`;
+      if (!fileIo.accessSync(thumbnailDir)) fileIo.mkdirSync(thumbnailDir, true);
+      if (fileIo.accessSync(target) && fileIo.statSync(target).size > 0) {
+        callback(JSON.stringify({ 'status': 'success', 'path': `file://${target}` }));
+        return;
+      }
+      const source = image.createImageSource(original);
+      source.createPixelMap({ desiredSize: { width: 512, height: 512 } }).then((pixelMap: image.PixelMap): void => {
+        const packer = image.createImagePacker();
+        packer.packing(pixelMap, { format: 'image/jpeg', quality: 82 }).then((buffer: ArrayBuffer): void => {
+          const file = fileIo.openSync(target, fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE);
+          try { fileIo.writeSync(file.fd, buffer); } finally { fileIo.closeSync(file); pixelMap.release(); source.release(); }
+          callback(JSON.stringify({ 'status': 'success', 'path': `file://${target}` }));
+        }).catch((): void => callback(JSON.stringify({ 'status': 'failure', 'message': '缩略图生成失败。' })));
+      }).catch((): void => callback(JSON.stringify({ 'status': 'failure', 'message': '原图无法解码。' })));
+    } catch (_) { callback(JSON.stringify({ 'status': 'failure', 'message': '缩略图生成失败。' })); }
+  }
+
+  private mediaStatistics(callback: KuiklyRenderCallback): void {
+    const context = this.controller?.getUIAbilityContext();
+    if (context === null || context === undefined) return callback(JSON.stringify({ 'status': 'unsupported' }));
+    const originals = this.files(`${context.filesDir}/images/original`);
+    const thumbnails = this.files(`${context.filesDir}/images/thumbnail`);
+    callback(JSON.stringify({ 'status': 'success', 'originalBytes': this.bytes(originals).toString(), 'originalCount': originals.length.toString(), 'thumbnailBytes': this.bytes(thumbnails).toString(), 'thumbnailCount': thumbnails.length.toString() }));
+  }
+
+  private clearThumbnails(callback: KuiklyRenderCallback): void {
+    const context = this.controller?.getUIAbilityContext();
+    if (context === null || context === undefined) return callback(JSON.stringify({ 'status': 'unsupported' }));
+    callback(this.deleteFiles(this.files(`${context.filesDir}/images/thumbnail`)));
+  }
+
+  private cleanupUnreferenced(params: KRAny, callback: KuiklyRenderCallback): void {
+    const context = this.controller?.getUIAbilityContext();
+    if (context === null || context === undefined) return callback(JSON.stringify({ 'status': 'unsupported' }));
+    try {
+      const request = JSON.parse(params as string) as MediaCleanupRequest;
+      const referenced = new Set(request.paths.map((path: string): string => path.substring('file://'.length)));
+      const originalDir = `${context.filesDir}/images/original`;
+      const cutoff = Date.now() - Math.max(0, Number(request.gracePeriodMillis));
+      const candidates: string[] = [];
+      this.files(originalDir).forEach((path: string): void => {
+        const stat = fileIo.statSync(path);
+        const modifiedMillis = stat.mtime < 100000000000 ? stat.mtime * 1000 : stat.mtime;
+        if (!referenced.has(path) && modifiedMillis <= cutoff) {
+          candidates.push(path, this.thumbnailPath(originalDir, path.substring(originalDir.length + 1)));
+        }
+      });
+      callback(this.deleteFiles(candidates));
+    } catch (_) { callback(JSON.stringify({ 'status': 'failure', 'message': '无引用媒体清理失败。' })); }
+  }
+
+  private thumbnailPath(originalDir: string, fileName: string): string {
+    return `${originalDir.substring(0, originalDir.length - '/original'.length)}/thumbnail/${fileName}.jpg`;
+  }
+
+  private files(root: string): string[] {
+    if (!fileIo.accessSync(root)) return [];
+    return fileIo.listFileSync(root).map((name: string): string => `${root}/${name}`).filter((path: string): boolean => fileIo.statSync(path).isFile());
+  }
+
+  private bytes(paths: string[]): number { return paths.reduce((sum: number, path: string): number => sum + fileIo.statSync(path).size, 0); }
+
+  private deleteFiles(paths: string[]): string {
+    let deletedBytes = 0; let deletedCount = 0;
+    paths.forEach((path: string): void => { if (fileIo.accessSync(path)) { const size = fileIo.statSync(path).size; fileIo.unlinkSync(path); deletedBytes += size; deletedCount++; } });
+    return JSON.stringify({ 'status': 'success', 'deletedBytes': deletedBytes.toString(), 'deletedCount': deletedCount.toString() });
   }
 
   private isManagedPath(path: string, prefix: string): boolean {
@@ -301,6 +396,8 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
 interface MediaDeleteRequest {
   paths: string[];
 }
+interface MediaThumbnailRequest { path: string; }
+interface MediaCleanupRequest { paths: string[]; gracePeriodMillis: string; }
 
 export function managedImageExtension(sourceUri: string): string {
   const pathWithoutQuery = sourceUri.split('?')[0].split('#')[0];

@@ -21,6 +21,8 @@ import com.y.citycapsule.core.capsule.CapsuleRepository
 import com.y.citycapsule.core.capsule.KuiklyLocalCapsuleDateFormatter
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.navigation.AppNavigator
+import com.y.citycapsule.core.media.KuiklyMediaMaintenance
+import com.y.citycapsule.core.media.MediaMaintenanceCapability
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.place.LocalPlaceRepository
@@ -46,7 +48,8 @@ internal class GalleryPager : BasePager() {
                 capsules = LocalCapsuleRepository(storage),
                 places = LocalPlaceRepository(storage),
                 dateFormatter = KuiklyLocalCapsuleDateFormatter(this),
-                themeHost = KuiklyAppThemeHost(this)
+                themeHost = KuiklyAppThemeHost(this),
+                thumbnailCapability = KuiklyMediaMaintenance(this)
             )
         }
     }
@@ -58,7 +61,8 @@ private fun GalleryScreen(
     capsules: CapsuleRepository,
     places: PlaceRepository,
     dateFormatter: CapsuleDateFormatter,
-    themeHost: AppThemeHost
+    themeHost: AppThemeHost,
+    thumbnailCapability: MediaMaintenanceCapability
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
     var state by remember { mutableStateOf(CapsuleTimelineState()) }
@@ -87,6 +91,7 @@ private fun GalleryScreen(
                     state = state,
                     navigator = navigator,
                     visiblePhotoCount = visiblePhotoCount,
+                    thumbnailCapability = thumbnailCapability,
                     onLoadMore = {
                         visiblePhotoCount = nextGalleryVisibleCount(
                             visiblePhotoCount,

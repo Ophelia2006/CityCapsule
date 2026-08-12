@@ -142,7 +142,9 @@ P0-3 将排序规则冻结为“当前档案城市优先 → 想去或尚未记�
 
 初始三阶段规划明确要求备份同时携带结构化数据与媒体，导入顺序必须是“选择 → 临时解压 → manifest/JSON 校验 → 预览 → 确认 → 生成导入前备份 → 写入”，且验证失败不得覆盖当前数据。当前媒体真实保存在应用沙箱、MMKV 只保存路径，因此只导出 MMKV 字符串不能形成可恢复备份。
 
-当前实现使用版本化 ZIP：`data/backup.json` 保存六个长期 persistent key 的 wire value 与存在性，`media/index.json` 保存旧沙箱路径到归档 entry 的映射，`media/images/*` 保存仍被已发布 Capsule 引用的托管照片。两个 cache draft key 不进入备份。导入先在 cache staging 解压，由共享层用当前 codec 校验完整 key 集合并生成数量预览；用户确认后平台先在 `filesDir/backups/recovery` 创建当前数据恢复 ZIP，再复制导入媒体并写入结构化数据。写入失败时恢复旧 snapshot 并删除本次创建的媒体；恢复不完整时保留恢复 ZIP 并停止宣称成功。
+当前实现使用版本化 ZIP：`data/backup.json` 保存六个长期 persistent key 的 wire value 与存在性，`media/index.json` 保存旧沙箱路径到归档 entry 的映射，`media/images/*` 保存仍被已发布 Capsule 引用的托管原图。两个 cache draft key 与可再生成缩略图不进入备份。导入先在 cache staging 解压，由共享层用当前 codec 校验完整 key 集合并生成数量预览；用户确认后平台先在 `filesDir/backups/recovery` 创建当前数据恢复 ZIP，再复制导入媒体并写入结构化数据。写入失败时恢复旧 snapshot 并删除本次创建的媒体；恢复不完整时保留恢复 ZIP 并停止宣称成功。
+
+P2-6 将外层归档版本提升为 v2，并写入 `minReaderVersion=2`：当前 reader 继续接受 v1/v2，未来版本或要求更高 reader 的包在预览前拒绝；旧 v1 reader 因不接受 `backupVersion=2` 而明确失败，不能静默按旧语义导入。ZIP 目录结构未改变。Place V1 → V2 继续复用 StorageKey codec，恢复落盘时重新编码为 v2。
 
 Settings 只依赖共享 `DataArchiveCapability`；Android 以系统 Storage Access Framework 与 `java.util.zip` 实现，HarmonyOS 以 `DocumentViewPicker` 与 `zlib` 实现。旧 `NativeFileImport` 骨架不再属于正式调用链。
 
@@ -163,7 +165,7 @@ Settings 只依赖共享 `DataArchiveCapability`；Android 以系统 Storage Acc
 - `Place.source` 是必填枚举，稳定 wire 值为 `seed` / `user`。
 - `Place.geoPoint` 是可选对象，只包含 `latitude` / `longitude`；`Place.visualRef` 是可选对象，只包含 `type`（`bundled_asset` / `managed_file`）与 `value`。
 - v1 catalog 只在读取时兼容：Place ID 位于当前 `PlaceSeedData` 内置 ID 集合时迁移为 `SEED`，其余迁移为 `USER`；坐标和视觉引用均迁移为 `null`。不得使用 ID 前缀猜测来源。
-- 迁移不改 Place ID，也不改 Favorite 的 Place ID 或 Capsule 的 `placeId`。当前 Key 与备份包版本不变；旧备份中的 v1 Place catalog 通过同一 codec 解码，恢复写入时重新编码为 v2。
+- 迁移不改 Place ID，也不改 Favorite 的 Place ID 或 Capsule 的 `placeId`。当前 Key 不变；旧备份中的 v1 Place catalog 通过同一 codec 解码，恢复写入时重新编码为 v2。P2-6 后新导出包的外层版本为 v2，但 ZIP 路径布局不变。
 - `SEED` 地点由 Repository 拒绝删除；`USER` 地点沿用既有“先确认无 Capsule 关联，再删除并清理 Favorite”流程。
 - 本 ADR 只冻结本地数据协议和删除边界，不接入地图 SDK、网络 POI、在线图片或媒体下载。
 

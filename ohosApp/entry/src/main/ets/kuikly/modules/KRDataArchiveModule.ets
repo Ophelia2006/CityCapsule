@@ -177,8 +177,10 @@ export class KRDataArchiveModule extends KuiklyRenderBaseModule {
   private usage(): string {
     return response('success', '', {
       'mediaBytes': directoryBytes(this.mediaRoot()).toString(),
-      'cacheBytes': directoryBytes(this.stagingRoot()).toString(),
-      'recoveryBytes': directoryBytes(this.recoveryRoot()).toString()
+      'cacheBytes': (directoryBytes(this.stagingRoot()) + directoryBytes(this.exportRoot())).toString(),
+      'recoveryBytes': directoryBytes(this.recoveryRoot()).toString(),
+      'cacheCount': (directoryFileCount(this.stagingRoot()) + directoryFileCount(this.exportRoot())).toString(),
+      'recoveryCount': directoryFileCount(this.recoveryRoot()).toString()
     });
   }
 
@@ -366,6 +368,15 @@ function directoryBytes(root: string): number {
     }
   });
   return total;
+}
+
+function directoryFileCount(root: string): number {
+  if (!fileIo.accessSync(root)) return 0;
+  let count = 0;
+  fileIo.listFileSync(root, { recursion: true }).forEach((relative: string): void => {
+    try { if (fileIo.statSync(`${root}/${relative}`).isFile()) count++; } catch (_) {}
+  });
+  return count;
 }
 
 function safeDelete(path: string): void {

@@ -32,6 +32,7 @@ import com.y.citycapsule.core.capsule.CapsuleRepository
 import com.y.citycapsule.core.capsule.CityCapsule
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
+import com.y.citycapsule.core.media.MediaMaintenanceCapability
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.designsystem.component.AdaptivePhotoGrid
@@ -61,7 +62,8 @@ internal fun RecordRootContent(
     statusBarHeight: Float,
     listState: LazyListState,
     selectedView: RecordRootView,
-    onViewSelected: (RecordRootView) -> Unit
+    onViewSelected: (RecordRootView) -> Unit,
+    thumbnailCapability: MediaMaintenanceCapability
 ) {
     var state by remember { mutableStateOf(CapsuleTimelineState()) }
     var visiblePhotoCount by remember { mutableStateOf(GALLERY_INITIAL_PHOTO_COUNT) }
@@ -111,6 +113,7 @@ internal fun RecordRootContent(
                         }
                         selectedView == RecordRootView.TIMELINE -> timelineItems(
                             state = state,
+                            thumbnailCapability = thumbnailCapability,
                             onExplore = { navigator.navigate(AppRoute.PlaceList()) },
                             onOpen = { id ->
                                 if (expanded) selectedCapsuleId = id
@@ -122,6 +125,7 @@ internal fun RecordRootContent(
                                 state = state,
                                 navigator = navigator,
                                 visiblePhotoCount = visiblePhotoCount,
+                                thumbnailCapability = thumbnailCapability,
                                 onLoadMore = {
                                     visiblePhotoCount = nextGalleryVisibleCount(
                                         visiblePhotoCount,
@@ -170,6 +174,7 @@ private fun RecordHeader(
 
 private fun LazyListScope.timelineItems(
     state: CapsuleTimelineState,
+    thumbnailCapability: MediaMaintenanceCapability,
     onExplore: () -> Unit,
     onOpen: (String) -> Unit
 ) {
@@ -200,6 +205,7 @@ private fun LazyListScope.timelineItems(
             Column(modifier = Modifier.fillMaxWidth()) {
                 TimelineMemoryRow(
                     item = timelineItem,
+                    thumbnailCapability = thumbnailCapability,
                     onOpen = {
                         onOpen(timelineItem.capsule.id)
                     }
@@ -254,7 +260,7 @@ private fun RecordDetailPane(item: CapsuleTimelineItem?, navigator: AppNavigator
 }
 
 @Composable
-private fun TimelineMemoryRow(item: CapsuleTimelineItem, onOpen: () -> Unit) {
+private fun TimelineMemoryRow(item: CapsuleTimelineItem, thumbnailCapability: MediaMaintenanceCapability, onOpen: () -> Unit) {
     val dimensions = AppTheme.dimensions
     val calendar = parseCapsuleCalendarLabel(item.dateLabel)
     Row(
@@ -285,6 +291,7 @@ private fun TimelineMemoryRow(item: CapsuleTimelineItem, onOpen: () -> Unit) {
                             path = firstPhoto,
                             description = "${item.place?.name ?: "城市"}的记忆照片",
                             compact = true,
+                            thumbnailCapability = thumbnailCapability,
                             heightOverride = dimensions.mediaThumbnailSize
                         )
                     }
@@ -348,6 +355,7 @@ internal fun GalleryView(
     state: CapsuleTimelineState,
     navigator: AppNavigator,
     visiblePhotoCount: Int,
+    thumbnailCapability: MediaMaintenanceCapability,
     onLoadMore: () -> Unit
 ) {
     val photos = galleryPhotos(state)
@@ -375,6 +383,7 @@ internal fun GalleryView(
             CapsulePhoto(
                 path = photo.path,
                 description = "${photo.place?.name ?: "城市"}的照片 ${photo.index + 1}",
+                thumbnailCapability = thumbnailCapability,
                 modifier = Modifier.clickable {
                     navigator.navigate(AppRoute.CapsuleDetail(photo.capsule.id))
                 },

@@ -310,6 +310,14 @@ PlaceListPage
 
 ## Target Architecture（已批准目标，非当前全量现状）
 
+## P2-5 媒体派生与维护
+
+`images/original/<managed-id>` 是 catalog/draft 持久化的唯一媒体引用；`images/thumbnail/<managed-id>.jpg` 是不写 MMKV 的可再生文件。Timeline/Gallery 经 `MediaMaintenanceCapability` 按需生成并优先加载缩略图，失败回退原图；Detail 使用原图。
+
+无引用清理由 `RepositoryMediaMaintenance` 先完整读取 published catalog 与 draft，再把保护集合交给平台。任一读取失败即停止。平台只删除受控目录内且超过一小时宽限期的文件，并联动删除缩略图。
+
+## Target Architecture（已批准目标，非当前全量现状）
+
 后续表现层按 Feature 渐进迁移为轻量 MVI：
 
 ```text

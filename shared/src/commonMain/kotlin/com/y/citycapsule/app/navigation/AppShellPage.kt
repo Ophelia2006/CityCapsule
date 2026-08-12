@@ -28,6 +28,7 @@ import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.core.storage.SettingsRepository
+import com.y.citycapsule.core.media.KuiklyMediaMaintenance
 import com.y.citycapsule.feature.capsule.RecordRootContent
 import com.y.citycapsule.feature.profile.ProfileRootContent
 import kotlinx.coroutines.launch
@@ -52,6 +53,7 @@ internal class AppShellPager : BasePager() {
                 favoriteRepository = LocalFavoriteRepository(storage, placeRepository),
                 capsuleRepository = LocalCapsuleRepository(storage),
                 dateFormatter = KuiklyLocalCapsuleDateFormatter(this),
+                thumbnailCapability = KuiklyMediaMaintenance(this),
                 themeHost = KuiklyAppThemeHost(this)
             )
         }
@@ -68,6 +70,7 @@ private fun AppShellScreen(
     favoriteRepository: LocalFavoriteRepository,
     capsuleRepository: LocalCapsuleRepository,
     dateFormatter: KuiklyLocalCapsuleDateFormatter,
+    thumbnailCapability: KuiklyMediaMaintenance,
     themeHost: AppThemeHost
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
@@ -134,7 +137,8 @@ private fun AppShellScreen(
                         statusBarHeight = statusBarHeight,
                         listState = recordListState,
                         selectedView = shellState.recordView,
-                        onViewSelected = shellState::selectRecordView
+                        onViewSelected = shellState::selectRecordView,
+                        thumbnailCapability = thumbnailCapability
                     )
 
                     AppRootTab.PROFILE -> ProfileRootContent(

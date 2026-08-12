@@ -144,8 +144,23 @@ class DataBackupRepository(private val storage: KeyValueStore) {
     private fun decodePreview(selection: ImportSelection): BackupDataResult<BackupPreview> {
         return try {
             val root = JSONObject(selection.payload)
-            if (root.optInt("backupVersion", -1) != BACKUP_VERSION) {
+            if (root.optString("app") != APP_ID) {
+                return BackupDataResult.Failure("这不是有效的 CityCapsule 备份。")
+            }
+            val backupVersion = root.optInt("backupVersion", -1)
+            if (backupVersion !in MIN_SUPPORTED_BACKUP_VERSION..BACKUP_VERSION) {
                 return BackupDataResult.Failure("备份版本不受支持，未读取任何数据。")
+            }
+            val schemaVersion = root.optInt("schemaVersion", backupVersion)
+            if (schemaVersion !in MIN_SUPPORTED_BACKUP_VERSION..BACKUP_VERSION) {
+                return BackupDataResult.Failure("备份结构版本不受支持，未读取任何数据。")
+            }
+            val minimumReaderVersion = root.optInt(
+                "minReaderVersion",
+                MIN_SUPPORTED_BACKUP_VERSION
+            )
+            if (minimumReaderVersion > BACKUP_VERSION) {
+                return BackupDataResult.Failure("备份需要更高版本的 CityCapsule，未读取任何数据。")
             }
             val array = root.optJSONArray("entries")
                 ?: return BackupDataResult.Failure("备份缺少数据清单。")
@@ -220,9 +235,10 @@ class DataBackupRepository(private val storage: KeyValueStore) {
     }
 
     private fun encodePayload(entries: List<BackupEntry>): String = JSONObject().apply {
-        put("app", "CityCapsule")
+        put("app", APP_ID)
         put("backupVersion", BACKUP_VERSION)
-        put("schemaVersion", 1)
+        put("minReaderVersion", BACKUP_VERSION)
+        put("schemaVersion", BACKUP_VERSION)
         put("entries", JSONArray().apply {
             entries.forEach { entry ->
                 put(JSONObject().apply {
@@ -237,7 +253,9 @@ class DataBackupRepository(private val storage: KeyValueStore) {
     }.toString()
 
     private companion object {
-        const val BACKUP_VERSION = 1
+        const val APP_ID = "CityCapsule"
+        const val MIN_SUPPORTED_BACKUP_VERSION = 1
+        const val BACKUP_VERSION = 2
         val PERSISTENT_KEYS = listOf(
             AppStorageKeys.Settings.THEME_MODE,
             AppStorageKeys.Profile.LOCAL_PROFILE,

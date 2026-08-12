@@ -22,6 +22,9 @@ import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.backup.DataBackupRepository
 import com.y.citycapsule.core.backup.KuiklyDataArchiveCapability
 import com.y.citycapsule.core.media.KuiklyManagedMediaFiles
+import com.y.citycapsule.core.media.KuiklyMediaMaintenance
+import com.y.citycapsule.core.capsule.LocalCapsuleRepository
+import com.y.citycapsule.core.capsule.RepositoryMediaMaintenance
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
@@ -59,11 +62,16 @@ internal class SettingsPager : BasePager() {
         setContent {
             val scope = rememberCoroutineScope()
             val store = remember {
+                val mediaMaintenance = KuiklyMediaMaintenance(this)
                 SettingsStore(
                     settingsRepository = SettingsRepository(storage),
                     backupRepository = DataBackupRepository(storage),
                     archive = KuiklyDataArchiveCapability(this),
                     mediaFiles = KuiklyManagedMediaFiles(this),
+                    mediaMaintenance = mediaMaintenance,
+                    repositoryMediaMaintenance = RepositoryMediaMaintenance(
+                        LocalCapsuleRepository(storage), mediaMaintenance
+                    ),
                     parentScope = scope
                 )
             }
@@ -129,10 +137,22 @@ private fun SettingsScreen(
         Spacer(Modifier.height(d.spacingMd))
         AppSettingsRow(
             title = "存储占用",
-            description = "约 ${formatBytes(state.totalBytesApprox)} · " +
-                "照片 ${formatBytes(state.platformUsage.mediaBytes)} · " +
-                "临时缓存 ${formatBytes(state.platformUsage.cacheBytes)}"
+            description = "共约 ${formatBytes(state.totalBytesApprox)}\n" +
+                "原图 ${state.mediaUsage.originalCount} 张 · ${formatBytes(state.mediaUsage.originalBytes)}\n" +
+                "缩略图 ${state.mediaUsage.thumbnailCount} 张 · ${formatBytes(state.mediaUsage.thumbnailBytes)}\n" +
+                "备份 ${state.platformUsage.recoveryCount} 个 · ${formatBytes(state.platformUsage.recoveryBytes)}\n" +
+                "缓存 ${state.platformUsage.cacheCount} 个 · ${formatBytes(state.platformUsage.cacheBytes)}"
         )
+        RowAction(
+            title = "清理缩略图",
+            description = "仅删除可按需重新生成的缩略图，不影响原图和城市记忆",
+            enabled = !state.busy
+        ) { dispatch(SettingsIntent.ClearThumbnailsClicked) }
+        RowAction(
+            title = "清理无引用媒体",
+            description = "核对已发布记忆和草稿后，清理超过宽限时间且不再被引用的托管照片",
+            enabled = !state.busy
+        ) { dispatch(SettingsIntent.CleanupMediaClicked) }
         RowAction(
             title = "清理缓存",
             description = "删除未发布草稿与临时导入文件，不删除已发布的城市记忆",
@@ -251,6 +271,8 @@ private fun operationMessage(operation: SettingsOperation): String = when (opera
     SettingsOperation.LOADING -> "正在读取本地数据…"
     SettingsOperation.SAVING_THEME -> "正在保存主题…"
     SettingsOperation.CLEARING_CACHE -> "正在清理缓存…"
+    SettingsOperation.CLEARING_THUMBNAILS -> "正在清理缩略图…"
+    SettingsOperation.CLEANING_MEDIA -> "正在核对并清理无引用媒体…"
     SettingsOperation.EXPORTING -> "正在创建备份…"
     SettingsOperation.SELECTING_IMPORT -> "正在读取并校验备份…"
     SettingsOperation.IMPORTING -> "正在备份当前数据并导入…"

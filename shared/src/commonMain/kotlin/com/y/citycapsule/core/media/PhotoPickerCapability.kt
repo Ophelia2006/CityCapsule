@@ -240,6 +240,10 @@ internal class KuiklyMediaModule : Module() {
     fun delete(request: JSONObject, callback: (JSONObject?) -> Unit) {
         asyncToNativeMethod(KuiklyManagedMediaFiles.METHOD_DELETE_IMAGES, request, callback)
     }
+
+    fun request(method: String, request: JSONObject, callback: (JSONObject?) -> Unit) {
+        asyncToNativeMethod(method, request, callback)
+    }
 }
 
 private class PagerCameraTransport(

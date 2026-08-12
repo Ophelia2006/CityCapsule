@@ -2,6 +2,10 @@ package com.y.citycapsule.core.capsule
 
 import com.y.citycapsule.core.media.ManagedMediaDeleteResult
 import com.y.citycapsule.core.media.ManagedMediaFileCapability
+import com.y.citycapsule.core.media.MediaMaintenanceCapability
+import com.y.citycapsule.core.media.MediaMaintenanceResult
+import com.y.citycapsule.core.media.MediaStorageStatistics
+import com.y.citycapsule.core.media.ThumbnailResult
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
 import com.y.citycapsule.core.storage.StorageResult
@@ -66,6 +70,31 @@ class CapsuleMediaCleanupTest {
         var result: CapsuleMediaCleanupResult? = null
 
         cleanup.cleanupCandidates(listOf(ORPHAN)) { result = it }
+
+        assertIs<CapsuleMediaCleanupResult.Deferred>(result)
+        assertTrue(!nativeCalled)
+    }
+
+    @Test
+    fun fullScanStopsWhenCatalogCannotBeRead() {
+        val storage = InMemoryKeyValueStore().apply {
+            seedRaw(AppStorageKeys.Capsules.CATALOG, encodedValue = "{broken")
+        }
+        var nativeCalled = false
+        val maintenance = RepositoryMediaMaintenance(
+            LocalCapsuleRepository(storage),
+            object : MediaMaintenanceCapability {
+                override fun ensureThumbnail(originalPath: String, callback: (ThumbnailResult) -> Unit) = Unit
+                override fun storageStatistics(callback: (Result<MediaStorageStatistics>) -> Unit) = Unit
+                override fun clearThumbnails(callback: (MediaMaintenanceResult) -> Unit) = Unit
+                override fun cleanupUnreferenced(referencedOriginalPaths: Set<String>, gracePeriodMillis: Long, callback: (MediaMaintenanceResult) -> Unit) {
+                    nativeCalled = true
+                }
+            }
+        )
+        var result: CapsuleMediaCleanupResult? = null
+
+        maintenance.cleanupUnreferenced { result = it }
 
         assertIs<CapsuleMediaCleanupResult.Deferred>(result)
         assertTrue(!nativeCalled)

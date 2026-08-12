@@ -34,6 +34,7 @@
 - `[UI/UX Redesign][DONE code 2026-07-30]` P1-2 Profile Overview：头像/昵称/城市，真实碎片数/去过地点数/想去数，按真实 Capsule→Place 关系计算城市足迹，最多 3 个想去地点预览；编辑为 typed 二级 MVI 页面，清除本地档案下沉 Settings 危险操作区且保留 Place/Favorite/Capsule。shared/Android 自动化通过；HarmonyOS 构建和双端设备验收见 `P1_PROFILE_OVERVIEW_ACCEPTANCE.md`。
 - `[Initial Plan][DONE code/PARTIAL device 2026-07-30]` P1-3 Settings 与数据管理：MVI 设置页已提供真实主题、隐私、关于、结构化数据/照片/缓存/恢复包占用与带确认的缓存清理；正式 UI 已移除 MMKV、Push、Replace、BackTo 等开发文案。按 `P1_SETTINGS_DATA_ACCEPTANCE.md` 完成双端设备验收。
 - `[Initial Plan][DONE code+automation/PARTIAL device 2026-07-30]` 版本化 ZIP 导出、导入 codec 校验与预览、导入前恢复包、照片恢复、失败回滚及新媒体清理已实现；shared/Android 测试、Harmony Hvigor test 与 signed HAP 构建通过。仍须在双端执行真实系统选择器、损坏包、未来版本包、取消、空间不足及写入失败验收。
+- `[Initial Plan][DONE code+shared automation/PARTIAL device 2026-08-11]` P2-6 备份兼容：外层 v2 + minReader 门禁、v1/v2 reader、Place V1→V2 恢复、Camera 已发布原图纳入、draft/缩略图排除与恢复后按需再生均已落实；按 `P2_BACKUP_COMPATIBILITY_ACCEPTANCE.md` 完成 Android/HarmonyOS 的导出、取消、损坏/未来包、空间不足、故障注入回滚、带照片恢复和旧版 reader 拒绝后关闭。
 - `[Code Scan]` 实现 RouteResult/requestId 结果通道；原生取消/失败/不支持必须回传，不得仅展示参数。
 - `[Code Scan][PARTIAL 2026-07-30]` 路由 Push/Replace/BackTo 诊断已集中在独立 Developer Tools pageName，正式 Settings 无入口；继续清理或隔离 `KRBridgeModule/KRMyModule/KRMyView` 模板 TODO/null 分支，并增加 release 构建完全不可达门禁。
 - `[Code Scan]` 统一 Android 图片加载栈，确认 Glide/Picasso 保留其一或说明不同职责。
@@ -51,5 +52,9 @@
 - `[Code Scan]` 当 500 条 catalog、关系约束或查询复杂度不再合适时，单独评估数据库；不得未经 ADR 直接把 MMKV 换成 Room/SQLite/relationalStore。
 
 ## 完成标准提醒
+
+### P2-5 验收状态（2026-08-11）
+
+- `[Initial Plan][DONE code/PARTIAL build+device]` 确定性缩略图、Timeline/Gallery 按需加载与原图降级、删除联动、1 小时宽限扫描、引用读取失败停删、Settings 真实 bytes/count 与安全清理已实现；未新增 MMKV key。shared Kotlin 编译通过；完整 Android 测试被本机 `shared/build` 文件锁阻断，HarmonyOS strict build 与双端真机矩阵待按 `P2_MEDIA_MAINTENANCE_ACCEPTANCE.md` 完成。
 
 任务只有在真实数据、失败/空/加载状态、双端能力（或明确降级）、自动测试和必要手工验收都成立时才可从 TODO 移入 DONE。仅有 route、接口、静态页面、mock 或“已接入”文案不算完成。

@@ -5,6 +5,8 @@ import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
 import com.y.citycapsule.core.storage.StorageResult
 import com.y.citycapsule.core.theme.ThemeMode
+import com.y.citycapsule.core.capsule.CapsuleCatalog
+import com.y.citycapsule.core.capsule.CityCapsule
 import com.y.citycapsule.core.place.PlaceContract
 import com.y.citycapsule.core.place.PlaceSource
 import kotlin.test.Test
@@ -13,6 +15,16 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class DataBackupRepositoryTest {
+    @Test
+    fun currentBackupRequiresV2ReaderSoLegacyV1ReaderRejectsIt() {
+        val payload = JSONObject(awaitSnapshot(DataBackupRepository(InMemoryKeyValueStore())).payload)
+
+        assertEquals(2, payload.optInt("backupVersion"))
+        assertEquals(2, payload.optInt("schemaVersion"))
+        assertEquals(2, payload.optInt("minReaderVersion"))
+        assertTrue(payload.optInt("backupVersion") != 1)
+    }
+
     @Test
     fun snapshotRoundTripRestoresPersistentValuesAndExcludesDraftCache() {
         val storage = InMemoryKeyValueStore()
@@ -40,6 +52,7 @@ class DataBackupRepositoryTest {
     @Test
     fun previewRejectsUnknownBackupVersionWithoutWriting() {
         val storage = InMemoryKeyValueStore()
+        put(storage, AppStorageKeys.Settings.THEME_MODE, ThemeMode.DARK)
         val repository = DataBackupRepository(storage)
         val payload = JSONObject(awaitSnapshot(repository).payload).apply {
             put("backupVersion", 99)
@@ -52,6 +65,75 @@ class DataBackupRepositoryTest {
 
         assertIs<BackupDataResult.Failure>(result)
         assertTrue(result.message.contains("版本"))
+        assertEquals(ThemeMode.DARK, get(storage, AppStorageKeys.Settings.THEME_MODE))
+    }
+
+    @Test
+    fun previewRejectsBackupThatRequiresANewerReader() {
+        val repository = DataBackupRepository(InMemoryKeyValueStore())
+        val payload = JSONObject(awaitSnapshot(repository).payload).apply {
+            put("minReaderVersion", 3)
+        }.toString()
+
+        val result = awaitPreviewResult(
+            repository,
+            ImportSelection("test-session", payload, "newer-reader.zip")
+        )
+
+        assertIs<BackupDataResult.Failure>(result)
+        assertTrue(result.message.contains("更高版本"))
+    }
+
+    @Test
+    fun previewRejectsUnknownEnvelopeSchema() {
+        val repository = DataBackupRepository(InMemoryKeyValueStore())
+        val payload = JSONObject(awaitSnapshot(repository).payload).apply {
+            put("schemaVersion", 99)
+        }.toString()
+
+        val result = awaitPreviewResult(
+            repository,
+            ImportSelection("test-session", payload, "future-schema.zip")
+        )
+
+        assertIs<BackupDataResult.Failure>(result)
+        assertTrue(result.message.contains("结构版本"))
+    }
+
+    @Test
+    fun snapshotIncludesPublishedCameraOriginalAndNeverDraftOrThumbnailFiles() {
+        val storage = InMemoryKeyValueStore()
+        val cameraOriginal = "file:///sandbox/images/original/camera_1720000000000.jpg"
+        val thumbnail = "file:///sandbox/images/thumbnail/camera_1720000000000.jpg.jpg"
+        val draftOriginal = "file:///sandbox/images/original/draft_only.jpg"
+        put(
+            storage,
+            AppStorageKeys.Capsules.CATALOG,
+            CapsuleCatalog(capsules = listOf(
+                CityCapsule(
+                    id = "capsule-camera",
+                    content = "Camera photo",
+                    placeId = "seed_shanghai_museum",
+                    imagePaths = listOf(cameraOriginal),
+                    createdAtEpochMs = 1,
+                    updatedAtEpochMs = 1
+                )
+            ))
+        )
+        put(
+            storage,
+            AppStorageKeys.Capsules.DRAFT,
+            AppStorageKeys.Capsules.DRAFT.defaultValue.copy(
+                imagePaths = listOf(draftOriginal, thumbnail),
+                updatedAtEpochMs = 2
+            )
+        )
+
+        val snapshot = awaitSnapshot(DataBackupRepository(storage))
+
+        assertEquals(listOf(cameraOriginal), snapshot.mediaPaths)
+        assertTrue(thumbnail !in snapshot.mediaPaths)
+        assertTrue(draftOriginal !in snapshot.mediaPaths)
     }
 
     @Test
@@ -59,6 +141,9 @@ class DataBackupRepositoryTest {
         val storage = InMemoryKeyValueStore()
         val repository = DataBackupRepository(storage)
         val root = JSONObject(awaitSnapshot(repository).payload)
+        root.put("backupVersion", 1)
+        root.put("schemaVersion", 1)
+        root.put("minReaderVersion", 1)
         val entries = requireNotNull(root.optJSONArray("entries"))
         for (index in 0 until entries.length()) {
             val entry = requireNotNull(entries.optJSONObject(index))

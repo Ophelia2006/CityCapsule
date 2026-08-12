@@ -8,7 +8,9 @@ import com.tencent.kuikly.core.pager.Pager
 data class PlatformStorageUsage(
     val mediaBytes: Long,
     val cacheBytes: Long,
-    val recoveryBytes: Long
+    val recoveryBytes: Long,
+    val cacheCount: Int = 0,
+    val recoveryCount: Int = 0
 )
 
 sealed interface ArchiveResult<out T> {
@@ -60,7 +62,9 @@ class KuiklyDataArchiveCapability internal constructor(
             PlatformStorageUsage(
                 mediaBytes = json.optString(FIELD_MEDIA_BYTES).toLongOrNull() ?: 0,
                 cacheBytes = json.optString(FIELD_CACHE_BYTES).toLongOrNull() ?: 0,
-                recoveryBytes = json.optString(FIELD_RECOVERY_BYTES).toLongOrNull() ?: 0
+                recoveryBytes = json.optString(FIELD_RECOVERY_BYTES).toLongOrNull() ?: 0,
+                cacheCount = json.optString(FIELD_CACHE_COUNT).toIntOrNull() ?: 0,
+                recoveryCount = json.optString(FIELD_RECOVERY_COUNT).toIntOrNull() ?: 0
             )
         })
     }
@@ -178,6 +182,8 @@ class KuiklyDataArchiveCapability internal constructor(
         const val FIELD_MEDIA_BYTES = "mediaBytes"
         const val FIELD_CACHE_BYTES = "cacheBytes"
         const val FIELD_RECOVERY_BYTES = "recoveryBytes"
+        const val FIELD_CACHE_COUNT = "cacheCount"
+        const val FIELD_RECOVERY_COUNT = "recoveryCount"
         const val FIELD_CLEARED_BYTES = "clearedBytes"
         const val FIELD_PATH = "path"
         const val FIELD_SESSION_ID = "sessionId"

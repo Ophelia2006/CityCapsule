@@ -10,6 +10,10 @@ import com.y.citycapsule.core.backup.LocalStorageSnapshot
 import com.y.citycapsule.core.backup.PlatformStorageUsage
 import com.y.citycapsule.core.media.ManagedMediaDeleteResult
 import com.y.citycapsule.core.media.ManagedMediaFileCapability
+import com.y.citycapsule.core.media.MediaMaintenanceCapability
+import com.y.citycapsule.core.media.MediaMaintenanceResult
+import com.y.citycapsule.core.media.MediaStorageStatistics
+import com.y.citycapsule.core.capsule.RepositoryMediaMaintenance
 import com.y.citycapsule.core.mvi.MviStore
 import com.y.citycapsule.core.storage.SettingsRepository
 import com.y.citycapsule.core.storage.StorageResult
@@ -27,7 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-enum class SettingsOperation { NONE, LOADING, SAVING_THEME, CLEARING_CACHE, EXPORTING, SELECTING_IMPORT, IMPORTING }
+enum class SettingsOperation { NONE, LOADING, SAVING_THEME, CLEARING_CACHE, CLEARING_THUMBNAILS, CLEANING_MEDIA, EXPORTING, SELECTING_IMPORT, IMPORTING }
 enum class SettingsNoticeTone { NEUTRAL, SUCCESS, WARNING, ERROR }
 
 data class SettingsNotice(val message: String, val tone: SettingsNoticeTone)
@@ -37,6 +41,7 @@ data class SettingsUiState(
     val operation: SettingsOperation = SettingsOperation.LOADING,
     val structuredBytesApprox: Long = 0,
     val platformUsage: PlatformStorageUsage = PlatformStorageUsage(0, 0, 0),
+    val mediaUsage: MediaStorageStatistics = MediaStorageStatistics(0, 0, 0, 0),
     val preview: BackupPreview? = null,
     val notice: SettingsNotice? = null,
     val showPrivacy: Boolean = false,
@@ -46,7 +51,7 @@ data class SettingsUiState(
 ) {
     val busy: Boolean get() = operation != SettingsOperation.NONE
     val totalBytesApprox: Long
-        get() = structuredBytesApprox + platformUsage.mediaBytes +
+        get() = structuredBytesApprox + mediaUsage.originalBytes + mediaUsage.thumbnailBytes +
             platformUsage.cacheBytes + platformUsage.recoveryBytes
 }
 
@@ -58,6 +63,8 @@ sealed interface SettingsIntent {
     data object CloseInfo : SettingsIntent
     data object ClearCacheClicked : SettingsIntent
     data object ClearCacheConfirmed : SettingsIntent
+    data object ClearThumbnailsClicked : SettingsIntent
+    data object CleanupMediaClicked : SettingsIntent
     data object DismissConfirmation : SettingsIntent
     data object ExportClicked : SettingsIntent
     data object ImportClicked : SettingsIntent
@@ -81,6 +88,8 @@ class SettingsStore(
     private val backupRepository: DataBackupRepository,
     private val archive: DataArchiveCapability,
     private val mediaFiles: ManagedMediaFileCapability,
+    private val mediaMaintenance: MediaMaintenanceCapability,
+    private val repositoryMediaMaintenance: RepositoryMediaMaintenance,
     parentScope: CoroutineScope
 ) : MviStore<SettingsIntent, SettingsUiState, SettingsEffect> {
     private sealed interface Event {
@@ -88,11 +97,13 @@ class SettingsStore(
         data class Loaded(
             val snapshot: LocalStorageSnapshot?,
             val usage: PlatformStorageUsage?,
+            val mediaUsage: MediaStorageStatistics?,
             val message: String?
         ) : Event
         data class ThemeLoaded(val snapshot: ThemeModeSnapshot) : Event
         data class ThemeSaved(val previous: ThemeMode, val target: ThemeMode, val ok: Boolean) : Event
         data class CacheCleared(val bytes: Long, val warning: String?) : Event
+        data class MediaOperationFinished(val message: String, val success: Boolean) : Event
         data class ExportSnapshot(val result: BackupDataResult<LocalStorageSnapshot>) : Event
         data class Exported(val result: ArchiveResult<String>) : Event
         data class ImportSelected(val result: ArchiveResult<ImportSelection>) : Event
@@ -151,6 +162,7 @@ class SettingsStore(
                 operation = SettingsOperation.NONE,
                 structuredBytesApprox = event.snapshot?.structuredBytesApprox ?: 0,
                 platformUsage = event.usage ?: PlatformStorageUsage(0, 0, 0),
+                mediaUsage = event.mediaUsage ?: MediaStorageStatistics(0, 0, 0, 0),
                 notice = event.message?.let { SettingsNotice(it, SettingsNoticeTone.WARNING) }
             )
             is Event.ThemeSaved -> {
@@ -175,6 +187,13 @@ class SettingsStore(
                         event.warning ?: "已清理 ${formatBytes(event.bytes)} 临时缓存。",
                         if (event.warning == null) SettingsNoticeTone.SUCCESS else SettingsNoticeTone.WARNING
                     )
+                )
+                load()
+            }
+            is Event.MediaOperationFinished -> {
+                mutableState.value = mutableState.value.copy(
+                    operation = SettingsOperation.NONE,
+                    notice = SettingsNotice(event.message, if (event.success) SettingsNoticeTone.SUCCESS else SettingsNoticeTone.WARNING)
                 )
                 load()
             }
@@ -246,6 +265,8 @@ class SettingsStore(
             SettingsIntent.ClearCacheClicked -> mutableState.value =
                 mutableState.value.copy(confirmClearCache = true)
             SettingsIntent.ClearCacheConfirmed -> clearCache()
+            SettingsIntent.ClearThumbnailsClicked -> clearThumbnails()
+            SettingsIntent.CleanupMediaClicked -> cleanupMedia()
             SettingsIntent.DismissConfirmation -> mutableState.value =
                 mutableState.value.copy(confirmClearCache = false, confirmImport = false)
             SettingsIntent.ExportClicked -> {
@@ -279,11 +300,13 @@ class SettingsStore(
         settingsRepository.getThemeModeSnapshot { enqueue(Event.ThemeLoaded(it)) }
         var snapshot: LocalStorageSnapshot? = null
         var usage: PlatformStorageUsage? = null
+        var mediaUsage: MediaStorageStatistics? = null
         var snapshotDone = false
         var usageDone = false
+        var mediaDone = false
         var warning: String? = null
         fun complete() {
-            if (snapshotDone && usageDone) enqueue(Event.Loaded(snapshot, usage, warning))
+            if (snapshotDone && usageDone && mediaDone) enqueue(Event.Loaded(snapshot, usage, mediaUsage, warning))
         }
         backupRepository.snapshot {
             snapshotDone = true
@@ -299,6 +322,12 @@ class SettingsStore(
                 is ArchiveResult.Success -> usage = it.value
                 else -> warning = warning ?: "部分存储占用暂时无法读取。"
             }
+            complete()
+        }
+        mediaMaintenance.storageStatistics {
+            mediaDone = true
+            it.onSuccess { stats -> mediaUsage = stats }
+                .onFailure { warning = warning ?: "部分媒体存储统计暂时无法读取。" }
             complete()
         }
     }
@@ -329,6 +358,29 @@ class SettingsStore(
                 enqueue(Event.CacheCleared(bytes, warning))
             }
         }
+    }
+
+    private fun clearThumbnails() {
+        if (mutableState.value.busy) return
+        mutableState.value = mutableState.value.copy(operation = SettingsOperation.CLEARING_THUMBNAILS)
+        mediaMaintenance.clearThumbnails { result -> enqueue(Event.MediaOperationFinished(
+            when (result) {
+                is MediaMaintenanceResult.Success -> "已清理 ${formatBytes(result.deletedBytes)} 可再生成缩略图。"
+                is MediaMaintenanceResult.Failure -> result.message
+                MediaMaintenanceResult.Unsupported -> "当前平台暂不支持缩略图清理。"
+            }, result is MediaMaintenanceResult.Success
+        )) }
+    }
+
+    private fun cleanupMedia() {
+        if (mutableState.value.busy) return
+        mutableState.value = mutableState.value.copy(operation = SettingsOperation.CLEANING_MEDIA)
+        repositoryMediaMaintenance.cleanupUnreferenced { result -> enqueue(Event.MediaOperationFinished(
+            when (result) {
+                is com.y.citycapsule.core.capsule.CapsuleMediaCleanupResult.Success -> "无引用媒体清理完成。"
+                is com.y.citycapsule.core.capsule.CapsuleMediaCleanupResult.Deferred -> result.message
+            }, result is com.y.citycapsule.core.capsule.CapsuleMediaCleanupResult.Success
+        )) }
     }
 
     private fun handleImportSelection(result: ArchiveResult<ImportSelection>) {

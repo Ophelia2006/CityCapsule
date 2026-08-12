@@ -118,6 +118,17 @@
 - 当前 repository mutation queue 只保证单实例/单进程顺序，不能等同数据库事务或跨页面全局并发控制。
 - Home、地点列表与地点详情的想去切换已避免成功提示插入、当前内容重排和页面自身 revision 重载；Record/Profile/Editor 的加载替换、共享滚动状态和照片位置组合仍是待设备验证的抖动高风险区。
 
+## 2026-08-11 P2-5 媒体维护增量
+
+确定性缩略图、Timeline/Gallery 按需加载、双端媒体扫描/删除联动、1 小时宽限和 Settings 原图/缩略图/备份/缓存真实 bytes/count 已进入代码，未新增 MMKV key。shared Kotlin 编译通过；完整 Android 自动化受本机 `shared/build` 文件锁影响，HarmonyOS strict build 与双端真机验收待完成，详见 `P2_MEDIA_MAINTENANCE_ACCEPTANCE.md`。
+
+## 2026-08-11 P2-6 备份兼容增量
+
+- `DONE code + shared automation`：现有 ZIP 外层升级为 v2，带 `minReaderVersion=2`；当前 reader 接受 v1/v2并在预览前拒绝未来版本/未来 reader，旧 v1 reader 会明确拒绝新包。
+- `DONE code + shared automation`：Place V1 通过当前 codec 自动迁移 source；坐标/封面缺失保持 null，恢复落盘重新编码为 Place V2。
+- `DONE code + shared automation`：已发布 Capsule 引用的 Camera 原图进入备份；draft 与缩略图不进入。恢复只提交原图，Timeline/Gallery 后续按需再生成缩略图。
+- `PARTIAL device`：导入前恢复包和写入失败回滚沿用现有事务编排；双端真实文件选择器、空间不足、故障注入、照片恢复、重启一致性与旧版拒绝仍须按 `P2_BACKUP_COMPATIBILITY_ACCEPTANCE.md` 验收。
+
 ## 2026-08-11 P2-3 地图实现与验收状态
 
 - Android：`CCAmapView` 已注册到 Kuikly host，高德 `MapView`、隐私同意后初始化、WGS-84 转换、Marker、当前位置标记、Marker 点击回传和生命周期代码已实现；iQOO 真机已通过地图显示、Marker 摘要、详情进入、地图手势和外部高德拉起的正常路径验收。

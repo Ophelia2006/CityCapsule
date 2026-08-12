@@ -58,4 +58,34 @@ class KRMediaModuleTest {
         assertFalse(result.rejected)
         assertFalse(cameraFile.exists())
     }
+
+    @Test
+    fun deletingOriginalAlsoDeletesItsDeterministicThumbnail() {
+        val filesDir = Files.createTempDirectory("citycapsule_thumbnail_delete").toFile()
+        val original = filesDir.resolve("images/original/capsule_1.jpg").apply { parentFile.mkdirs(); writeText("photo") }
+        val thumbnail = filesDir.resolve("images/thumbnail/capsule_1.jpg.jpg").apply { parentFile.mkdirs(); writeText("thumb") }
+
+        ManagedImageFileStore(filesDir).delete(listOf(original.toURI().toString()))
+
+        assertFalse(original.exists())
+        assertFalse(thumbnail.exists())
+    }
+
+    @Test
+    fun cleanupHonoursReferencesAndGracePeriod() {
+        val filesDir = Files.createTempDirectory("citycapsule_orphans").toFile()
+        val originalDir = filesDir.resolve("images/original").apply { mkdirs() }
+        val referenced = originalDir.resolve("referenced.jpg").apply { writeText("keep"); setLastModified(1) }
+        val orphan = originalDir.resolve("orphan.jpg").apply { writeText("remove"); setLastModified(1) }
+        val inFlight = originalDir.resolve("new.jpg").apply { writeText("grace") }
+
+        val json = JSONObject(ManagedImageFileStore(filesDir).cleanupUnreferenced(
+            setOf(referenced.toURI().toString()), 60 * 60 * 1000L
+        ))
+
+        assertEquals("success", json.getString("status"))
+        assertTrue(referenced.exists())
+        assertFalse(orphan.exists())
+        assertTrue(inFlight.exists())
+    }
 }

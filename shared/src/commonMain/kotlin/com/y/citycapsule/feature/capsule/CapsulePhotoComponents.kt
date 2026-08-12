@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import com.tencent.kuikly.compose.coil3.rememberAsyncImagePainter
 import com.tencent.kuikly.compose.foundation.Image
@@ -27,6 +28,8 @@ import com.y.citycapsule.designsystem.component.AppIconButton
 import com.y.citycapsule.designsystem.component.AppIconName
 import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.theme.AppTheme
+import com.y.citycapsule.core.media.MediaMaintenanceCapability
+import com.y.citycapsule.core.media.ThumbnailResult
 
 @Composable
 internal fun CapsulePhotoList(
@@ -58,7 +61,8 @@ internal fun CapsulePhoto(
     description: String,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
-    heightOverride: Dp? = null
+    heightOverride: Dp? = null,
+    thumbnailCapability: MediaMaintenanceCapability? = null
 ) {
     val dimensions = AppTheme.dimensions
     val height = heightOverride ?: if (compact) {
@@ -67,10 +71,20 @@ internal fun CapsulePhoto(
         dimensions.mediaPreviewHeight
     }
     var failed by remember(path) { mutableStateOf(false) }
+    var displayPath by remember(path) { mutableStateOf(path) }
+    LaunchedEffect(path, thumbnailCapability) {
+        if (thumbnailCapability != null && path.isNotBlank()) {
+            thumbnailCapability.ensureThumbnail(path) { result ->
+                displayPath = (result as? ThumbnailResult.Success)?.path ?: path
+            }
+        }
+    }
     val painter = rememberAsyncImagePainter(
-        path,
+        displayPath,
         onSuccess = { failed = false },
-        onError = { failed = true }
+        onError = {
+            if (displayPath != path) displayPath = path else failed = true
+        }
     )
     Box(
         modifier = modifier

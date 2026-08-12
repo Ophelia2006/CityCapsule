@@ -178,6 +178,8 @@ internal class DataArchiveFileStore(private val context: Context) {
                 ).toString()
         )
         put("recoveryBytes", directoryBytes(recoveryRoot).toString())
+        put("cacheCount", directoryFiles(stagingRoot).size + context.cacheDir.listFiles().orEmpty().count { it.name.startsWith("citycapsule-export-") })
+        put("recoveryCount", directoryFiles(recoveryRoot).size)
     }
 
     fun clearTemporaryFiles(): String {
@@ -264,6 +266,9 @@ internal class DataArchiveFileStore(private val context: Context) {
 
     private fun directoryBytes(root: File): Long =
         if (!root.exists()) 0 else root.walkTopDown().filter(File::isFile).sumOf(File::length)
+
+    private fun directoryFiles(root: File): List<File> =
+        if (!root.exists()) emptyList() else root.walkTopDown().filter(File::isFile).toList()
 
     private companion object {
         const val MAX_PAYLOAD_BYTES = 8L * 1024 * 1024
