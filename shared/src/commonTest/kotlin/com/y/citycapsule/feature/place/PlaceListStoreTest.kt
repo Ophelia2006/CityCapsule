@@ -1,5 +1,6 @@
 package com.y.citycapsule.feature.place
 
+import com.y.citycapsule.core.city.LocalExploreCityRepository
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.location.LocationCapability
 import com.y.citycapsule.core.location.LocationResult
@@ -9,9 +10,7 @@ import com.y.citycapsule.core.place.GeoPoint
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
-import com.y.citycapsule.core.profile.AvatarPreset
-import com.y.citycapsule.core.profile.LocalProfile
-import com.y.citycapsule.core.profile.LocalProfileRepository
+import com.y.citycapsule.core.place.PlaceSeedData
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
 import kotlinx.coroutines.async
@@ -46,12 +45,17 @@ class PlaceListStoreTest {
         val store = fixture.store()
         store.dispatch(PlaceListIntent.Load)
         advanceUntilIdle()
-        assertEquals(8, store.state.value.visiblePlaces.size)
+        assertEquals(15, store.state.value.visiblePlaces.size)
 
         store.dispatch(PlaceListIntent.QueryChanged("博物馆"))
         advanceUntilIdle()
         assertEquals(
-            setOf("seed_shanghai_museum", "seed_china_tea_museum"),
+            setOf(
+                "seed_shanghai_museum",
+                "seed_power_station_of_art",
+                "seed_natural_history_museum",
+                "seed_shanghai_astronomy_museum"
+            ),
             store.state.value.visiblePlaces.map(Place::id).toSet()
         )
 
@@ -63,7 +67,7 @@ class PlaceListStoreTest {
 
         store.dispatch(PlaceListIntent.ClearAllFilters)
         advanceUntilIdle()
-        assertEquals(8, store.state.value.visiblePlaces.size)
+        assertEquals(15, store.state.value.visiblePlaces.size)
         store.dispose()
     }
 
@@ -120,23 +124,16 @@ class PlaceListStoreTest {
     }
 
     @Test
-    fun profileCityOnlyPrioritizesCatalogAndNeverClaimsNearby() = runTest {
+    fun selectedExploreCityScopesCatalogAndNeverClaimsNearby() = runTest {
         val fixture = fixture()
-        fixture.profileRepository.saveProfile(
-            LocalProfile(
-                displayName = "测试用户",
-                avatarPreset = AvatarPreset.SKY,
-                homeCity = "杭州"
-            )
-        ) {}
+        fixture.cityRepository.select("cn-hangzhou") {}
         val store = fixture.store()
 
         store.dispatch(PlaceListIntent.Load)
         advanceUntilIdle()
 
-        assertEquals("杭州", store.state.value.homeCity)
+        assertEquals("杭州", store.state.value.selectedCity.displayName)
         assertTrue(store.state.value.directoryContext.contains("杭州"))
-        assertTrue(store.state.value.directoryContext.contains("优先"))
         assertFalse(store.state.value.directoryContext.contains("附近"))
         assertEquals("杭州", store.state.value.visiblePlaces.first().city)
         store.dispose()
@@ -177,7 +174,7 @@ class PlaceListStoreTest {
         store.dispatch(PlaceListIntent.MapPrivacyAccepted)
         advanceUntilIdle()
         assertEquals(PlaceDirectoryViewMode.MAP, store.state.value.viewMode)
-        assertEquals(8, store.state.value.mapViewState.markers.size)
+        assertEquals(15, store.state.value.mapViewState.markers.size)
         assertTrue(store.state.value.mapViewState.markers.all { it.position.latitude != 0.0 })
         store.dispose()
     }
@@ -252,7 +249,7 @@ class PlaceListStoreTest {
     ): StoreFixture {
         val placeRepository = LocalPlaceRepository(storage)
         return StoreFixture(
-            profileRepository = LocalProfileRepository(storage),
+            cityRepository = LocalExploreCityRepository(storage),
             placeRepository = placeRepository,
             favoriteRepository = LocalFavoriteRepository(storage, placeRepository),
             scope = this
@@ -261,7 +258,7 @@ class PlaceListStoreTest {
 }
 
 private data class StoreFixture(
-    val profileRepository: LocalProfileRepository,
+    val cityRepository: LocalExploreCityRepository,
     val placeRepository: LocalPlaceRepository,
     val favoriteRepository: LocalFavoriteRepository,
     val scope: kotlinx.coroutines.CoroutineScope
@@ -273,7 +270,7 @@ private data class StoreFixture(
         mode: PlaceListMode = PlaceListMode.ALL,
         initialCategory: PlaceCategory? = null
     ) = PlaceListStore(
-        profileRepository = profileRepository,
+        cityRepository = cityRepository,
         placeRepository = placeRepository,
         favoriteRepository = favoriteRepository,
         locationCapability = locationCapability,

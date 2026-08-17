@@ -11,7 +11,9 @@ enum class PlaceValidationError {
     ADDRESS_TOO_LONG,
     TOO_MANY_TAGS,
     TAG_TOO_LONG,
-    NOTE_TOO_LONG,
+    DESCRIPTION_TOO_LONG,
+    PERSONAL_NOTE_TOO_LONG,
+    CONTENT_SOURCE_TOO_LONG,
     INVALID_GEO_POINT,
     INVALID_VISUAL_REF,
     INVALID_CREATED_AT,
@@ -42,7 +44,9 @@ object PlaceValidator {
     const val ADDRESS_MAX_LENGTH = 120
     const val TAG_MAX_COUNT = 8
     const val TAG_MAX_LENGTH = 16
-    const val NOTE_MAX_LENGTH = 300
+    const val DESCRIPTION_MAX_LENGTH = 600
+    const val PERSONAL_NOTE_MAX_LENGTH = 300
+    const val CONTENT_SOURCE_MAX_LENGTH = 120
     const val VISUAL_REF_MAX_LENGTH = 512
 
     private val idPattern = Regex("[A-Za-z0-9_-]{1,$ID_MAX_LENGTH}")
@@ -55,7 +59,9 @@ object PlaceValidator {
             district = place.district.normalizedPlaceOptionalText(),
             address = place.address.normalizedPlaceOptionalText(),
             tags = normalizeTags(place.tags),
-            note = place.note.normalizedPlaceOptionalText(),
+            description = place.description.normalizedPlaceOptionalText(),
+            personalNote = place.personalNote.normalizedPlaceOptionalText(),
+            contentSource = place.contentSource.normalizedPlaceOptionalText(),
             visualRef = place.visualRef?.copy(value = place.visualRef.value.trim())
         )
         val errors = validateFields(
@@ -66,7 +72,9 @@ object PlaceValidator {
             district = normalized.district,
             address = normalized.address,
             tags = normalized.tags,
-            note = normalized.note,
+            description = normalized.description,
+            personalNote = normalized.personalNote,
+            contentSource = normalized.contentSource,
             geoPoint = normalized.geoPoint,
             visualRef = normalized.visualRef,
             createdAtEpochMs = normalized.createdAtEpochMs,
@@ -85,7 +93,10 @@ object PlaceValidator {
             district = draft.district.normalizedPlaceOptionalText(),
             address = draft.address.normalizedPlaceOptionalText(),
             tags = normalizeTags(draft.tags),
-            note = draft.note.normalizedPlaceOptionalText()
+            description = draft.description.normalizedPlaceOptionalText(),
+            personalNote = draft.personalNote.normalizedPlaceOptionalText(),
+            contentSource = draft.contentSource.normalizedPlaceOptionalText(),
+            visualRef = draft.visualRef?.copy(value = draft.visualRef.value.trim())
         )
         val errors = validateFields(
             schemaVersion = PlaceContract.SCHEMA_VERSION,
@@ -95,9 +106,11 @@ object PlaceValidator {
             district = normalized.district,
             address = normalized.address,
             tags = normalized.tags,
-            note = normalized.note,
-            geoPoint = null,
-            visualRef = null,
+            description = normalized.description,
+            personalNote = normalized.personalNote,
+            contentSource = normalized.contentSource,
+            geoPoint = normalized.geoPoint,
+            visualRef = normalized.visualRef,
             createdAtEpochMs = 0L,
             updatedAtEpochMs = 0L
         )
@@ -121,7 +134,9 @@ object PlaceValidator {
         district: String?,
         address: String?,
         tags: List<String>,
-        note: String?,
+        description: String?,
+        personalNote: String?,
+        contentSource: String?,
         geoPoint: GeoPoint?,
         visualRef: PlaceVisualRef?,
         createdAtEpochMs: Long,
@@ -155,8 +170,14 @@ object PlaceValidator {
         if (tags.any { it.length > TAG_MAX_LENGTH }) {
             add(PlaceValidationError.TAG_TOO_LONG)
         }
-        if ((note?.length ?: 0) > NOTE_MAX_LENGTH) {
-            add(PlaceValidationError.NOTE_TOO_LONG)
+        if ((description?.length ?: 0) > DESCRIPTION_MAX_LENGTH) {
+            add(PlaceValidationError.DESCRIPTION_TOO_LONG)
+        }
+        if ((personalNote?.length ?: 0) > PERSONAL_NOTE_MAX_LENGTH) {
+            add(PlaceValidationError.PERSONAL_NOTE_TOO_LONG)
+        }
+        if ((contentSource?.length ?: 0) > CONTENT_SOURCE_MAX_LENGTH) {
+            add(PlaceValidationError.CONTENT_SOURCE_TOO_LONG)
         }
         if (geoPoint != null && (
                 !geoPoint.latitude.isFinite() ||

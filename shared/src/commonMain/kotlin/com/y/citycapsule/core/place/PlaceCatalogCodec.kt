@@ -10,7 +10,7 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
 
     override fun encode(value: PlaceCatalog): String {
         val catalog = requireNotNull(PlaceCatalogValidator.normalizeOrNull(value)) {
-            "Place catalog does not satisfy schema v2 validation."
+            "Place catalog does not satisfy schema v3 validation."
         }
         return JSONObject().apply {
             put(PlaceContract.FIELD_SCHEMA_VERSION, catalog.schemaVersion)
@@ -34,6 +34,7 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
                 UNSUPPORTED_SCHEMA
             )
             if (encodedSchema != PlaceContract.LEGACY_SCHEMA_VERSION &&
+                encodedSchema != PlaceContract.PREVIOUS_SCHEMA_VERSION &&
                 encodedSchema != PlaceContract.SCHEMA_VERSION
             ) {
                 return null
@@ -49,27 +50,45 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
                 INVALID_SEED_VERSION
             )
             val migratedPlaces = if (encodedSeedVersion < PlaceContract.CURRENT_SEED_VERSION) {
-                places.map { place ->
-                    val currentSeed = PlaceSeedData.BY_ID[place.id]
-                    if (place.source == PlaceSource.SEED && place.geoPoint == null) {
-                        place.copy(geoPoint = currentSeed?.geoPoint)
-                    } else {
-                        place
-                    }
-                }
+                mergeCurrentSeeds(places)
             } else {
                 places
+            }
+            val containsAllCurrentSeeds = PlaceSeedData.IDS.all { seedId ->
+                migratedPlaces.any { place -> place.id == seedId && place.source == PlaceSource.SEED }
             }
             PlaceCatalogValidator.normalizeOrNull(
                 PlaceCatalog(
                     schemaVersion = PlaceContract.SCHEMA_VERSION,
-                    seedVersion = maxOf(encodedSeedVersion, PlaceContract.CURRENT_SEED_VERSION),
+                    seedVersion = if (containsAllCurrentSeeds) {
+                        PlaceContract.CURRENT_SEED_VERSION
+                    } else {
+                        maxOf(encodedSeedVersion, 0)
+                    },
                     places = migratedPlaces
                 )
             )
         } catch (_: Throwable) {
             null
         }
+    }
+
+    private fun mergeCurrentSeeds(existing: List<Place>): List<Place> {
+        val refreshed = existing.map { place ->
+            if (place.source == PlaceSource.SEED) {
+                PlaceSeedData.BY_ID[place.id] ?: place
+            } else {
+                place
+            }
+        }
+        val existingIds = refreshed.mapTo(mutableSetOf(), Place::id)
+        val remainingCapacity = (PlaceContract.MAX_CATALOG_SIZE - refreshed.size).coerceAtLeast(0)
+        val missing = PlaceSeedData.CATALOG.places
+            .asSequence()
+            .filterNot { it.id in existingIds }
+            .take(remainingCapacity)
+            .toList()
+        return refreshed + missing
     }
 
     private fun Place.toJson(): JSONObject = JSONObject().apply {
@@ -84,7 +103,9 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
             PlaceContract.FIELD_TAGS,
             JSONArray().also { array -> tags.forEach { tag -> array.put(tag) } }
         )
-        note?.let { put(PlaceContract.FIELD_NOTE, it) }
+        description?.let { put(PlaceContract.FIELD_DESCRIPTION, it) }
+        personalNote?.let { put(PlaceContract.FIELD_PERSONAL_NOTE, it) }
+        contentSource?.let { put(PlaceContract.FIELD_CONTENT_SOURCE, it) }
         put(PlaceContract.FIELD_SOURCE, source.wireValue)
         geoPoint?.let { point ->
             put(PlaceContract.FIELD_GEO_POINT, JSONObject().apply {
@@ -146,6 +167,11 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
         } else {
             null
         }
+        val legacyNote = if (catalogSchema < PlaceContract.SCHEMA_VERSION) {
+            optionalString(PlaceContract.FIELD_LEGACY_NOTE)
+        } else {
+            null
+        }
         return PlaceValidator.normalizeOrNull(
             Place(
                 schemaVersion = PlaceContract.SCHEMA_VERSION,
@@ -156,7 +182,21 @@ object PlaceCatalogCodec : StorageCodec<PlaceCatalog> {
                 category = category,
                 address = optionalString(PlaceContract.FIELD_ADDRESS),
                 tags = tags,
-                note = optionalString(PlaceContract.FIELD_NOTE),
+                description = if (catalogSchema == PlaceContract.SCHEMA_VERSION) {
+                    optionalString(PlaceContract.FIELD_DESCRIPTION)
+                } else {
+                    legacyNote.takeIf { source == PlaceSource.SEED }
+                },
+                personalNote = if (catalogSchema == PlaceContract.SCHEMA_VERSION) {
+                    optionalString(PlaceContract.FIELD_PERSONAL_NOTE)
+                } else {
+                    legacyNote.takeIf { source != PlaceSource.SEED }
+                },
+                contentSource = if (catalogSchema == PlaceContract.SCHEMA_VERSION) {
+                    optionalString(PlaceContract.FIELD_CONTENT_SOURCE)
+                } else {
+                    null
+                },
                 source = source,
                 geoPoint = geoPoint,
                 visualRef = visualRef,

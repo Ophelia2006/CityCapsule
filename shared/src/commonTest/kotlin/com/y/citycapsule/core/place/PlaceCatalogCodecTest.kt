@@ -75,18 +75,61 @@ class PlaceCatalogCodecTest {
         )
 
         assertEquals(PlaceContract.SCHEMA_VERSION, decoded?.schemaVersion)
-        assertEquals(
-            listOf("seed_shanghai_museum", "seed_not_bundled"),
-            decoded?.places?.map(Place::id)
-        )
-        assertEquals(PlaceSource.SEED, decoded?.places?.first()?.source)
-        assertEquals(PlaceSource.USER, decoded?.places?.last()?.source)
+        assertEquals(PlaceSource.SEED, decoded?.places?.first { it.id == "seed_shanghai_museum" }?.source)
+        assertEquals(PlaceSource.USER, decoded?.places?.first { it.id == "seed_not_bundled" }?.source)
         assertEquals(PlaceContract.CURRENT_SEED_VERSION, decoded?.seedVersion)
         assertEquals(
             PlaceSeedData.BY_ID["seed_shanghai_museum"]?.geoPoint,
             decoded?.places?.first()?.geoPoint
         )
         assertNull(decoded?.places?.first()?.visualRef)
+    }
+
+    @Test
+    fun v2CatalogSeparatesSeedDescriptionFromUserPersonalNoteAndAddsCurrentSeeds() {
+        val decoded = PlaceCatalogCodec.decode(
+            """
+            {
+              "schemaVersion":2,
+              "seedVersion":2,
+              "places":[
+                {
+                  "schemaVersion":2,
+                  "id":"seed_shanghai_museum",
+                  "name":"旧内置地点",
+                  "city":"上海",
+                  "category":"culture",
+                  "tags":[],
+                  "note":"旧公共介绍",
+                  "source":"seed",
+                  "createdAtEpochMs":0,
+                  "updatedAtEpochMs":0
+                },
+                {
+                  "schemaVersion":2,
+                  "id":"local_1",
+                  "name":"我的地点",
+                  "city":"上海",
+                  "category":"other",
+                  "tags":[],
+                  "note":"只给自己看的备注",
+                  "source":"user",
+                  "createdAtEpochMs":1,
+                  "updatedAtEpochMs":1
+                }
+              ]
+            }
+            """.trimIndent()
+        )
+
+        val seed = decoded?.places?.first { it.id == "seed_shanghai_museum" }
+        val user = decoded?.places?.first { it.id == "local_1" }
+        assertEquals(PlaceSeedData.BY_ID.getValue("seed_shanghai_museum").description, seed?.description)
+        assertNull(seed?.personalNote)
+        assertNull(user?.description)
+        assertEquals("只给自己看的备注", user?.personalNote)
+        assertEquals(PlaceContract.CURRENT_SEED_VERSION, decoded?.seedVersion)
+        assertEquals(PlaceSeedData.IDS, decoded?.places?.filter { it.source == PlaceSource.SEED }?.map { it.id }?.toSet())
     }
 
     @Test
@@ -112,14 +155,14 @@ class PlaceCatalogCodecTest {
             """.trimIndent()
         )
 
-        assertEquals("西岸美术馆", decoded?.places?.single()?.name)
+        assertEquals("西岸美术馆", decoded?.places?.first { it.id == "place_1" }?.name)
     }
 
     @Test
     fun malformedSchemaUnknownCategoryMissingTagsAndDuplicateIdsAreRejected() {
         assertNull(
             PlaceCatalogCodec.decode(
-                """{"schemaVersion":3,"seedVersion":1,"places":[]}"""
+                """{"schemaVersion":4,"seedVersion":1,"places":[]}"""
             )
         )
         assertNull(

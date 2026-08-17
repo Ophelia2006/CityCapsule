@@ -2,6 +2,18 @@
 
 本文只记录有代码或初始/当前文档明确依据的决策。没有依据的“为什么”不补写。
 
+## ADR-027：当前探索城市与档案城市分离
+
+状态：Accepted（2026-08-17）。
+
+`profile.homeCity` 保持长期档案身份；`explore.city_selection` 只决定 Home、Explore 与 Map 的当前浏览范围。代码通过 `ExploreCityRepository` 保存当前及最近选择，主动定位只在用户确认后更新探索城市，不写回档案。该决策依据已确认的产品语义和当前实现，不推断额外原因。
+
+## ADR-028：城市内容使用版本化 seed 增量合并
+
+状态：Accepted（2026-08-17）。
+
+当前没有在线 POI 数据源，内置城市内容以 `seedVersion` 合并到有上限的本地 catalog；升级刷新或补充精确 seed ID，保留用户地点和业务 ID 关联。未登记来源与授权的真实摄影不进入 seed，统一使用类别 fallback。
+
 ## ADR-001：不建设自有后端
 
 状态：Accepted（初始规划明确，当前代码一致）。

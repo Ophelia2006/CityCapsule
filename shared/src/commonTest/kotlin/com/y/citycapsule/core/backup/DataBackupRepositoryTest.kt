@@ -8,6 +8,7 @@ import com.y.citycapsule.core.theme.ThemeMode
 import com.y.citycapsule.core.capsule.CapsuleCatalog
 import com.y.citycapsule.core.capsule.CityCapsule
 import com.y.citycapsule.core.place.PlaceContract
+import com.y.citycapsule.core.place.PlaceSeedData
 import com.y.citycapsule.core.place.PlaceSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,12 +17,12 @@ import kotlin.test.assertTrue
 
 class DataBackupRepositoryTest {
     @Test
-    fun currentBackupRequiresV6ReaderSoLegacyReadersRejectIt() {
+    fun currentBackupRequiresV8ReaderSoLegacyReadersRejectIt() {
         val payload = JSONObject(awaitSnapshot(DataBackupRepository(InMemoryKeyValueStore())).payload)
 
-        assertEquals(6, payload.optInt("backupVersion"))
-        assertEquals(6, payload.optInt("schemaVersion"))
-        assertEquals(6, payload.optInt("minReaderVersion"))
+        assertEquals(8, payload.optInt("backupVersion"))
+        assertEquals(8, payload.optInt("schemaVersion"))
+        assertEquals(8, payload.optInt("minReaderVersion"))
         assertTrue(payload.optInt("backupVersion") != 1)
     }
 
@@ -72,7 +73,7 @@ class DataBackupRepositoryTest {
     fun previewRejectsBackupThatRequiresANewerReader() {
         val repository = DataBackupRepository(InMemoryKeyValueStore())
         val payload = JSONObject(awaitSnapshot(repository).payload).apply {
-            put("minReaderVersion", 7)
+            put("minReaderVersion", 9)
         }.toString()
 
         val result = awaitPreviewResult(
@@ -188,7 +189,7 @@ class DataBackupRepositoryTest {
         val catalog = get(storage, AppStorageKeys.Places.CATALOG)
 
         assertIs<BackupDataResult.Success<Unit>>(restore)
-        assertEquals(2, preview.placeCount)
+        assertEquals(PlaceSeedData.CATALOG.places.size + 1, preview.placeCount)
         assertEquals(PlaceContract.SCHEMA_VERSION, catalog.schemaVersion)
         assertEquals(
             PlaceSource.SEED,

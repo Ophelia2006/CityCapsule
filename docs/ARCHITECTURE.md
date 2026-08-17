@@ -118,17 +118,18 @@ AppShellPage
   → HomeRootContent
   → HomeStateHolder
      ├─ LocalProfileRepository.getProfileSnapshot()
+     ├─ ExploreCityRepository.get()
      ├─ PlaceRepository.getCatalogSnapshot()
      ├─ FavoriteRepository.getFavoriteIds()/toggleFavorite()
      └─ CapsuleRepository.getPublished()
   → HomeRecommendationPolicy
-     → 当前档案城市优先
+     → 只保留当前探索城市
      → 想去或尚未记录优先
      → 同优先级内按类别轮转
      → category enum + placeId 稳定兜底
 ```
 
-Home 不使用网络、天气、坐标或距离。最近记忆从已发布 Capsule 按创建时间倒序取最多 3 条，并用同次加载的 Place catalog 补充地点。快速记录先在 Home 内的可滚动选择器选择真实地点，再进入 `CapsuleEditor(placeId)`；空 catalog 时只提供新建地点。
+Home 不使用网络、天气或 AI 推荐。当前探索城市由 `explore.city_selection` 独立持久化，不覆盖 `profile.homeCity`；最近记忆从已发布 Capsule 按创建时间倒序取最多 3 条，并用同次加载的 Place catalog 补充地点。快速记录先选择当前城市的真实地点再进入 `CapsuleEditor(placeId)`。
 
 搜索覆盖名称、标签、城市、区域、地址、备注；支持类别、城市、区域和只看收藏过滤。没有在线 POI、距离、定位或推荐算法。
 
@@ -147,7 +148,7 @@ PlaceEditorPage(placeId?)
   → places.catalog 整体重写
 ```
 
-Repository 用内存 mutation queue 串行化本进程内写操作。Place catalog 当前为 schema v2：`PlaceSource` 区分 `SEED/USER`，`GeoPoint` 与 `PlaceVisualRef` 均可为空；现有 seed 显式标记为 `SEED`，新建地点固定为 `USER`。codec 可读取 v1，并仅按 `PlaceSeedData.IDS` 精确集合迁移来源，坐标和视觉引用默认 `null`，Place ID 不变。`SEED` 在 Repository 边界禁止删除；`USER` 仍由详情状态层先检查 Capsule 关联，成功删除后再尽力清理 Favorite ID。
+Repository 用内存 mutation queue 串行化本进程内写操作。Place catalog 当前为 schema v3：`PlaceSource` 区分 `SEED/USER/IMPORTED`；公共 `description`、私人 `personalNote`、`contentSource`、`GeoPoint` 与 `PlaceVisualRef` 均有独立字段。codec 可读取 v1/v2：旧 seed note 迁为 description，用户地点 note 迁为 personalNote；seedVersion 升级只刷新/补充精确 seed ID，不删除用户地点。当前内置上海 15 个、杭州 4 个地点；没有已授权真实摄影的 seed 使用类别 fallback。
 
 ### 城市碎片记录与回忆
 
@@ -276,6 +277,7 @@ AppShellPage / RecordRootContent
 | `cc_preferences` | `onboarding.completed_version` | long | OnboardingRepository | LaunchGate；重置时删除 |
 | `cc_cache` | `onboarding.draft` | JSON object | OnboardingStateHolder 经 Repository | 引导恢复；完成或重置时删除 |
 | `cc_preferences` | `places.catalog` | JSON object，最多 500 地点 | LocalPlaceRepository | 地点全流程；暂无整体清除 UI |
+| `cc_preferences` | `explore.city_selection` | JSON object，当前城市 + 最近城市 | LocalExploreCityRepository | Home/Explore/Map 共享浏览范围；用户确认切换时更新 |
 | `cc_preferences` | `favorites.place_ids` | JSON object，最多 500 ID | LocalFavoriteRepository | 列表/详情；取消、地点删除或悬空修复时更新 |
 | `cc_preferences` | `capsules.catalog` | JSON object，最多 500 条碎片 | LocalCapsuleRepository | 详情/时间轴/相册/地点记忆计数；发布、更新、删除时整体重写 |
 | `cc_cache` | `capsules.draft` | JSON object，单个可恢复草稿 | CapsuleEditor 经 Repository | 同一新建/编辑上下文恢复；匹配的发布或明确放弃时删除 |

@@ -26,6 +26,8 @@ import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.y.citycapsule.core.capsule.CapsuleDateFormatter
 import com.y.citycapsule.core.capsule.CapsuleRepository
+import com.y.citycapsule.core.city.ExploreCityRepository
+import com.y.citycapsule.core.city.ExploreCityRuntime
 import com.y.citycapsule.core.favorite.FavoriteRepository
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
@@ -70,6 +72,7 @@ import com.y.citycapsule.feature.place.displayName
 internal fun HomeRootContent(
     navigator: AppNavigator,
     profileRepository: LocalProfileRepository,
+    cityRepository: ExploreCityRepository,
     placeRepository: PlaceRepository,
     favoriteRepository: FavoriteRepository,
     capsuleRepository: CapsuleRepository,
@@ -80,9 +83,10 @@ internal fun HomeRootContent(
 ) {
     var uiState by remember { mutableStateOf(HomeUiState()) }
     var showPlacePicker by remember { mutableStateOf(false) }
-    val holder = remember(profileRepository, placeRepository, favoriteRepository, capsuleRepository, dateFormatter) {
+    val holder = remember(profileRepository, cityRepository, placeRepository, favoriteRepository, capsuleRepository, dateFormatter) {
         HomeStateHolder(
             profileRepository,
+            cityRepository,
             placeRepository,
             favoriteRepository,
             capsuleRepository,
@@ -92,7 +96,8 @@ internal fun HomeRootContent(
     }
     val placeRevision = PlaceFeatureRuntime.revision
     val capsuleRevision = CapsuleFeatureRuntime.revision
-    LaunchedEffect(holder, active, placeRevision, capsuleRevision) {
+    val cityRevision = ExploreCityRuntime.revision
+    LaunchedEffect(holder, active, placeRevision, capsuleRevision, cityRevision) {
         if (active) holder.load()
     }
 
@@ -155,9 +160,9 @@ internal fun HomeRootContent(
 private fun HomeProfileHeader(state: HomeUiState) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            AppCaptionText("当前档案城市")
+            AppCaptionText("当前探索城市")
             Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-            AppSectionTitle(state.profile.homeCity?.takeIf(String::isNotBlank) ?: "未设置城市")
+            AppSectionTitle(state.selectedCity.displayName)
         }
         AppProfileAvatar(state.profile.avatarPreset)
     }
@@ -313,7 +318,7 @@ private fun HomePlaceCard(
         PlaceCardModel(
             place.name,
             listOfNotNull(place.category.displayName(), place.district, place.city).joinToString(" · "),
-            place.note ?: place.address,
+            place.description ?: place.address,
             favorite,
             place.category.toFallbackKind()
         ),

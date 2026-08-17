@@ -1,5 +1,15 @@
 # CityCapsule 当前开发状态
 
+> 当前代码检查点（2026-08-17）：P2-7 已由 `486bc9a` 独立提交并通过 shared 测试、Android APK 与 HarmonyOS Hvigor test/signed HAP 构建；正式一级导航仍只有“探索 / 记录 / 我的”。本轮 Place V3、上海城市包、探索城市上下文和地点内容化尚在本地检查点中，以下旧日期段落若与本检查点冲突，以本段及当前代码为准。
+
+## 2026-08-17 地点与探索城市增量
+
+- `Place` schema v3 增加公共 `description`、私人 `personalNote`、`contentSource`、`IMPORTED` 来源、可选坐标和 `visualRef`。v1/v2 旧 seed note 迁为公共简介，用户地点 note 迁为私人备注；业务 ID 关联不变。
+- seedVersion 3 包含上海 15 个、杭州 4 个地点。上海地点均有稳定 ID、区、完整地址、WGS-84 坐标、分类、标签、简介和内容来源；没有已登记授权的真实摄影，统一使用类别 fallback。
+- `ExploreCityRepository` 独立持久化当前与最近探索城市。Home/Explore/Map 使用同一选择；主动定位经独立的受支持城市判定并要求确认，不覆盖档案城市，失败不妨碍手动选择。
+- 地点详情只把 `description` 作为公共介绍并展示内容来源。用户地点可从相册或相机设置托管封面；Capsule 照片不会自动成为公共封面。
+- 备份协议升至 v8，包含探索城市选择及用户地点托管封面的媒体收集/路径重写。shared 自动化通过，仍待双端旧安装、媒体和城市切换真机验收。
+
 > 账户迁移检查点：2026-07-30 当前 `main` 位于 `da99137 P1-1：Explore`，其后仍有固定操作层与文档的未提交增量。迁移或重新 clone 前必须先阅读 `MIGRATION_HANDOFF.md` 并保存工作树；不能只依赖远端 HEAD。
 
 ## 总体判断
@@ -20,10 +30,10 @@
 | MMKV bridge 与主题旧值迁移 | DONE | 双端 2.4.0、typed protocol、迁移状态和测试资产 |
 | Shared 主题与基础组件 | PARTIAL | 暖白/近黑/暖琥珀 Light/Dark token、统一 AppIcon 入口、PlaceCard/CapsuleCard、状态组件、Bottom Navigation 与 `AdaptivePane` 已存在；核心操作具备语义和 48dp 触控基线，浅色 Primary/白字约 4.87:1；图标仍是文本 glyph，Elevation 未完成视觉落地，双端辅助技术仍待验收 |
 | 本地档案与首次引导 | DONE | 启动决策、草稿恢复、保存/重置、双端 launch gate 和页面状态完整 |
-| 地点本地 CRUD / Place V2 | DONE（代码与自动化）/PARTIAL（设备升级验收） | schema v2 已加入 `PlaceSource`、可选 `GeoPoint`、可选 `PlaceVisualRef`；v1 按精确 seed ID 集合迁移且保留 ID，seed 禁止删除，用户地点继续执行 Capsule 关联检查；shared 180 项测试通过，仍待双端旧安装覆盖升级验证 |
+| 地点本地 CRUD / Place V3 | DONE（代码与自动化）/PARTIAL（设备升级验收） | schema v3 区分公共简介、私人备注和内容来源，支持 `SEED/USER/IMPORTED`、可选坐标/封面；v1/v2 迁移保留 ID，seed 增量合并不删除用户地点 |
 | 地点搜索/筛选 | DONE | 纯本地字段搜索、分类/城市/区域/收藏过滤和排序有单测 |
 | 收藏地点 | DONE（技术）/PARTIAL（产品） | 独立 ID 集合、容错、持久化完整；用户可见文案已改“想去”，底层保持 `Favorite*`；仍缺加入时间排序 |
-| 首页 | DONE（代码）/PARTIAL（设备体验） | 已聚合 Profile/Place/Favorite/Capsule Repository，展示档案城市与头像、问候与搜索入口、可解释本地排序 Hero、分类、想去/同城地点、最多 3 条真实最近记忆和真实地点选择后的快速记录；不展示天气、距离或 AI 推荐，仍待双端视觉与交互走查 |
+| 首页 | DONE（代码）/PARTIAL（设备体验） | 聚合 Profile/ExploreCity/Place/Favorite/Capsule；Hero 与辅助地点严格来自当前探索城市，使用可解释本地排序，不展示 AI 推荐 |
 | 设置 | DONE（代码与双端构建）/PARTIAL（双端设备体验） | Settings 已迁移 MVI；主题、隐私、关于、结构化数据/照片/缓存/恢复包占用、草稿与临时文件缓存清理均有真实实现；正式 UI 无 MMKV/Push/Replace/BackTo 等开发文案 |
 | 地点列表/详情 UI | PARTIAL（设备体验） | Explore 列表已完成搜索、筛选、主动定位、列表/地图切换、Marker 摘要与 typed detail route；地点详情已有记录 CTA 和有坐标地点的外部导航入口。仍无真实摄影；定位拒绝、地图异常降级及导航失败场景待双端验收 |
 | Profile UI | DONE（代码与自动化）/PARTIAL（设备体验） | 根页已重构为“我的城市档案”，聚合真实 Profile/Place/Favorite/Capsule 数据，展示碎片数、去过地点数、想去数、城市足迹和最多 3 个想去地点；编辑为 typed 二级 MVI 页面，清除档案位于 Settings 危险操作区；待双端设备验收 |
@@ -35,8 +45,8 @@
 | 相册、相机与业务文件媒体 | DONE（代码与双端构建）/PARTIAL（真机体验） | Editor 通过“拍照 / 从相册选择” Bottom Sheet 进入共享 capability；Android `TakePicture + FileProvider`、HarmonyOS `cameraPicker + saveUri/resultUri fallback` 均在拍照前创建 `images/original` 受控目标。HarmonyOS 首次真机暴露部分相机只返回 `resultUri`，现已回拷到预创建目标；取消/失败/空文件即时删除，成功只返回沙箱 `file://` 路径并复用既有 `imagePaths` 与引用保护清理。相机不可用时相册与纯文字仍可用；修复后仍待真机复验及取消/不可用/生命周期矩阵，且尚无缩略图。 |
 | 导入导出/备份 | DONE（代码、双端自动化/构建）/PARTIAL（双端设备验收） | 版本化 ZIP、持久数据与已引用照片导出、选择后完整 codec 校验、内容预览、确认前内部恢复包、媒体重定位、失败时结构化数据回滚与新照片清理已实现；草稿缓存不进入备份；shared/Android 测试、Harmony Hvigor test 与 signed HAP 构建通过，仍待双端系统文件选择器与失败场景真机验收 |
 | 定位/距离 | DONE（代码、自动化与双端构建）/PARTIAL（真机权限验收） | Explore 仅在用户主动点击时通过 `LocationCapability` 请求一次性前台位置；双端支持允许、拒绝、永久拒绝、服务关闭、不可用、失败/超时结果；位置不持久化，失败即隐藏距离，shared Haversine 只为具备坐标的地点计算直线距离；现有 seed 坐标仍为 null。外部导航尚未实现 |
-| 网络/天气/地理编码/路线 | NOT_STARTED | 无业务网络库与 RemoteDataSource |
-| 路线/漫游/轨迹/打卡/扫码/成就 | NOT_STARTED | 进阶规划，无当前模型或页面 |
+| 网络/天气/在线地理编码 | NOT_STARTED | 无业务网络库与 RemoteDataSource；当前反向城市判定仅覆盖内置支持城市中心附近 |
+| 路线/漫游/轨迹/打卡 | DONE（代码与构建）/PARTIAL（双端总验收） | `486bc9a` 已实现路线持久化、会话恢复、真实轨迹分片、打卡和总结；后台保活及双端移动/杀进程矩阵仍待验收；无“漫游”一级 Tab |
 | AI/游记/明信片/接续/加密备份 | NOT_STARTED | 复杂版规划，无当前实现 |
 | iOS/H5/小程序产品支持 | UNKNOWN | 有模板/target，缺 CityCapsule 功能验收；h5App/miniApp 目录缺失 |
 

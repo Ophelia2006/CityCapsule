@@ -8,7 +8,7 @@ internal fun placeFixture(
     category: PlaceCategory = PlaceCategory.CULTURE,
     address: String? = "人民大道 201 号",
     tags: List<String> = listOf("博物馆", "历史"),
-    note: String? = "适合雨天参观",
+    personalNote: String? = "适合雨天参观",
     createdAtEpochMs: Long = 100L,
     updatedAtEpochMs: Long = 200L
 ): Place = Place(
@@ -19,7 +19,7 @@ internal fun placeFixture(
     category = category,
     address = address,
     tags = tags,
-    note = note,
+    personalNote = personalNote,
     createdAtEpochMs = createdAtEpochMs,
     updatedAtEpochMs = updatedAtEpochMs
 )

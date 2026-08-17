@@ -34,6 +34,9 @@ import com.y.citycapsule.app.theme.KuiklyAppThemeHost
 import com.y.citycapsule.app.theme.RuntimeAppTheme
 import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
+import com.y.citycapsule.core.city.CityRegistry
+import com.y.citycapsule.core.city.LocalExploreCityRepository
+import com.y.citycapsule.core.city.SupportedCityReverseGeocoder
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteTable
@@ -44,7 +47,6 @@ import com.y.citycapsule.core.map.AmapNativeView
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceValidator
-import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.designsystem.component.AppActionTopBar
 import com.y.citycapsule.designsystem.component.AppBodyText
@@ -90,15 +92,17 @@ internal class PlaceListPager : BasePager() {
         val storage = KuiklyKeyValueStore(this)
         val placeRepository = LocalPlaceRepository(storage)
         val favoriteRepository = LocalFavoriteRepository(storage, placeRepository)
+        val cityRepository = LocalExploreCityRepository(storage)
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
             PlaceListScreen(
                 mode = mode,
                 navigator = navigator,
-                profileRepository = LocalProfileRepository(storage),
+                cityRepository = cityRepository,
                 placeRepository = placeRepository,
                 favoriteRepository = favoriteRepository,
                 locationCapability = KuiklyLocationCapability(this),
+                reverseGeocodeCapability = SupportedCityReverseGeocoder,
                 themeHost = themeHost,
                 initialCategory = initialCategory
             )
@@ -114,15 +118,17 @@ internal class FavoritesPager : BasePager() {
         val storage = KuiklyKeyValueStore(this)
         val placeRepository = LocalPlaceRepository(storage)
         val favoriteRepository = LocalFavoriteRepository(storage, placeRepository)
+        val cityRepository = LocalExploreCityRepository(storage)
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
             PlaceListScreen(
                 mode = PlaceListMode.FAVORITES,
                 navigator = navigator,
-                profileRepository = LocalProfileRepository(storage),
+                cityRepository = cityRepository,
                 placeRepository = placeRepository,
                 favoriteRepository = favoriteRepository,
                 locationCapability = KuiklyLocationCapability(this),
+                reverseGeocodeCapability = SupportedCityReverseGeocoder,
                 themeHost = themeHost
             )
         }
@@ -133,10 +139,11 @@ internal class FavoritesPager : BasePager() {
 private fun PlaceListScreen(
     mode: PlaceListMode,
     navigator: AppNavigator,
-    profileRepository: LocalProfileRepository,
+    cityRepository: LocalExploreCityRepository,
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
     locationCapability: LocationCapability,
+    reverseGeocodeCapability: com.y.citycapsule.core.city.ReverseGeocodeCapability,
     themeHost: AppThemeHost,
     initialCategory: PlaceCategory? = null
 ) {
@@ -144,18 +151,20 @@ private fun PlaceListScreen(
     val storeScope = rememberCoroutineScope()
     val invalidationOwner = remember { PlaceFeatureRuntime.newOwnerToken() }
     val store = remember(
-        profileRepository,
+        cityRepository,
         placeRepository,
         favoriteRepository,
         locationCapability,
+        reverseGeocodeCapability,
         mode,
         initialCategory
     ) {
         PlaceListStore(
-            profileRepository = profileRepository,
+            cityRepository = cityRepository,
             placeRepository = placeRepository,
             favoriteRepository = favoriteRepository,
             locationCapability = locationCapability,
+            reverseGeocodeCapability = reverseGeocodeCapability,
             parentScope = storeScope,
             mode = mode,
             initialCategory = initialCategory
@@ -164,6 +173,7 @@ private fun PlaceListScreen(
     val uiState by store.state.collectAsState()
     val catalogRevision = PlaceFeatureRuntime.revision
     var showFilters by remember { mutableStateOf(false) }
+    var showCities by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var selectedPlaceId by remember { mutableStateOf<String?>(null) }
     val expanded = LocalConfiguration.current.pageViewWidth.dp >=
@@ -212,6 +222,15 @@ private fun PlaceListScreen(
                     null
                 }
                 )
+                if (mode == PlaceListMode.ALL) {
+                    AppButton(
+                        text = if (uiState.browseAllCities) "全部城市" else uiState.selectedCity.displayName,
+                        onClick = { showCities = true },
+                        variant = AppButtonVariant.TEXT,
+                        enabled = uiState.status == PlaceListUiStatus.READY
+                    )
+                    Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+                }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
                 SearchField(
                 value = uiState.query,
@@ -277,6 +296,41 @@ private fun PlaceListScreen(
             AdvancedFilters(uiState, store::dispatch)
         }
 
+        AppBottomSheet(
+            visible = showCities,
+            title = "选择探索城市",
+            onDismiss = { showCities = false },
+            dismissLabel = "取消"
+        ) {
+            CityPickerContent(
+                state = uiState,
+                onCitySelected = { cityId ->
+                    showCities = false
+                    store.dispatch(PlaceListIntent.ExploreCitySelected(cityId))
+                },
+                onAllCitiesSelected = {
+                    showCities = false
+                    store.dispatch(PlaceListIntent.AllCitiesSelected)
+                },
+                onUseCurrentLocation = {
+                    showCities = false
+                    store.dispatch(PlaceListIntent.CurrentLocationRequested)
+                }
+            )
+        }
+
+        uiState.detectedCity?.let { city ->
+            AppConfirmDialog(
+                title = "切换到${city.displayName}？",
+                message = "定位结果只会更新当前探索城市，不会修改你的档案城市。",
+                confirmText = "切换城市",
+                confirmVariant = AppButtonVariant.PRIMARY,
+                dismissText = "暂不切换",
+                onConfirm = { store.dispatch(PlaceListIntent.DetectedCityConfirmed) },
+                onDismiss = { store.dispatch(PlaceListIntent.DetectedCityDismissed) }
+            )
+        }
+
         AppOverflowMenu(
             expanded = showMenu,
             items = listOf(
@@ -295,6 +349,38 @@ private fun PlaceListScreen(
             onDismiss = { showMenu = false }
         )
     }
+}
+
+@Composable
+private fun CityPickerContent(
+    state: PlaceListUiState,
+    onCitySelected: (String) -> Unit,
+    onAllCitiesSelected: () -> Unit,
+    onUseCurrentLocation: () -> Unit
+) {
+    val recent = state.recentCityIds.mapNotNull(CityRegistry::byId)
+    val ordered = (recent + CityRegistry.supportedCities).distinctBy { it.id }
+    ordered.forEach { city ->
+        AppButton(
+            text = if (!state.browseAllCities && city.id == state.selectedCity.id) "${city.displayName} · 当前" else city.displayName,
+            onClick = { onCitySelected(city.id) },
+            variant = AppButtonVariant.TEXT,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    AppButton(
+        text = "全部城市",
+        onClick = onAllCitiesSelected,
+        variant = AppButtonVariant.TEXT,
+        modifier = Modifier.fillMaxWidth()
+    )
+    AppButton(
+        text = "使用当前位置",
+        onClick = onUseCurrentLocation,
+        variant = AppButtonVariant.SECONDARY,
+        modifier = Modifier.fillMaxWidth()
+    )
+    AppSecondaryText("定位失败、拒绝或超时时，仍可继续手动选择城市。")
 }
 
 @Composable
@@ -473,7 +559,7 @@ private fun AdvancedFilters(
         value = state.filter.city.orEmpty(),
         onValueChange = { dispatch(PlaceListIntent.CityChanged(it)) },
         label = "城市",
-        placeholder = state.homeCity?.let { "例如：$it" } ?: "例如：上海",
+        placeholder = "例如：${state.selectedCity.displayName}",
         maxLength = PlaceValidator.CITY_MAX_LENGTH,
         enabled = state.status == PlaceListUiStatus.READY
     )
@@ -614,7 +700,7 @@ private fun PlaceListDetailPane(
                 .joinToString(" · ")
         )
         Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
-        AppBodyText(place.note ?: "这个地点暂时还没有补充介绍。")
+        AppBodyText(place.description ?: "这个地点暂时还没有补充介绍。")
         Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
         AppButton(
             text = if (favorite) "移出想去" else "加入想去",

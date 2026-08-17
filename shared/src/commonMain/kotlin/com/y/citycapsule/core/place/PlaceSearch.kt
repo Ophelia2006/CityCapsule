@@ -81,7 +81,9 @@ object PlaceSearchEngine {
             place.city,
             place.district.orEmpty(),
             place.address.orEmpty(),
-            place.note.orEmpty()
+            place.description.orEmpty(),
+            place.personalNote.orEmpty(),
+            place.contentSource.orEmpty()
         ).map(::normalizeSearchText)
         val allFields = listOf(name) + tags + locationFields
         if (!terms.all { term -> allFields.any { field -> term in field } }) {

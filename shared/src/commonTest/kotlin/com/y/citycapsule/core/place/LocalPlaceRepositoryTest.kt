@@ -24,7 +24,7 @@ class LocalPlaceRepositoryTest {
         val first = repository.catalogNow()
         val second = repository.catalogNow()
 
-        assertEquals(8, first.successValue().places.size)
+        assertEquals(PlaceSeedData.CATALOG.places.size, first.successValue().places.size)
         assertEquals(first, second)
         assertEquals(
             first,
@@ -66,7 +66,7 @@ class LocalPlaceRepositoryTest {
         repository.getCatalogSnapshot { snapshot = it }
 
         assertEquals(PlaceCatalogSource.MEMORY_FALLBACK, snapshot?.source)
-        assertEquals(8, snapshot?.catalog?.places?.size)
+        assertEquals(PlaceSeedData.CATALOG.places.size, snapshot?.catalog?.places?.size)
         assertEquals(StorageErrorCode.NATIVE_FAILURE, snapshot?.warning?.code)
     }
 

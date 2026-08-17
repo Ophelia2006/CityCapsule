@@ -3,6 +3,8 @@ package com.y.citycapsule.core.backup
 import com.tencent.kuikly.core.nvi.serialization.json.JSONArray
 import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
 import com.y.citycapsule.core.capsule.CapsuleCatalog
+import com.y.citycapsule.core.place.PlaceVisualRef
+import com.y.citycapsule.core.place.PlaceVisualType
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.KeyValueStore
 import com.y.citycapsule.core.storage.StorageBatchResult
@@ -81,6 +83,23 @@ class DataBackupRepository(private val storage: KeyValueStore) {
                 entry.copy(
                     encodedValue = AppStorageKeys.Capsules.CATALOG.codec.encode(updated)
                 )
+            } else if (entry.key == AppStorageKeys.Places.CATALOG && entry.exists) {
+                val catalog = entry.encodedValue
+                    ?.let(AppStorageKeys.Places.CATALOG.codec::decode)
+                    ?: return callback(BackupDataResult.Failure("地点数据无法解码。"))
+                val updated = catalog.copy(
+                    places = catalog.places.map { place ->
+                        val visual = place.visualRef
+                        if (visual?.type == PlaceVisualType.MANAGED_FILE) {
+                            place.copy(
+                                visualRef = pathMapping[visual.value]?.let {
+                                    PlaceVisualRef(PlaceVisualType.MANAGED_FILE, it)
+                                }
+                            )
+                        } else place
+                    }
+                )
+                entry.copy(encodedValue = AppStorageKeys.Places.CATALOG.codec.encode(updated))
             } else {
                 entry
             }
@@ -136,7 +155,12 @@ class DataBackupRepository(private val storage: KeyValueStore) {
             LocalStorageSnapshot(
                 payload = payload,
                 structuredBytesApprox = payload.length.toLong(),
-                mediaPaths = capsules.capsules.flatMap { it.imagePaths }.distinct(),
+                mediaPaths = (
+                    capsules.capsules.flatMap { it.imagePaths } +
+                        places?.places.orEmpty().mapNotNull { place ->
+                            place.visualRef?.takeIf { it.type == PlaceVisualType.MANAGED_FILE }?.value
+                        }
+                    ).distinct(),
                 profileCount = if (profile) 1 else 0,
                 placeCount = places?.places?.size ?: 0,
                 favoriteCount = favorites?.placeIds?.size ?: 0,
@@ -193,6 +217,9 @@ class DataBackupRepository(private val storage: KeyValueStore) {
             }
             if (backupVersion < 5 && normalizedEntries.none { it.key == AppStorageKeys.Roaming.TRACK }) normalizedEntries = normalizedEntries + BackupEntry(AppStorageKeys.Roaming.TRACK, false, null)
             if (backupVersion < 6 && normalizedEntries.none { it.key == AppStorageKeys.Roaming.CHECK_INS }) normalizedEntries = normalizedEntries + BackupEntry(AppStorageKeys.Roaming.CHECK_INS, false, null)
+            if (backupVersion < 8 && normalizedEntries.none { it.key == AppStorageKeys.Explore.CITY_SELECTION }) {
+                normalizedEntries = normalizedEntries + BackupEntry(AppStorageKeys.Explore.CITY_SELECTION, false, null)
+            }
             if (normalizedEntries.map { it.key }.toSet() != PERSISTENT_KEYS.toSet()) {
                 return BackupDataResult.Failure("备份数据清单不完整。")
             }
@@ -216,7 +243,12 @@ class DataBackupRepository(private val storage: KeyValueStore) {
                     favoriteCount = favorites?.placeIds?.size ?: 0,
                     capsuleCount = capsules.capsules.size,
                     routeCount = routes?.routes?.size ?: 0,
-                    photoCount = capsules.capsules.flatMap { it.imagePaths }.distinct().size,
+                    photoCount = (
+                        capsules.capsules.flatMap { it.imagePaths } +
+                            places?.places.orEmpty().mapNotNull { place ->
+                                place.visualRef?.takeIf { it.type == PlaceVisualType.MANAGED_FILE }?.value
+                            }
+                        ).distinct().size,
                     entries = normalizedEntries
                 )
             )
@@ -272,12 +304,13 @@ class DataBackupRepository(private val storage: KeyValueStore) {
     private companion object {
         const val APP_ID = "CityCapsule"
         const val MIN_SUPPORTED_BACKUP_VERSION = 1
-        const val BACKUP_VERSION = 6
+        const val BACKUP_VERSION = 8
         val PERSISTENT_KEYS = listOf(
             AppStorageKeys.Settings.THEME_MODE,
             AppStorageKeys.Profile.LOCAL_PROFILE,
             AppStorageKeys.Onboarding.COMPLETED_VERSION,
             AppStorageKeys.Places.CATALOG,
+            AppStorageKeys.Explore.CITY_SELECTION,
             AppStorageKeys.Favorites.PLACE_IDS,
             AppStorageKeys.Capsules.CATALOG,
             AppStorageKeys.Routes.CATALOG,

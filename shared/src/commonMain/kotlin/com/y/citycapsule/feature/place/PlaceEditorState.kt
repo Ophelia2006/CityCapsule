@@ -1,10 +1,16 @@
 package com.y.citycapsule.feature.place
 
+import com.y.citycapsule.core.media.CameraCapability
+import com.y.citycapsule.core.media.CameraCaptureResult
+import com.y.citycapsule.core.media.PhotoPickerCapability
+import com.y.citycapsule.core.media.PhotoPickerResult
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceDraft
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlaceValidator
+import com.y.citycapsule.core.place.PlaceVisualRef
+import com.y.citycapsule.core.place.PlaceVisualType
 import com.y.citycapsule.core.storage.StorageResult
 
 enum class PlaceEditorMode {
@@ -111,7 +117,39 @@ class PlaceEditorStateHolder(
         copy(tags = value.split(',', '，').map(String::trim).filter(String::isNotEmpty))
     }
 
-    fun updateNote(value: String) = updateDraft { copy(note = value) }
+    fun updateNote(value: String) = updateDraft { copy(personalNote = value) }
+
+    fun updateDescription(value: String) = updateDraft { copy(description = value) }
+
+    fun captureCover(camera: CameraCapability) {
+        if (state.status != PlaceEditorUiStatus.READY) return
+        camera.captureImage { result ->
+            when (result) {
+                is CameraCaptureResult.Success -> setCover(result.path)
+                CameraCaptureResult.Cancelled -> Unit
+                is CameraCaptureResult.Failure -> update(state.copy(notice = PlaceFeatureNotice(result.message, PlaceNoticeTone.ERROR)))
+                CameraCaptureResult.Unsupported -> update(state.copy(notice = PlaceFeatureNotice("当前设备不支持拍照，可以从相册选择封面。", PlaceNoticeTone.WARNING)))
+            }
+        }
+    }
+
+    fun pickCover(photoPicker: PhotoPickerCapability) {
+        if (state.status != PlaceEditorUiStatus.READY) return
+        photoPicker.pickImages(1) { result ->
+            when (result) {
+                is PhotoPickerResult.Success -> result.paths.firstOrNull()?.let(::setCover)
+                PhotoPickerResult.Cancelled -> Unit
+                is PhotoPickerResult.Failure -> update(state.copy(notice = PlaceFeatureNotice(result.message, PlaceNoticeTone.ERROR)))
+                PhotoPickerResult.Unsupported -> update(state.copy(notice = PlaceFeatureNotice("当前设备不支持相册选择。", PlaceNoticeTone.WARNING)))
+            }
+        }
+    }
+
+    fun removeCover() = updateDraft { copy(visualRef = null) }
+
+    private fun setCover(path: String) = updateDraft {
+        copy(visualRef = PlaceVisualRef(PlaceVisualType.MANAGED_FILE, path))
+    }
 
     fun tagsText(): String = state.draft.tags.joinToString("，")
 
@@ -184,7 +222,11 @@ class PlaceEditorStateHolder(
                     category = normalized.category,
                     address = normalized.address,
                     tags = normalized.tags,
-                    note = normalized.note
+                    description = normalized.description,
+                    personalNote = normalized.personalNote,
+                    contentSource = normalized.contentSource,
+                    geoPoint = normalized.geoPoint,
+                    visualRef = normalized.visualRef
                 )
             ) { result ->
                 handleSaveResult(result, created = false, onSaved)
@@ -266,7 +308,11 @@ class PlaceEditorStateHolder(
         category = category,
         address = address,
         tags = tags,
-        note = note
+        description = description,
+        personalNote = personalNote,
+        contentSource = contentSource,
+        geoPoint = geoPoint,
+        visualRef = visualRef
     )
 
     private fun update(nextState: PlaceEditorUiState) {

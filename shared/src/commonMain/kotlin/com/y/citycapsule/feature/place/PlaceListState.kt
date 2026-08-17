@@ -2,6 +2,13 @@ package com.y.citycapsule.feature.place
 
 import com.y.citycapsule.core.favorite.FavoritePlaceIds
 import com.y.citycapsule.core.favorite.FavoriteRepository
+import com.y.citycapsule.core.city.CityDefinition
+import com.y.citycapsule.core.city.CityRegistry
+import com.y.citycapsule.core.city.ExploreCityRepository
+import com.y.citycapsule.core.city.ExploreCityRuntime
+import com.y.citycapsule.core.city.ExploreCitySelection
+import com.y.citycapsule.core.city.ReverseGeocodeCapability
+import com.y.citycapsule.core.city.ReverseGeocodeResult
 import com.y.citycapsule.core.mvi.MviStore
 import com.y.citycapsule.core.location.GeoDistance
 import com.y.citycapsule.core.location.LocationCapability
@@ -19,8 +26,6 @@ import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceFilter
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlaceSearchEngine
-import com.y.citycapsule.core.profile.LocalProfileRepository
-import com.y.citycapsule.core.profile.LocalProfileSnapshot
 import com.y.citycapsule.core.storage.StorageResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -63,7 +68,10 @@ enum class PlaceDirectoryViewMode { LIST, MAP }
 data class PlaceListUiState(
     val status: PlaceListUiStatus = PlaceListUiStatus.LOADING,
     val mode: PlaceListMode = PlaceListMode.ALL,
-    val homeCity: String? = null,
+    val selectedCity: CityDefinition = CityRegistry.byId(CityRegistry.DEFAULT_CITY_ID)!!,
+    val recentCityIds: List<String> = listOf(CityRegistry.DEFAULT_CITY_ID),
+    val browseAllCities: Boolean = false,
+    val detectedCity: CityDefinition? = null,
     val catalogPlaces: List<Place> = emptyList(),
     val visiblePlaces: List<Place> = emptyList(),
     val favoriteIds: Set<String> = emptySet(),
@@ -94,8 +102,7 @@ data class PlaceListUiState(
         ).count { it }
 
     val directoryContext: String
-        get() = homeCity?.takeIf(String::isNotBlank)?.let { "$it 优先 · 本地点目录" }
-            ?: "本地点目录"
+        get() = if (browseAllCities) "全部城市" else "${selectedCity.displayName} · 本地点目录"
 
     val contentState: PlaceListContentState
         get() = when {
@@ -120,7 +127,7 @@ data class PlaceListUiState(
             val markers = visiblePlaces.mapNotNull { place ->
                 place.geoPoint?.let { MapMarkerModel(place.id, place.name, it) }
             }
-            val fallbackCenter = markers.firstOrNull()?.position
+            val fallbackCenter = markers.firstOrNull()?.position ?: selectedCity.centerPoint
             return ExploreMapViewState(
                 markers = markers,
                 selectedPlaceId = selectedMapPlaceId,
@@ -148,6 +155,10 @@ sealed interface PlaceListIntent {
     data object BackClicked : PlaceListIntent
     data object ExploreClicked : PlaceListIntent
     data object CurrentLocationRequested : PlaceListIntent
+    data class ExploreCitySelected(val cityId: String) : PlaceListIntent
+    data object AllCitiesSelected : PlaceListIntent
+    data object DetectedCityConfirmed : PlaceListIntent
+    data object DetectedCityDismissed : PlaceListIntent
     data object ListViewSelected : PlaceListIntent
     data object MapViewSelected : PlaceListIntent
     data object MapPrivacyAccepted : PlaceListIntent
@@ -165,10 +176,11 @@ sealed interface PlaceListEffect {
 
 internal sealed interface PlaceListMutation {
     data object LoadStarted : PlaceListMutation
-    data class ProfileLoaded(
-        val homeCity: String?,
-        val recoveredWithWarning: Boolean
-    ) : PlaceListMutation
+    data class CityContextLoaded(val selection: ExploreCitySelection) : PlaceListMutation
+    data class CityContextFailed(val message: String) : PlaceListMutation
+    data class DetectedCity(val city: CityDefinition?) : PlaceListMutation
+    data object AllCities : PlaceListMutation
+    data object DetectionDismissed : PlaceListMutation
     data class CatalogLoaded(val snapshot: PlaceCatalogSnapshot) : PlaceListMutation
     data class FavoritesLoaded(
         val result: StorageResult<FavoritePlaceIds>
@@ -209,17 +221,37 @@ internal object PlaceListReducer {
             busyFavoriteId = null,
             notice = null
         )
-        is PlaceListMutation.ProfileLoaded -> state.copy(
-            homeCity = mutation.homeCity?.trim()?.takeIf(String::isNotEmpty),
-            notice = if (mutation.recoveredWithWarning) {
-                PlaceFeatureNotice(
-                    "档案城市暂时无法读取，当前仍可浏览本地点目录。",
-                    PlaceNoticeTone.WARNING
-                )
+        is PlaceListMutation.CityContextLoaded -> {
+            val city = CityRegistry.byId(mutation.selection.selectedCityId) ?: state.selectedCity
+            state.copy(
+                selectedCity = city,
+                recentCityIds = mutation.selection.recentCityIds,
+                browseAllCities = false,
+                detectedCity = null,
+                filter = if (state.mode == PlaceListMode.ALL) {
+                    state.filter.copy(city = city.displayName)
+                } else {
+                    state.filter
+                }
+            ).withSearchResults()
+        }
+        is PlaceListMutation.CityContextFailed -> state.copy(
+            notice = PlaceFeatureNotice(mutation.message, PlaceNoticeTone.WARNING)
+        )
+        is PlaceListMutation.DetectedCity -> state.copy(
+            detectedCity = mutation.city,
+            locationMessage = if (mutation.city == null) {
+                "当前位置不在已支持城市中，仍可手动选择城市。"
             } else {
-                state.notice
+                "已识别为${mutation.city.displayName}，确认后切换探索城市。"
             }
+        )
+        PlaceListMutation.AllCities -> state.copy(
+            browseAllCities = true,
+            detectedCity = null,
+            filter = state.filter.copy(city = null)
         ).withSearchResults()
+        PlaceListMutation.DetectionDismissed -> state.copy(detectedCity = null)
         is PlaceListMutation.CatalogLoaded -> state.copy(
             catalogPlaces = mutation.snapshot.catalog.places,
             catalogSource = mutation.snapshot.source,
@@ -271,12 +303,15 @@ internal object PlaceListReducer {
             state
         }
         PlaceListMutation.ClearAdvancedFilters -> ifReady(state) {
-            copy(
-                filter = forcedFilter(mode).copy(categories = filter.categories)
-            ).withSearchResults()
+            copy(filter = forcedFilter(mode).copy(
+                categories = filter.categories,
+                city = selectedCity.displayName.takeIf { mode == PlaceListMode.ALL }
+            ), browseAllCities = false).withSearchResults()
         }
         PlaceListMutation.ClearAllFilters -> ifReady(state) {
-            copy(filter = forcedFilter(mode)).withSearchResults()
+            copy(filter = forcedFilter(mode).copy(
+                city = selectedCity.displayName.takeIf { mode == PlaceListMode.ALL }
+            ), browseAllCities = false).withSearchResults()
         }
         is PlaceListMutation.FavoriteToggleStarted -> state.copy(
             busyFavoriteId = mutation.placeId
@@ -395,11 +430,14 @@ internal object PlaceListReducer {
 }
 
 class PlaceListStore(
-    private val profileRepository: LocalProfileRepository,
+    private val cityRepository: ExploreCityRepository,
     private val placeRepository: PlaceRepository,
     private val favoriteRepository: FavoriteRepository,
     private val locationCapability: LocationCapability = LocationCapability {
         it(LocationResult.Unavailable)
+    },
+    private val reverseGeocodeCapability: ReverseGeocodeCapability = ReverseGeocodeCapability {
+        _, callback -> callback(ReverseGeocodeResult.UnsupportedCity)
     },
     parentScope: CoroutineScope,
     mode: PlaceListMode = PlaceListMode.ALL,
@@ -420,6 +458,8 @@ class PlaceListStore(
             val operation: Long,
             val result: LocationResult
         ) : Event
+        data class CitySelectionResult(val result: StorageResult<ExploreCitySelection>) : Event
+        data class ReverseGeocodeResultEvent(val result: ReverseGeocodeResult) : Event
     }
 
     private val job = SupervisorJob(parentScope.coroutineContext[Job])
@@ -443,6 +483,8 @@ class PlaceListStore(
                     is Event.Mutation -> handleMutation(event)
                     is Event.FavoriteResult -> handleFavoriteResult(event)
                     is Event.LocationResultEvent -> handleLocationResult(event)
+                    is Event.CitySelectionResult -> handleCitySelectionResult(event.result)
+                    is Event.ReverseGeocodeResultEvent -> handleReverseGeocodeResult(event.result)
                 }
             }
         }
@@ -502,6 +544,10 @@ class PlaceListStore(
                 PlaceListEffect.BackToExplore
             )
             PlaceListIntent.CurrentLocationRequested -> startLocationRequest()
+            is PlaceListIntent.ExploreCitySelected -> selectCity(intent.cityId)
+            PlaceListIntent.AllCitiesSelected -> reduce(PlaceListMutation.AllCities)
+            PlaceListIntent.DetectedCityConfirmed -> mutableState.value.detectedCity?.let { selectCity(it.id) }
+            PlaceListIntent.DetectedCityDismissed -> reduce(PlaceListMutation.DetectionDismissed)
             PlaceListIntent.ListViewSelected -> reduce(PlaceListMutation.ListViewSelected)
             PlaceListIntent.MapViewSelected -> reduce(
                 if (mutableState.value.mapPrivacyAccepted) {
@@ -534,8 +580,12 @@ class PlaceListStore(
     private fun startLoad() {
         val generation = ++loadGeneration
         reduce(PlaceListMutation.LoadStarted)
-        profileRepository.getProfileSnapshot { snapshot ->
-            enqueue(generation, profileMutation(snapshot))
+        cityRepository.get { result ->
+            enqueue(
+                generation,
+                if (result is StorageResult.Success) PlaceListMutation.CityContextLoaded(result.value)
+                else PlaceListMutation.CityContextFailed("探索城市暂时无法读取，当前使用上海目录。")
+            )
         }
     }
 
@@ -543,7 +593,8 @@ class PlaceListStore(
         if (event.generation != null && event.generation != loadGeneration) return
         reduce(event.value)
         when (event.value) {
-            is PlaceListMutation.ProfileLoaded -> {
+            is PlaceListMutation.CityContextLoaded,
+            is PlaceListMutation.CityContextFailed -> {
                 val generation = event.generation ?: return
                 placeRepository.getCatalogSnapshot { snapshot ->
                     enqueue(generation, PlaceListMutation.CatalogLoaded(snapshot))
@@ -606,6 +657,33 @@ class PlaceListStore(
     private fun handleLocationResult(event: Event.LocationResultEvent) {
         if (event.operation != locationOperation) return
         reduce(PlaceListMutation.LocationResolved(event.result))
+        val success = event.result as? LocationResult.Success ?: return
+        reverseGeocodeCapability.resolve(success.point) { result ->
+            if (!disposed) events.trySend(Event.ReverseGeocodeResultEvent(result))
+        }
+    }
+
+    private fun selectCity(cityId: String) {
+        cityRepository.select(cityId) { result ->
+            if (!disposed) events.trySend(Event.CitySelectionResult(result))
+        }
+    }
+
+    private fun handleCitySelectionResult(result: StorageResult<ExploreCitySelection>) {
+        if (result is StorageResult.Success) {
+            reduce(PlaceListMutation.CityContextLoaded(result.value))
+            ExploreCityRuntime.invalidate()
+        } else {
+            reduce(PlaceListMutation.CityContextFailed("城市切换失败，请重试。"))
+        }
+    }
+
+    private fun handleReverseGeocodeResult(result: ReverseGeocodeResult) {
+        reduce(
+            PlaceListMutation.DetectedCity(
+                (result as? ReverseGeocodeResult.SupportedCity)?.city
+            )
+        )
     }
 
     private fun enqueue(generation: Long, mutation: PlaceListMutation) {
@@ -616,11 +694,6 @@ class PlaceListStore(
         mutableState.value = PlaceListReducer.reduce(mutableState.value, mutation)
     }
 
-    private fun profileMutation(snapshot: LocalProfileSnapshot) =
-        PlaceListMutation.ProfileLoaded(
-            homeCity = snapshot.profile.homeCity,
-            recoveredWithWarning = snapshot.warning != null
-        )
 }
 
 internal fun initialState(
@@ -644,25 +717,13 @@ internal fun PlaceListUiState.withSearchResults(): PlaceListUiState {
         query = query,
         filter = filter
     )
-    val currentCity = homeCity?.trim().orEmpty()
-    val places = if (
-        query.isBlank() &&
-        filter.city.isNullOrBlank() &&
-        currentCity.isNotEmpty()
-    ) {
-        result.places.sortedBy { place ->
-            if (place.city.equals(currentCity, ignoreCase = true)) 0 else 1
-        }
-    } else {
-        result.places
-    }
-    return copy(visiblePlaces = places, filter = result.appliedFilter)
+    return copy(visiblePlaces = result.places, filter = result.appliedFilter)
 }
 
 private fun sourceNotice(source: PlaceCatalogSource): PlaceFeatureNotice? = when (source) {
     PlaceCatalogSource.PERSISTED -> null
     PlaceCatalogSource.INITIALIZED -> PlaceFeatureNotice(
-        "已准备 8 个离线示例地点，也可以添加自己的地点。",
+        "已准备版本化离线城市地点，也可以添加自己的地点。",
         PlaceNoticeTone.NEUTRAL
     )
     PlaceCatalogSource.MEMORY_FALLBACK -> PlaceFeatureNotice(

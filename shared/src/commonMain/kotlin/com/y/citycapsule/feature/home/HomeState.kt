@@ -1,5 +1,8 @@
 package com.y.citycapsule.feature.home
 
+import com.y.citycapsule.core.city.CityDefinition
+import com.y.citycapsule.core.city.CityRegistry
+import com.y.citycapsule.core.city.ExploreCityRepository
 import com.y.citycapsule.core.capsule.CapsuleDateFormatter
 import com.y.citycapsule.core.capsule.CapsuleRepository
 import com.y.citycapsule.core.capsule.CityCapsule
@@ -22,6 +25,7 @@ data class HomeSupportingSection(val title: String, val placeIds: List<String>)
 data class HomeUiState(
     val status: HomeUiStatus = HomeUiStatus.LOADING,
     val profile: LocalProfile = LocalProfile.DEFAULT,
+    val selectedCity: CityDefinition = requireNotNull(CityRegistry.byId(CityRegistry.DEFAULT_CITY_ID)),
     val rankedPlaces: List<Place> = emptyList(),
     val supportingPlaceIds: List<String> = emptyList(),
     val supportingTitle: String = "换一种逛法",
@@ -102,6 +106,7 @@ object HomeRecommendationPolicy {
 
 class HomeStateHolder(
     private val profileRepository: LocalProfileRepository,
+    private val cityRepository: ExploreCityRepository,
     private val placeRepository: PlaceRepository,
     private val favoriteRepository: FavoriteRepository,
     private val capsuleRepository: CapsuleRepository,
@@ -118,7 +123,12 @@ class HomeStateHolder(
         update(state.copy(status = HomeUiStatus.LOADING, busyFavoriteId = null))
         profileRepository.getProfileSnapshot { profileSnapshot ->
             if (generation != loadGeneration) return@getProfileSnapshot
-            placeRepository.getCatalogSnapshot { catalogSnapshot ->
+            cityRepository.get city@{ cityResult ->
+                if (generation != loadGeneration) return@city
+                val selectedCity = (cityResult as? StorageResult.Success)
+                    ?.value?.selectedCityId?.let(CityRegistry::byId)
+                    ?: requireNotNull(CityRegistry.byId(CityRegistry.DEFAULT_CITY_ID))
+                placeRepository.getCatalogSnapshot { catalogSnapshot ->
                 if (generation != loadGeneration) return@getCatalogSnapshot
                 favoriteRepository.getFavoriteIds { favoriteResult ->
                     if (generation != loadGeneration) return@getFavoriteIds
@@ -126,24 +136,26 @@ class HomeStateHolder(
                         if (generation != loadGeneration) return@getPublished
                         val favorites = (favoriteResult as? StorageResult.Success)?.value ?: FavoritePlaceIds.EMPTY
                         val capsules = (capsuleResult as? StorageResult.Success)?.value.orEmpty()
-                        val places = catalogSnapshot.catalog.places
-                        val placeById = places.associateBy(Place::id)
+                        val allPlaces = catalogSnapshot.catalog.places
+                        val places = allPlaces.filter { it.city.equals(selectedCity.displayName, ignoreCase = true) }
+                        val placeById = allPlaces.associateBy(Place::id)
                         val recordedPlaceIds = capsules.mapTo(mutableSetOf()) { it.placeId }
                         val rankedPlaces = HomeRecommendationPolicy.rank(
                             places,
-                            profileSnapshot.profile.homeCity,
+                            selectedCity.displayName,
                             favorites.placeIds,
                             recordedPlaceIds
                         )
                         val supportingSection = HomeRecommendationPolicy.supportingSection(
                             rankedPlaces,
-                            profileSnapshot.profile.homeCity,
+                            selectedCity.displayName,
                             favorites.placeIds
                         )
                         update(
                             HomeUiState(
                                 status = HomeUiStatus.READY,
                                 profile = profileSnapshot.profile,
+                                selectedCity = selectedCity,
                                 rankedPlaces = rankedPlaces,
                                 supportingPlaceIds = supportingSection.placeIds,
                                 supportingTitle = supportingSection.title,
@@ -160,6 +172,7 @@ class HomeStateHolder(
                                     capsuleResult is StorageResult.Failure -> "最近的城市记忆暂时无法读取，地点仍可浏览。"
                                     catalogSnapshot.source == PlaceCatalogSource.RECOVERY_READ_ONLY ->
                                         "地点数据暂时无法安全读取，请重试。"
+                                    cityResult is StorageResult.Failure -> "探索城市暂时无法读取，当前显示上海内容。"
                                     profileSnapshot.warning != null || catalogSnapshot.warning != null ->
                                         "部分本地数据暂时不可用，当前已显示可安全读取的内容。"
                                     else -> null
@@ -169,6 +182,7 @@ class HomeStateHolder(
                     }
                 }
             }
+        }
         }
     }
 

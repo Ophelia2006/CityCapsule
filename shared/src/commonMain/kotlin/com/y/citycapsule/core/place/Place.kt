@@ -7,9 +7,10 @@ package com.y.citycapsule.core.place
  * or remote-service identifier.
  */
 object PlaceContract {
-    const val SCHEMA_VERSION = 2
+    const val SCHEMA_VERSION = 3
     const val LEGACY_SCHEMA_VERSION = 1
-    const val CURRENT_SEED_VERSION = 2
+    const val PREVIOUS_SCHEMA_VERSION = 2
+    const val CURRENT_SEED_VERSION = 3
     const val MAX_CATALOG_SIZE = 500
 
     const val FIELD_SCHEMA_VERSION = "schemaVersion"
@@ -22,7 +23,11 @@ object PlaceContract {
     const val FIELD_CATEGORY = "category"
     const val FIELD_ADDRESS = "address"
     const val FIELD_TAGS = "tags"
-    const val FIELD_NOTE = "note"
+    /** Read-only compatibility field used by Place v1/v2. */
+    const val FIELD_LEGACY_NOTE = "note"
+    const val FIELD_DESCRIPTION = "description"
+    const val FIELD_PERSONAL_NOTE = "personalNote"
+    const val FIELD_CONTENT_SOURCE = "contentSource"
     const val FIELD_CREATED_AT_EPOCH_MS = "createdAtEpochMs"
     const val FIELD_UPDATED_AT_EPOCH_MS = "updatedAtEpochMs"
     const val FIELD_SOURCE = "source"
@@ -36,7 +41,8 @@ object PlaceContract {
 
 enum class PlaceSource(val wireValue: String) {
     SEED("seed"),
-    USER("user");
+    USER("user"),
+    IMPORTED("imported");
 
     companion object {
         fun fromWireValue(value: String): PlaceSource? = entries.firstOrNull {
@@ -95,7 +101,9 @@ data class Place(
     val category: PlaceCategory,
     val address: String? = null,
     val tags: List<String> = emptyList(),
-    val note: String? = null,
+    val description: String? = null,
+    val personalNote: String? = null,
+    val contentSource: String? = null,
     val source: PlaceSource = PlaceSource.USER,
     val geoPoint: GeoPoint? = null,
     val visualRef: PlaceVisualRef? = null,
@@ -111,7 +119,11 @@ data class PlaceDraft(
     val category: PlaceCategory,
     val address: String? = null,
     val tags: List<String> = emptyList(),
-    val note: String? = null
+    val description: String? = null,
+    val personalNote: String? = null,
+    val contentSource: String? = null,
+    val geoPoint: GeoPoint? = null,
+    val visualRef: PlaceVisualRef? = null
 )
 
 data class PlaceCatalog(

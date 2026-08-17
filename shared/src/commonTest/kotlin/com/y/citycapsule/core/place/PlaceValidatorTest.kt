@@ -17,7 +17,7 @@ class PlaceValidatorTest {
                 district = "  ",
                 address = " 人民大道 201 号 ",
                 tags = listOf(" 博物馆 ", "博物馆", "MUSEUM", "museum"),
-                note = " 适合雨天参观 "
+                personalNote = " 适合雨天参观 "
             )
         )
 
@@ -27,7 +27,7 @@ class PlaceValidatorTest {
         assertEquals("上海", result.place?.city)
         assertNull(result.place?.district)
         assertEquals(listOf("博物馆", "MUSEUM"), result.place?.tags)
-        assertEquals("适合雨天参观", result.place?.note)
+        assertEquals("适合雨天参观", result.place?.personalNote)
     }
 
     @Test

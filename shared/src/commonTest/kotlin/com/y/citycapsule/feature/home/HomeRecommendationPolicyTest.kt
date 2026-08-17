@@ -5,6 +5,7 @@ import com.y.citycapsule.core.capsule.CapsuleDraft
 import com.y.citycapsule.core.capsule.CapsuleIdGenerator
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.capsule.UtcCapsuleDateFormatter
+import com.y.citycapsule.core.city.LocalExploreCityRepository
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.Place
@@ -25,6 +26,7 @@ class HomeRecommendationPolicyTest {
         val places = LocalPlaceRepository(storage)
         val holder = HomeStateHolder(
             LocalProfileRepository(storage),
+            LocalExploreCityRepository(storage),
             places,
             LocalFavoriteRepository(storage, places),
             LocalCapsuleRepository(storage),
@@ -59,6 +61,7 @@ class HomeRecommendationPolicyTest {
         }
         val holder = HomeStateHolder(
             LocalProfileRepository(storage),
+            LocalExploreCityRepository(storage),
             places,
             LocalFavoriteRepository(storage, places),
             capsules,
@@ -122,6 +125,7 @@ class HomeRecommendationPolicyTest {
         val places = LocalPlaceRepository(storage)
         val holder = HomeStateHolder(
             LocalProfileRepository(storage),
+            LocalExploreCityRepository(storage),
             places,
             LocalFavoriteRepository(storage, places),
             LocalCapsuleRepository(storage),

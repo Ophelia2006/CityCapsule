@@ -113,7 +113,7 @@ class LocalPlaceRepository(
     ) {
         val normalizedDraft = PlaceValidator.normalizeDraftOrNull(draft)
         if (normalizedDraft == null) {
-            callback(invalidRequest("Place draft does not satisfy schema v2 validation."))
+            callback(invalidRequest("Place draft does not satisfy schema v3 validation."))
             return
         }
         enqueueMutation { complete ->
@@ -140,8 +140,12 @@ class LocalPlaceRepository(
                                     category = normalizedDraft.category,
                                     address = normalizedDraft.address,
                                     tags = normalizedDraft.tags,
-                                    note = normalizedDraft.note,
+                                    description = normalizedDraft.description,
+                                    personalNote = normalizedDraft.personalNote,
+                                    contentSource = normalizedDraft.contentSource,
                                     source = PlaceSource.USER,
+                                    geoPoint = normalizedDraft.geoPoint,
+                                    visualRef = normalizedDraft.visualRef,
                                     createdAtEpochMs = now,
                                     updatedAtEpochMs = now
                                 )
@@ -214,7 +218,7 @@ class LocalPlaceRepository(
                         if (normalized == null) {
                             deliver(
                                 callback,
-                                invalidRequest("Place update does not satisfy schema v2 validation."),
+                                invalidRequest("Place update does not satisfy schema v3 validation."),
                                 complete
                             )
                             return@getCatalog

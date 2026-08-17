@@ -20,6 +20,10 @@ import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
+import com.y.citycapsule.core.media.CameraCapability
+import com.y.citycapsule.core.media.KuiklyCameraCapability
+import com.y.citycapsule.core.media.KuiklyPhotoPicker
+import com.y.citycapsule.core.media.PhotoPickerCapability
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceValidator
@@ -48,7 +52,14 @@ internal class PlaceEditorPager : BasePager() {
         val placeRepository = LocalPlaceRepository(KuiklyKeyValueStore(this))
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
-            PlaceEditorScreen(placeId, navigator, placeRepository, themeHost)
+            PlaceEditorScreen(
+                placeId,
+                navigator,
+                placeRepository,
+                KuiklyCameraCapability(this),
+                KuiklyPhotoPicker(this),
+                themeHost
+            )
         }
     }
 }
@@ -58,6 +69,8 @@ private fun PlaceEditorScreen(
     placeId: String?,
     navigator: AppNavigator,
     placeRepository: LocalPlaceRepository,
+    camera: CameraCapability,
+    photoPicker: PhotoPickerCapability,
     themeHost: AppThemeHost
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
@@ -98,7 +111,7 @@ private fun PlaceEditorScreen(
             if (uiState.status == PlaceEditorUiStatus.NOT_FOUND) {
                 AppSecondaryText("待编辑地点不存在或暂时无法读取。")
             } else {
-                PlaceEditorForm(uiState, holder)
+                PlaceEditorForm(uiState, holder, camera, photoPicker)
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
                 AppButton(
                     text = "保存地点",
@@ -140,7 +153,9 @@ private fun PlaceEditorScreen(
 @Composable
 private fun PlaceEditorForm(
     state: PlaceEditorUiState,
-    holder: PlaceEditorStateHolder
+    holder: PlaceEditorStateHolder,
+    camera: CameraCapability,
+    photoPicker: PhotoPickerCapability
 ) {
     AppSection(title = "基本信息") {
         AppTextField(
@@ -190,13 +205,51 @@ private fun PlaceEditorForm(
         )
         Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
         AppTextField(
-            value = state.draft.note.orEmpty(),
-            onValueChange = holder::updateNote,
-            label = "备注",
-            maxLength = PlaceValidator.NOTE_MAX_LENGTH,
+            value = state.draft.description.orEmpty(),
+            onValueChange = holder::updateDescription,
+            label = "地点简介",
+            supportingText = "作为地点公共介绍展示，不等同于私人备注。",
+            maxLength = PlaceValidator.DESCRIPTION_MAX_LENGTH,
             maxLines = NOTE_MAX_LINES,
             enabled = !state.isBusy
         )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+        AppTextField(
+            value = state.draft.personalNote.orEmpty(),
+            onValueChange = holder::updateNote,
+            label = "我的备注",
+            maxLength = PlaceValidator.PERSONAL_NOTE_MAX_LENGTH,
+            maxLines = NOTE_MAX_LINES,
+            enabled = !state.isBusy
+        )
+    }
+    Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+    AppSection(title = "地点封面", description = "封面仅用于地点展示，不会从城市碎片照片自动生成。") {
+        AppSecondaryText(
+            if (state.draft.visualRef == null) "尚未设置，将使用统一的类别封面。" else "已设置自定义封面。"
+        )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+        AppButton(
+            text = "从相册选择",
+            onClick = { holder.pickCover(photoPicker) },
+            variant = AppButtonVariant.SECONDARY,
+            enabled = !state.isBusy
+        )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+        AppButton(
+            text = "拍摄封面",
+            onClick = { holder.captureCover(camera) },
+            variant = AppButtonVariant.TEXT,
+            enabled = !state.isBusy
+        )
+        if (state.draft.visualRef != null) {
+            AppButton(
+                text = "移除封面",
+                onClick = holder::removeCover,
+                variant = AppButtonVariant.TEXT,
+                enabled = !state.isBusy
+            )
+        }
     }
     Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
     AppSection(title = "地点分类") {

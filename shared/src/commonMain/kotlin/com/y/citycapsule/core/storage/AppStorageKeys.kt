@@ -20,6 +20,8 @@ import com.y.citycapsule.core.track.TrackMetadata
 import com.y.citycapsule.core.track.TrackMetadataCodec
 import com.y.citycapsule.core.checkin.CheckInCatalog
 import com.y.citycapsule.core.checkin.CheckInCodec
+import com.y.citycapsule.core.city.ExploreCityCodec
+import com.y.citycapsule.core.city.ExploreCitySelection
 
 /** Source-compatible alias; the neutral model now lives outside the storage package. */
 typealias ThemeMode = com.y.citycapsule.core.theme.ThemeMode
@@ -85,6 +87,16 @@ object AppStorageKeys {
         )
     }
 
+    object Explore {
+        val CITY_SELECTION = StorageKey(
+            store = StorageStore.PREFERENCES,
+            namespace = "explore",
+            name = "city_selection",
+            defaultValue = ExploreCitySelection.DEFAULT,
+            codec = ExploreCityCodec
+        )
+    }
+
     object Favorites {
         val PLACE_IDS = StorageKey(
             store = StorageStore.PREFERENCES,
@@ -147,6 +159,7 @@ object AppStorageKeys {
         Onboarding.COMPLETED_VERSION,
         Onboarding.DRAFT,
         Places.CATALOG,
+        Explore.CITY_SELECTION,
         Favorites.PLACE_IDS,
         Capsules.CATALOG,
         Capsules.DRAFT,

@@ -1,5 +1,13 @@
 ﻿# CityCapsule 待办
 
+## 2026-08-17 当前 P0 检查点
+
+- `[Code Scan][DONE code+shared automation]` Place V3、v1/v2 迁移、`IMPORTED`、公共简介/私人备注/内容来源、备份 v8 与旧备份恢复。
+- `[Code Scan][DONE code+shared automation]` 上海城市包扩展至 15 个地点；全部具备坐标、地址、分类、标签、简介和内容来源。真实摄影未引入，继续使用明确类别 fallback。
+- `[Code Scan][DONE code+shared automation/PARTIAL device]` 独立探索城市、最近城市、手动选择、主动定位确认、Home/Explore/Map 同一城市范围及重启恢复；仍需双端定位拒绝/关闭/超时和城市切换设备验收。
+- `[UI/UX Redesign][DONE code/PARTIAL device]` 地点详情公共简介/来源、私人备注隔离、用户地点相册/相机封面、备份媒体重定位；仍需双端选择、拍摄、替换、导出导入与缺文件降级验收。
+- `[Code Scan][PENDING]` 引入上海真实摄影前必须逐项完成 `ASSET_ATTRIBUTION.md`，否则保持类别 fallback。
+
 优先级同时考虑产品闭环、数据安全和架构阻塞。标签说明来源：`[Initial Plan]`、`[Code Scan]`、`[UI/UX Redesign]`。Record Flow 的 Phase 2 首版已实现；其他 Feature 仍按用户确认的范围逐项推进。
 
 ## P0：验收 Record Flow 并建立正式产品壳
@@ -62,9 +70,10 @@
 ## P2-7 分步状态（2026-08-12）
 
 - [x] 7A 本地路线：手动选点、排序和持久化。
-- [ ] 7B 漫游会话。
-- [ ] 7C GPS 轨迹。
-- [ ] 7D 打卡。
+- [x] 7B 漫游会话：开始、暂停、继续、结束与重启恢复。
+- [x] 7C 前台 GPS 轨迹：沙箱分片和 MMKV 索引。
+- [x] 7D 手动打卡、城市碎片入口与真实总结。
+- [ ] Android/HarmonyOS 移动、杀进程恢复与总验收；通过前不增加“漫游”一级 Tab。
 
 ## P2-7B 状态（2026-08-12）
 

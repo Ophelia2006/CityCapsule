@@ -299,11 +299,15 @@ private fun PlaceDetails(place: Place) {
         )
         Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
         AppSection(title = "关于这里") {
-            if (!place.note.isNullOrBlank()) AppBodyText(place.note)
+            if (!place.description.isNullOrBlank()) AppBodyText(place.description)
             else AppSecondaryText("这个地点暂时还没有补充介绍。")
-        if (place.tags.isNotEmpty()) {
+            if (place.tags.isNotEmpty()) {
             Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
                 AppCaptionText(place.tags.joinToString("  ") { "#$it" })
+            }
+            place.contentSource?.takeIf(String::isNotBlank)?.let { source ->
+                Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+                AppCaptionText("内容来源：$source")
             }
         }
         Spacer(Modifier.height(AppTheme.dimensions.spacingLg))

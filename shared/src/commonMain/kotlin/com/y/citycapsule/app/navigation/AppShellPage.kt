@@ -20,6 +20,7 @@ import com.y.citycapsule.app.theme.RuntimeAppTheme
 import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.capsule.KuiklyLocalCapsuleDateFormatter
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
+import com.y.citycapsule.core.city.LocalExploreCityRepository
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRouteTable
@@ -49,6 +50,7 @@ internal class AppShellPager : BasePager() {
                 navigator = navigator,
                 settingsRepository = SettingsRepository(storage),
                 profileRepository = LocalProfileRepository(storage),
+                cityRepository = LocalExploreCityRepository(storage),
                 placeRepository = placeRepository,
                 favoriteRepository = LocalFavoriteRepository(storage, placeRepository),
                 capsuleRepository = LocalCapsuleRepository(storage),
@@ -66,6 +68,7 @@ private fun AppShellScreen(
     navigator: AppNavigator,
     settingsRepository: SettingsRepository,
     profileRepository: LocalProfileRepository,
+    cityRepository: LocalExploreCityRepository,
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
     capsuleRepository: LocalCapsuleRepository,
@@ -120,6 +123,7 @@ private fun AppShellScreen(
                     AppRootTab.EXPLORE -> HomeRootContent(
                         navigator = navigator,
                         profileRepository = profileRepository,
+                        cityRepository = cityRepository,
                         placeRepository = placeRepository,
                         favoriteRepository = favoriteRepository,
                         capsuleRepository = capsuleRepository,
