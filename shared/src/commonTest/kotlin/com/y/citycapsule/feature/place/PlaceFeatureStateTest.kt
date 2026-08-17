@@ -14,6 +14,10 @@ import com.y.citycapsule.core.place.PlaceIdGenerator
 import com.y.citycapsule.core.place.PlaceDraft
 import com.y.citycapsule.core.place.PlaceVisualRef
 import com.y.citycapsule.core.place.PlaceVisualType
+import com.y.citycapsule.core.place.GeoPoint
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
+import com.y.citycapsule.core.place.RemotePlace
+import com.y.citycapsule.core.place.RemotePlaceResult
 import com.y.citycapsule.core.place.RepositoryPlaceMediaCleanup
 import com.y.citycapsule.core.media.ManagedMediaDeleteResult
 import com.y.citycapsule.core.media.ManagedMediaFileCapability
@@ -29,6 +33,51 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class PlaceFeatureStateTest {
+    @Test
+    fun detailLoadsMatchingRemotePhotoWithoutChangingContentSource() {
+        val fixture = fixture()
+        val remote = object : PlaceRemoteDataSource {
+            override fun search(
+                query: String,
+                city: String,
+                near: GeoPoint?,
+                callback: (RemotePlaceResult) -> Unit
+            ) {
+                assertEquals("上海博物馆", query)
+                assertEquals("上海", city)
+                callback(
+                    RemotePlaceResult.Success(
+                        listOf(
+                            RemotePlace(
+                                providerId = "amap-museum",
+                                name = "上海博物馆",
+                                city = "上海",
+                                district = "黄浦区",
+                                address = "人民大道201号",
+                                category = PlaceCategory.CULTURE,
+                                tags = listOf("博物馆"),
+                                geoPoint = GeoPoint(31.2303, 121.4700),
+                                photoUrl = "https://example.test/shanghai-museum.jpg"
+                            )
+                        )
+                    )
+                )
+            }
+        }
+        val holder = PlaceDetailStateHolder(
+            placeId = "seed_shanghai_museum",
+            placeRepository = fixture.placeRepository,
+            favoriteRepository = fixture.favoriteRepository,
+            capsuleRepository = fixture.capsuleRepository,
+            remoteDataSource = remote
+        )
+
+        holder.load()
+
+        assertEquals("https://example.test/shanghai-museum.jpg", holder.state.remotePhotoUrl)
+        assertEquals("CityCapsule 内置城市内容包", holder.state.place?.contentSource)
+    }
+
     @Test
     fun detailExposesThreeNewestMemoriesInDescendingOrder() {
         val fixture = fixture()

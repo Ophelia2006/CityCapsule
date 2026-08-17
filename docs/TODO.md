@@ -13,7 +13,7 @@
 - `[Code Scan][DONE code+automation/PARTIAL device]` 已知未支持城市可被选择并持久化，Home/Explore 显示诚实空态且不串入其他城市地点；当前北京仅用于验证此状态，不代表已有北京内容包。
 - `[Initial Plan][DONE code+automation/PARTIAL device]` 高德在线 POI 搜索、照片预览、单个选择性导入和在线逆地理编码已接入双端网络桥；Web Key 只存在本机忽略配置，断网/空结果/服务错误降级到本地点。仍需双端真机验证弱网、图片加载失败、重复导入和请求生命周期。
 - `[Initial Plan][P1]` 把探索城市目录从编译期 `CityRegistry` 扩展为可持久化的全国城市定义/行政区编码；当前在线搜索只覆盖已登记并可选择的城市，不能宣称全国城市选择已完成。
-- `[Code Scan][P1]` 在线 POI 图片目前只在在线结果中展示；导入后的本地点详情使用类别 fallback。后续新增带版本迁移的远程视觉引用，或在导入时下载为托管文件，不能复用 `BUNDLED_ASSET` 冒充远程 URL。
+- `[Code Scan][DONE code/PARTIAL device]` 地点详情已按“本地托管封面 → 高德 POI 临时首图 → 类别 fallback”展示，并分开标注文字与图片来源；在线 URL 不写入 `BUNDLED_ASSET`、MMKV 或备份。仍需双端真机验证图片成功、慢加载、失败和页面反复进入退出。
 
 优先级同时考虑产品闭环、数据安全和架构阻塞。标签说明来源：`[Initial Plan]`、`[Code Scan]`、`[UI/UX Redesign]`。Record Flow 的 Phase 2 首版已实现；其他 Feature 仍按用户确认的范围逐项推进。
 

@@ -5,6 +5,8 @@ import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceSource
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlaceMediaCleanup
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
+import com.y.citycapsule.core.place.RemotePlaceResult
 import com.y.citycapsule.core.place.PlaceVisualType
 import com.y.citycapsule.core.storage.StorageResult
 import com.y.citycapsule.core.capsule.CapsuleRepository
@@ -23,6 +25,7 @@ data class PlaceDetailUiState(
     val favorite: Boolean = false,
     val memoryCount: Int = 0,
     val recentMemories: List<CityCapsule> = emptyList(),
+    val remotePhotoUrl: String? = null,
     val togglingFavorite: Boolean = false,
     val showDeleteConfirmation: Boolean = false,
     val notice: PlaceFeatureNotice? = null
@@ -39,6 +42,7 @@ class PlaceDetailStateHolder(
     private val favoriteRepository: FavoriteRepository,
     private val capsuleRepository: CapsuleRepository,
     private val mediaCleanup: PlaceMediaCleanup = PlaceMediaCleanup.NO_OP,
+    private val remoteDataSource: PlaceRemoteDataSource? = null,
     private val onDataChanged: () -> Unit = {},
     private val onStateChanged: (PlaceDetailUiState) -> Unit = {}
 ) {
@@ -90,6 +94,7 @@ class PlaceDetailStateHolder(
                                 }
                             )
                         )
+                        loadRemotePhoto(placeResult.value, generation)
                     }
                 }
                 StorageResult.Missing -> update(
@@ -105,6 +110,25 @@ class PlaceDetailStateHolder(
                     )
                 )
             }
+        }
+    }
+
+    private fun loadRemotePhoto(place: Place, generation: Int) {
+        if (place.visualRef != null) return
+        remoteDataSource?.search(place.name, place.city, place.geoPoint) { result ->
+            if (generation != loadGeneration) return@search
+            val photoUrl = (result as? RemotePlaceResult.Success)
+                ?.places
+                ?.asSequence()
+                ?.filter { !it.photoUrl.isNullOrBlank() }
+                ?.sortedBy { if (it.name.equals(place.name, ignoreCase = true)) 0 else 1 }
+                ?.firstOrNull { candidate ->
+                    candidate.name.equals(place.name, ignoreCase = true) ||
+                        candidate.name.contains(place.name, ignoreCase = true) ||
+                        place.name.contains(candidate.name, ignoreCase = true)
+                }
+                ?.photoUrl
+            if (photoUrl != null) update(state.copy(remotePhotoUrl = photoUrl))
         }
     }
 
