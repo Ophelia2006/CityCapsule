@@ -35,6 +35,8 @@ class StorageContractTest {
         assertEquals(StorageStore.CACHE, AppStorageKeys.Onboarding.DRAFT.store)
         assertEquals("places.catalog", AppStorageKeys.Places.CATALOG.wireKey)
         assertEquals(StorageStore.PREFERENCES, AppStorageKeys.Places.CATALOG.store)
+        assertEquals("places.photo_cache", AppStorageKeys.Places.PHOTO_CACHE.wireKey)
+        assertEquals(StorageStore.CACHE, AppStorageKeys.Places.PHOTO_CACHE.store)
         assertEquals("favorites.place_ids", AppStorageKeys.Favorites.PLACE_IDS.wireKey)
         assertEquals(
             StorageStore.PREFERENCES,
@@ -50,7 +52,7 @@ class StorageContractTest {
         assertEquals(StorageStore.PREFERENCES, AppStorageKeys.Roaming.SESSION.store)
         assertEquals("roaming.track", AppStorageKeys.Roaming.TRACK.wireKey)
         assertEquals("roaming.check_ins", AppStorageKeys.Roaming.CHECK_INS.wireKey)
-        assertEquals(13, AppStorageKeys.all.size)
+        assertEquals(14, AppStorageKeys.all.size)
     }
 
     @Test

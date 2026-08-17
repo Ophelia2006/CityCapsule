@@ -35,6 +35,7 @@ import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceRepository
+import com.y.citycapsule.core.place.PlacePhotoCacheRepository
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.designsystem.component.AppBodyText
 import com.y.citycapsule.designsystem.component.AppBottomSheet
@@ -67,6 +68,7 @@ import com.y.citycapsule.feature.home.HomeUiState
 import com.y.citycapsule.feature.home.HomeUiStatus
 import com.y.citycapsule.feature.place.PlaceFeatureRuntime
 import com.y.citycapsule.feature.place.displayName
+import com.y.citycapsule.feature.place.PlaceMedia
 
 /** Explore root content hosted inside the single AppShellPage. */
 @Composable
@@ -75,6 +77,7 @@ internal fun HomeRootContent(
     profileRepository: LocalProfileRepository,
     cityRepository: ExploreCityRepository,
     placeRepository: PlaceRepository,
+    photoCacheRepository: PlacePhotoCacheRepository,
     favoriteRepository: FavoriteRepository,
     capsuleRepository: CapsuleRepository,
     dateFormatter: CapsuleDateFormatter,
@@ -84,7 +87,7 @@ internal fun HomeRootContent(
 ) {
     var uiState by remember { mutableStateOf(HomeUiState()) }
     var showPlacePicker by remember { mutableStateOf(false) }
-    val holder = remember(profileRepository, cityRepository, placeRepository, favoriteRepository, capsuleRepository, dateFormatter) {
+    val holder = remember(profileRepository, cityRepository, placeRepository, favoriteRepository, capsuleRepository, photoCacheRepository, dateFormatter) {
         HomeStateHolder(
             profileRepository,
             cityRepository,
@@ -92,6 +95,7 @@ internal fun HomeRootContent(
             favoriteRepository,
             capsuleRepository,
             dateFormatter,
+            photoCacheRepository,
             onStateChanged = { uiState = it }
         )
     }
@@ -135,6 +139,7 @@ internal fun HomeRootContent(
                         state = uiState,
                         navigator = navigator,
                         onToggleFavorite = holder::toggleFavorite,
+                        onCachedPhotoFailed = holder::invalidateCachedPhoto,
                         onQuickRecord = { showPlacePicker = true },
                         onRetry = holder::load
                     )
@@ -191,6 +196,7 @@ private fun HomeContent(
     state: HomeUiState,
     navigator: AppNavigator,
     onToggleFavorite: (String) -> Unit,
+    onCachedPhotoFailed: (String) -> Unit,
     onQuickRecord: () -> Unit,
     onRetry: () -> Unit
 ) {
@@ -225,6 +231,8 @@ private fun HomeContent(
             featured.id in state.favoriteIds,
             state.busyFavoriteId == null,
             PlaceCardVariant.HERO,
+            photo = state.photoByPlaceId[featured.id],
+            onCachedPhotoFailed = { onCachedPhotoFailed(featured.id) },
             onOpen = { navigator.navigate(AppRoute.PlaceDetail(featured.id)) },
             onToggleFavorite = { onToggleFavorite(featured.id) }
         )
@@ -261,6 +269,8 @@ private fun HomeContent(
                 place.id in state.favoriteIds,
                 state.busyFavoriteId == null,
                 PlaceCardVariant.COMPACT,
+                photo = state.photoByPlaceId[place.id],
+                onCachedPhotoFailed = { onCachedPhotoFailed(place.id) },
                 onOpen = { navigator.navigate(AppRoute.PlaceDetail(place.id)) },
                 onToggleFavorite = { onToggleFavorite(place.id) }
             )
@@ -322,6 +332,8 @@ private fun HomePlaceCard(
     favorite: Boolean,
     favoriteEnabled: Boolean,
     variant: PlaceCardVariant,
+    photo: com.y.citycapsule.core.place.PlacePhotoCacheEntry? = null,
+    onCachedPhotoFailed: () -> Unit = {},
     onOpen: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
@@ -336,7 +348,10 @@ private fun HomePlaceCard(
         onOpen,
         onToggleFavorite,
         variant = variant,
-        favoriteEnabled = favoriteEnabled
+        favoriteEnabled = favoriteEnabled,
+        media = {
+            PlaceMedia(place, photo, onCachedPhotoFailed = onCachedPhotoFailed)
+        }
     )
 }
 

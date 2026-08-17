@@ -7,6 +7,10 @@ import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlaceMediaCleanup
 import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.place.RemotePlaceResult
+import com.y.citycapsule.core.place.PlacePhotoCacheEntry
+import com.y.citycapsule.core.place.PlacePhotoCacheContract
+import com.y.citycapsule.core.place.PlacePhotoCacheRepository
+import com.y.citycapsule.core.place.SystemPlaceClock
 import com.y.citycapsule.core.place.PlaceVisualType
 import com.y.citycapsule.core.storage.StorageResult
 import com.y.citycapsule.core.capsule.CapsuleRepository
@@ -25,7 +29,7 @@ data class PlaceDetailUiState(
     val favorite: Boolean = false,
     val memoryCount: Int = 0,
     val recentMemories: List<CityCapsule> = emptyList(),
-    val remotePhotoUrl: String? = null,
+    val remotePhoto: PlacePhotoCacheEntry? = null,
     val togglingFavorite: Boolean = false,
     val showDeleteConfirmation: Boolean = false,
     val notice: PlaceFeatureNotice? = null
@@ -43,6 +47,7 @@ class PlaceDetailStateHolder(
     private val capsuleRepository: CapsuleRepository,
     private val mediaCleanup: PlaceMediaCleanup = PlaceMediaCleanup.NO_OP,
     private val remoteDataSource: PlaceRemoteDataSource? = null,
+    private val photoCacheRepository: PlacePhotoCacheRepository? = null,
     private val onDataChanged: () -> Unit = {},
     private val onStateChanged: (PlaceDetailUiState) -> Unit = {}
 ) {
@@ -94,7 +99,7 @@ class PlaceDetailStateHolder(
                                 }
                             )
                         )
-                        loadRemotePhoto(placeResult.value, generation)
+                        loadPhoto(placeResult.value, generation)
                     }
                 }
                 StorageResult.Missing -> update(
@@ -113,8 +118,22 @@ class PlaceDetailStateHolder(
         }
     }
 
-    private fun loadRemotePhoto(place: Place, generation: Int) {
+    private fun loadPhoto(place: Place, generation: Int) {
         if (place.visualRef != null) return
+        val cache = photoCacheRepository
+        if (cache == null) {
+            loadRemotePhoto(place, generation)
+            return
+        }
+        cache.getValid { result ->
+            if (generation != loadGeneration) return@getValid
+            val cached = (result as? StorageResult.Success)?.value?.get(place.id)
+            if (cached != null) update(state.copy(remotePhoto = cached))
+            else loadRemotePhoto(place, generation)
+        }
+    }
+
+    private fun loadRemotePhoto(place: Place, generation: Int) {
         remoteDataSource?.search(place.name, place.city, place.geoPoint) { result ->
             if (generation != loadGeneration) return@search
             val photoUrl = (result as? RemotePlaceResult.Success)
@@ -128,8 +147,23 @@ class PlaceDetailStateHolder(
                         place.name.contains(candidate.name, ignoreCase = true)
                 }
                 ?.photoUrl
-            if (photoUrl != null) update(state.copy(remotePhotoUrl = photoUrl))
+            if (photoUrl != null) {
+                val entry = PlacePhotoCacheEntry(
+                    placeId = place.id,
+                    url = photoUrl,
+                    source = PlacePhotoCacheContract.SOURCE_AMAP_POI,
+                    updatedAtEpochMs = SystemPlaceClock.nowEpochMs()
+                )
+                update(state.copy(remotePhoto = entry))
+                photoCacheRepository?.put(place.id, photoUrl, entry.source) {}
+            }
         }
+    }
+
+    fun invalidateCachedPhoto() {
+        if (state.place?.visualRef != null || state.remotePhoto == null) return
+        update(state.copy(remotePhoto = null))
+        photoCacheRepository?.remove(placeId)
     }
 
     fun toggleFavorite() {

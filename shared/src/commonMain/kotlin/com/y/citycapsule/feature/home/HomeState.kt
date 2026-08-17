@@ -14,6 +14,8 @@ import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCatalogSource
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceRepository
+import com.y.citycapsule.core.place.PlacePhotoCacheEntry
+import com.y.citycapsule.core.place.PlacePhotoCacheRepository
 import com.y.citycapsule.core.profile.LocalProfile
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.StorageResult
@@ -34,6 +36,7 @@ data class HomeUiState(
     val favoriteIds: Set<String> = emptySet(),
     val recordedPlaceIds: Set<String> = emptySet(),
     val recentMemories: List<HomeRecentMemory> = emptyList(),
+    val photoByPlaceId: Map<String, PlacePhotoCacheEntry> = emptyMap(),
     val catalogReadOnly: Boolean = false,
     val notice: String? = null,
     val busyFavoriteId: String? = null
@@ -124,6 +127,7 @@ class HomeStateHolder(
     private val favoriteRepository: FavoriteRepository,
     private val capsuleRepository: CapsuleRepository,
     private val dateFormatter: CapsuleDateFormatter,
+    private val photoCacheRepository: PlacePhotoCacheRepository = PlacePhotoCacheRepository.NONE,
     private val onDataChanged: () -> Unit = {},
     private val onStateChanged: (HomeUiState) -> Unit = {}
 ) {
@@ -165,39 +169,49 @@ class HomeStateHolder(
                             selectedCity.displayName,
                             favorites.placeIds
                         )
-                        update(
-                            HomeUiState(
-                                status = HomeUiStatus.READY,
-                                profile = profileSnapshot.profile,
-                                selectedCity = selectedCity,
-                                rankedPlaces = rankedPlaces,
-                                supportingPlaceIds = supportingSection.placeIds,
-                                supportingTitle = supportingSection.title,
-                                favoriteIds = favorites.placeIds,
-                                recordedPlaceIds = recordedPlaceIds,
-                                catalogReadOnly = catalogSnapshot.source ==
-                                    PlaceCatalogSource.RECOVERY_READ_ONLY,
-                                recentMemories = capsules
-                                    .sortedWith(compareByDescending<CityCapsule> { it.createdAtEpochMs }.thenBy { it.id })
-                                    .take(HOME_RECENT_MEMORY_LIMIT)
-                                    .map { HomeRecentMemory(it, placeById[it.placeId], dateFormatter.format(it.createdAtEpochMs)) },
-                                notice = when {
-                                    favoriteResult is StorageResult.Failure -> "想去状态暂时无法读取，仍可继续探索地点。"
-                                    capsuleResult is StorageResult.Failure -> "最近的城市记忆暂时无法读取，地点仍可浏览。"
-                                    catalogSnapshot.source == PlaceCatalogSource.RECOVERY_READ_ONLY ->
-                                        "地点数据暂时无法安全读取，请重试。"
-                                    cityResult is StorageResult.Failure -> "探索城市暂时无法读取，当前显示上海内容。"
-                                    profileSnapshot.warning != null || catalogSnapshot.warning != null ->
-                                        "部分本地数据暂时不可用，当前已显示可安全读取的内容。"
-                                    else -> null
-                                }
+                        photoCacheRepository.getValid { photoResult ->
+                            if (generation != loadGeneration) return@getValid
+                            update(
+                                HomeUiState(
+                                    status = HomeUiStatus.READY,
+                                    profile = profileSnapshot.profile,
+                                    selectedCity = selectedCity,
+                                    rankedPlaces = rankedPlaces,
+                                    supportingPlaceIds = supportingSection.placeIds,
+                                    supportingTitle = supportingSection.title,
+                                    favoriteIds = favorites.placeIds,
+                                    recordedPlaceIds = recordedPlaceIds,
+                                    catalogReadOnly = catalogSnapshot.source ==
+                                        PlaceCatalogSource.RECOVERY_READ_ONLY,
+                                    recentMemories = capsules
+                                        .sortedWith(compareByDescending<CityCapsule> { it.createdAtEpochMs }.thenBy { it.id })
+                                        .take(HOME_RECENT_MEMORY_LIMIT)
+                                        .map { HomeRecentMemory(it, placeById[it.placeId], dateFormatter.format(it.createdAtEpochMs)) },
+                                    photoByPlaceId = (photoResult as? StorageResult.Success)?.value.orEmpty(),
+                                    notice = when {
+                                        favoriteResult is StorageResult.Failure -> "想去状态暂时无法读取，仍可继续探索地点。"
+                                        capsuleResult is StorageResult.Failure -> "最近的城市记忆暂时无法读取，地点仍可浏览。"
+                                        catalogSnapshot.source == PlaceCatalogSource.RECOVERY_READ_ONLY ->
+                                            "地点数据暂时无法安全读取，请重试。"
+                                        cityResult is StorageResult.Failure -> "探索城市暂时无法读取，当前显示上海内容。"
+                                        profileSnapshot.warning != null || catalogSnapshot.warning != null ->
+                                            "部分本地数据暂时不可用，当前已显示可安全读取的内容。"
+                                        else -> null
+                                    }
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
         }
         }
+    }
+
+    fun invalidateCachedPhoto(placeId: String) {
+        if (placeId !in state.photoByPlaceId) return
+        update(state.copy(photoByPlaceId = state.photoByPlaceId - placeId))
+        photoCacheRepository.remove(placeId)
     }
 
     fun toggleFavorite(placeId: String) {

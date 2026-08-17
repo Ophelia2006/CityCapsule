@@ -10,6 +10,8 @@ import com.y.citycapsule.core.favorite.FavoritePlaceIds
 import com.y.citycapsule.core.favorite.FavoritePlaceIdsCodec
 import com.y.citycapsule.core.place.PlaceCatalog
 import com.y.citycapsule.core.place.PlaceCatalogCodec
+import com.y.citycapsule.core.place.PlacePhotoCache
+import com.y.citycapsule.core.place.PlacePhotoCacheCodec
 import com.y.citycapsule.core.profile.LocalProfile
 import com.y.citycapsule.core.profile.LocalProfileCodec
 import com.y.citycapsule.core.route.LocalRouteCatalog
@@ -85,6 +87,14 @@ object AppStorageKeys {
             defaultValue = PlaceCatalog.EMPTY,
             codec = PlaceCatalogCodec
         )
+
+        val PHOTO_CACHE = StorageKey(
+            store = StorageStore.CACHE,
+            namespace = "places",
+            name = "photo_cache",
+            defaultValue = PlacePhotoCache.EMPTY,
+            codec = PlacePhotoCacheCodec
+        )
     }
 
     object Explore {
@@ -159,6 +169,7 @@ object AppStorageKeys {
         Onboarding.COMPLETED_VERSION,
         Onboarding.DRAFT,
         Places.CATALOG,
+        Places.PHOTO_CACHE,
         Explore.CITY_SELECTION,
         Favorites.PLACE_IDS,
         Capsules.CATALOG,

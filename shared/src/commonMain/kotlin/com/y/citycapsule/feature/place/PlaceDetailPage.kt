@@ -7,8 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.tencent.kuikly.compose.foundation.layout.Spacer
-import com.tencent.kuikly.compose.foundation.Image
-import com.tencent.kuikly.compose.coil3.rememberAsyncImagePainter
 import com.tencent.kuikly.compose.foundation.layout.Box
 import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.Row
@@ -20,7 +18,6 @@ import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.draw.clip
-import com.tencent.kuikly.compose.ui.layout.ContentScale
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.core.annotations.Page
 import com.y.citycapsule.app.theme.AppThemeHost
@@ -40,6 +37,7 @@ import com.y.citycapsule.core.navigation.ExternalNavigationResult
 import com.y.citycapsule.core.navigation.KuiklyExternalNavigationCapability
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.AmapPlaceRemoteDataSource
+import com.y.citycapsule.core.place.LocalPlacePhotoCacheRepository
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.RepositoryPlaceMediaCleanup
 import com.y.citycapsule.core.place.PlaceMediaCleanup
@@ -83,6 +81,7 @@ internal class PlaceDetailPager : BasePager() {
         val favoriteRepository = LocalFavoriteRepository(storage, placeRepository)
         val capsuleRepository = LocalCapsuleRepository(storage)
         val remoteDataSource = AmapPlaceRemoteDataSource(this)
+        val photoCacheRepository = LocalPlacePhotoCacheRepository(storage)
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
             PlaceDetailScreen(
@@ -93,6 +92,7 @@ internal class PlaceDetailPager : BasePager() {
                 capsuleRepository,
                 RepositoryPlaceMediaCleanup(placeRepository, capsuleRepository, KuiklyManagedMediaFiles(this)),
                 remoteDataSource,
+                photoCacheRepository,
                 KuiklyLocalCapsuleDateFormatter(this),
                 KuiklyExternalNavigationCapability(this),
                 themeHost
@@ -111,6 +111,7 @@ private fun PlaceDetailScreen(
     capsuleRepository: CapsuleRepository,
     mediaCleanup: PlaceMediaCleanup,
     remoteDataSource: AmapPlaceRemoteDataSource,
+    photoCacheRepository: LocalPlacePhotoCacheRepository,
     dateFormatter: KuiklyLocalCapsuleDateFormatter,
     externalNavigation: ExternalNavigationCapability,
     themeHost: AppThemeHost
@@ -120,7 +121,7 @@ private fun PlaceDetailScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var navigationMessage by remember { mutableStateOf<String?>(null) }
     val invalidationOwner = remember { PlaceFeatureRuntime.newOwnerToken() }
-    val holder = remember(placeId, placeRepository, favoriteRepository, capsuleRepository, mediaCleanup, remoteDataSource) {
+    val holder = remember(placeId, placeRepository, favoriteRepository, capsuleRepository, mediaCleanup, remoteDataSource, photoCacheRepository) {
         PlaceDetailStateHolder(
             placeId = placeId,
             placeRepository = placeRepository,
@@ -128,6 +129,7 @@ private fun PlaceDetailScreen(
             capsuleRepository = capsuleRepository,
             mediaCleanup = mediaCleanup,
             remoteDataSource = remoteDataSource,
+            photoCacheRepository = photoCacheRepository,
             onDataChanged = { PlaceFeatureRuntime.invalidateFrom(invalidationOwner) },
             onStateChanged = { uiState = it }
         )
@@ -176,30 +178,23 @@ private fun PlaceDetailScreen(
                     }
                 )
             } else {
-                val photoUrl = place.visualRef?.value ?: uiState.remotePhotoUrl
+                val photoUrl = place.visualRef?.value ?: uiState.remotePhoto?.url
                 var photoLoaded by remember(photoUrl) { mutableStateOf(false) }
                 Box(
                     Modifier.fillMaxWidth()
                         .height(AppTheme.dimensions.placeHeroHeight)
                         .clip(RoundedCornerShape(AppTheme.dimensions.radiusLg))
                 ) {
-                    PlaceMediaFallback(place.category.toFallbackKind())
-                    photoUrl?.let { url ->
-                        Image(
-                            painter = rememberAsyncImagePainter(
-                                url,
-                                onSuccess = { photoLoaded = true },
-                                onError = { photoLoaded = false }
-                            ),
-                            contentDescription = "${place.name}地点照片",
-                            modifier = Modifier.fillMaxWidth().height(AppTheme.dimensions.placeHeroHeight),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
+                    PlaceMedia(
+                        place = place,
+                        cachedPhoto = uiState.remotePhoto,
+                        onCachedPhotoFailed = holder::invalidateCachedPhoto,
+                        onLoaded = { photoLoaded = true }
+                    )
                 }
-                if (place.visualRef == null && uiState.remotePhotoUrl != null && photoLoaded) {
+                if (place.visualRef == null && uiState.remotePhoto != null && photoLoaded) {
                     Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-                    AppCaptionText("图片来源：高德地图 POI")
+                    AppCaptionText("图片来源：${uiState.remotePhoto?.source}")
                 }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
                 PlaceDetails(place)

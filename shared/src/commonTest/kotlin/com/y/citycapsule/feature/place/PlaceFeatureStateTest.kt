@@ -18,6 +18,7 @@ import com.y.citycapsule.core.place.GeoPoint
 import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.place.RemotePlace
 import com.y.citycapsule.core.place.RemotePlaceResult
+import com.y.citycapsule.core.place.LocalPlacePhotoCacheRepository
 import com.y.citycapsule.core.place.RepositoryPlaceMediaCleanup
 import com.y.citycapsule.core.media.ManagedMediaDeleteResult
 import com.y.citycapsule.core.media.ManagedMediaFileCapability
@@ -69,13 +70,30 @@ class PlaceFeatureStateTest {
             placeRepository = fixture.placeRepository,
             favoriteRepository = fixture.favoriteRepository,
             capsuleRepository = fixture.capsuleRepository,
-            remoteDataSource = remote
+            remoteDataSource = remote,
+            photoCacheRepository = LocalPlacePhotoCacheRepository(
+                fixture.storage,
+                PlaceClock { 10_000L }
+            )
         )
 
         holder.load()
 
-        assertEquals("https://example.test/shanghai-museum.jpg", holder.state.remotePhotoUrl)
+        assertEquals("https://example.test/shanghai-museum.jpg", holder.state.remotePhoto?.url)
         assertEquals("CityCapsule 内置城市内容包", holder.state.place?.contentSource)
+
+        val secondHolder = PlaceDetailStateHolder(
+            placeId = "seed_shanghai_museum",
+            placeRepository = fixture.placeRepository,
+            favoriteRepository = fixture.favoriteRepository,
+            capsuleRepository = fixture.capsuleRepository,
+            photoCacheRepository = LocalPlacePhotoCacheRepository(
+                fixture.storage,
+                PlaceClock { 10_001L }
+            )
+        )
+        secondHolder.load()
+        assertEquals("https://example.test/shanghai-museum.jpg", secondHolder.state.remotePhoto?.url)
     }
 
     @Test

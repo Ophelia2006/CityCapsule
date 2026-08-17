@@ -139,6 +139,8 @@ Home 不使用网络、天气或 AI 推荐。当前探索城市由 `explore.city
 
 ### 地点详情与 CRUD
 
+地点媒体统一由 `PlaceMedia` 解析：地点自己的 `visualRef` 优先，其次读取 `places.photo_cache` 中仍有效的高德 POI 图片 URL，最后始终保留代码生成的类别 fallback。Home 与 Explore 只读取本地缓存，不为列表批量发起网络请求；地点详情在没有本地封面和有效缓存时才按需查询 `PlaceRemoteDataSource`，成功后写入最多 100 条、有效期 30 天的可清理缓存。远程图片加载失败会立即删除对应缓存项。
+
 ```text
 PlaceDetailPage(placeId)
   → PlaceDetailStateHolder
@@ -285,8 +287,9 @@ AppShellPage / RecordRootContent
 | `cc_preferences` | `favorites.place_ids` | JSON object，最多 500 ID | LocalFavoriteRepository | 列表/详情；取消、地点删除或悬空修复时更新 |
 | `cc_preferences` | `capsules.catalog` | JSON object，最多 500 条碎片 | LocalCapsuleRepository | 详情/时间轴/相册/地点记忆计数；发布、更新、删除时整体重写 |
 | `cc_cache` | `capsules.draft` | JSON object，单个可恢复草稿 | CapsuleEditor 经 Repository | 同一新建/编辑上下文恢复；匹配的发布或明确放弃时删除 |
+| `cc_cache` | `places.photo_cache` | JSON object，最多 100 条地点远程图片引用 | PlaceDetail 写；Home/Explore/Detail 读 | 30 天过期、加载失败删除、不进入备份 |
 
-`cc_meta` 只供平台迁移层使用，保存 schema/migration 状态与 type metadata。业务原图位于双端应用沙箱 `images/original`，MMKV 只保存 `file://` 路径；正常删除、移除和丢弃流程已有全引用保护清理，当前没有全目录垃圾扫描、缩略图、导出包或网络缓存。
+`cc_meta` 只供平台迁移层使用，保存 schema/migration 状态与 type metadata。业务原图位于双端应用沙箱 `images/original`，MMKV 只保存 `file://` 路径；正常删除、移除和丢弃流程已有全引用保护清理。当前没有全目录垃圾扫描、生成式缩略图或导出包；地点远程图片仅缓存 URL 引用，实际图片字节仍由现有图片加载栈管理。
 
 ## 平台与网络能力
 

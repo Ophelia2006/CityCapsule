@@ -27,6 +27,8 @@ import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceFilter
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlaceRemoteDataSource
+import com.y.citycapsule.core.place.PlacePhotoCacheEntry
+import com.y.citycapsule.core.place.PlacePhotoCacheRepository
 import com.y.citycapsule.core.place.RemotePlace
 import com.y.citycapsule.core.place.RemotePlaceResult
 import com.y.citycapsule.core.place.PlaceSearchEngine
@@ -80,6 +82,7 @@ data class PlaceListUiState(
     val catalogPlaces: List<Place> = emptyList(),
     val visiblePlaces: List<Place> = emptyList(),
     val favoriteIds: Set<String> = emptySet(),
+    val photoByPlaceId: Map<String, PlacePhotoCacheEntry> = emptyMap(),
     val query: String = "",
     val filter: PlaceFilter = PlaceFilter(),
     val catalogSource: PlaceCatalogSource? = null,
@@ -175,6 +178,7 @@ sealed interface PlaceListIntent {
     data object OnlineSearchRequested : PlaceListIntent
     data object OnlineResultsDismissed : PlaceListIntent
     data class RemotePlaceImportRequested(val providerId: String) : PlaceListIntent
+    data class CachedPhotoFailed(val placeId: String) : PlaceListIntent
 }
 
 sealed interface PlaceListEffect {
@@ -196,6 +200,10 @@ internal sealed interface PlaceListMutation {
     data class FavoritesLoaded(
         val result: StorageResult<FavoritePlaceIds>
     ) : PlaceListMutation
+    data class PhotoCacheLoaded(
+        val result: StorageResult<Map<String, PlacePhotoCacheEntry>>
+    ) : PlaceListMutation
+    data class CachedPhotoRemoved(val placeId: String) : PlaceListMutation
     data class QueryChanged(val query: String) : PlaceListMutation
     data class CategoryToggled(val category: PlaceCategory) : PlaceListMutation
     data object CategoriesCleared : PlaceListMutation
@@ -293,6 +301,12 @@ internal object PlaceListReducer {
                 }
             ).withSearchResults()
         }
+        is PlaceListMutation.PhotoCacheLoaded -> state.copy(
+            photoByPlaceId = (mutation.result as? StorageResult.Success)?.value.orEmpty()
+        )
+        is PlaceListMutation.CachedPhotoRemoved -> state.copy(
+            photoByPlaceId = state.photoByPlaceId - mutation.placeId
+        )
         is PlaceListMutation.QueryChanged -> ifReady(state) {
             copy(query = mutation.query).withSearchResults()
         }
@@ -486,6 +500,7 @@ class PlaceListStore(
     private val cityRepository: ExploreCityRepository,
     private val placeRepository: PlaceRepository,
     private val favoriteRepository: FavoriteRepository,
+    private val photoCacheRepository: PlacePhotoCacheRepository = PlacePhotoCacheRepository.NONE,
     private val locationCapability: LocationCapability = LocationCapability {
         it(LocationResult.Unavailable)
     },
@@ -635,6 +650,10 @@ class PlaceListStore(
             PlaceListIntent.OnlineSearchRequested -> startOnlineSearch()
             PlaceListIntent.OnlineResultsDismissed -> reduce(PlaceListMutation.OnlineResultsDismissed)
             is PlaceListIntent.RemotePlaceImportRequested -> startRemoteImport(intent.providerId)
+            is PlaceListIntent.CachedPhotoFailed -> {
+                reduce(PlaceListMutation.CachedPhotoRemoved(intent.placeId))
+                photoCacheRepository.remove(intent.placeId)
+            }
         }
     }
 
@@ -700,6 +719,12 @@ class PlaceListStore(
                 }
             }
             is PlaceListMutation.CatalogLoaded -> {
+                val generation = event.generation ?: return
+                photoCacheRepository.getValid { result ->
+                    enqueue(generation, PlaceListMutation.PhotoCacheLoaded(result))
+                }
+            }
+            is PlaceListMutation.PhotoCacheLoaded -> {
                 val generation = event.generation ?: return
                 favoriteRepository.getFavoriteIds { result ->
                     enqueue(generation, PlaceListMutation.FavoritesLoaded(result))

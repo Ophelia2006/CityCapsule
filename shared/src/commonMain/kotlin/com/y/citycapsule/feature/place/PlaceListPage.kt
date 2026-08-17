@@ -20,10 +20,12 @@ import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.padding
 import com.tencent.kuikly.compose.foundation.layout.width
 import com.tencent.kuikly.compose.foundation.lazy.LazyRow
+import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.layout.ContentScale
 import com.tencent.kuikly.compose.coil3.rememberAsyncImagePainter
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
@@ -48,6 +50,7 @@ import com.y.citycapsule.core.location.KuiklyLocationCapability
 import com.y.citycapsule.core.location.LocationCapability
 import com.y.citycapsule.core.map.AmapNativeView
 import com.y.citycapsule.core.place.LocalPlaceRepository
+import com.y.citycapsule.core.place.LocalPlacePhotoCacheRepository
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceValidator
 import com.y.citycapsule.core.place.AmapReverseGeocodeCapability
@@ -99,6 +102,7 @@ internal class PlaceListPager : BasePager() {
         val storage = KuiklyKeyValueStore(this)
         val placeRepository = LocalPlaceRepository(storage)
         val favoriteRepository = LocalFavoriteRepository(storage, placeRepository)
+        val photoCacheRepository = LocalPlacePhotoCacheRepository(storage)
         val cityRepository = LocalExploreCityRepository(storage)
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
@@ -108,6 +112,7 @@ internal class PlaceListPager : BasePager() {
                 cityRepository = cityRepository,
                 placeRepository = placeRepository,
                 favoriteRepository = favoriteRepository,
+                photoCacheRepository = photoCacheRepository,
                 locationCapability = KuiklyLocationCapability(this),
                 reverseGeocodeCapability = FallbackReverseGeocodeCapability(
                     AmapReverseGeocodeCapability(this), SupportedCityReverseGeocoder
@@ -128,6 +133,7 @@ internal class FavoritesPager : BasePager() {
         val storage = KuiklyKeyValueStore(this)
         val placeRepository = LocalPlaceRepository(storage)
         val favoriteRepository = LocalFavoriteRepository(storage, placeRepository)
+        val photoCacheRepository = LocalPlacePhotoCacheRepository(storage)
         val cityRepository = LocalExploreCityRepository(storage)
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
@@ -137,6 +143,7 @@ internal class FavoritesPager : BasePager() {
                 cityRepository = cityRepository,
                 placeRepository = placeRepository,
                 favoriteRepository = favoriteRepository,
+                photoCacheRepository = photoCacheRepository,
                 locationCapability = KuiklyLocationCapability(this),
                 reverseGeocodeCapability = FallbackReverseGeocodeCapability(
                     AmapReverseGeocodeCapability(this), SupportedCityReverseGeocoder
@@ -155,6 +162,7 @@ private fun PlaceListScreen(
     cityRepository: LocalExploreCityRepository,
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
+    photoCacheRepository: LocalPlacePhotoCacheRepository,
     locationCapability: LocationCapability,
     reverseGeocodeCapability: com.y.citycapsule.core.city.ReverseGeocodeCapability,
     remoteDataSource: PlaceRemoteDataSource,
@@ -168,6 +176,7 @@ private fun PlaceListScreen(
         cityRepository,
         placeRepository,
         favoriteRepository,
+        photoCacheRepository,
         locationCapability,
         reverseGeocodeCapability,
         remoteDataSource,
@@ -178,6 +187,7 @@ private fun PlaceListScreen(
             cityRepository = cityRepository,
             placeRepository = placeRepository,
             favoriteRepository = favoriteRepository,
+            photoCacheRepository = photoCacheRepository,
             locationCapability = locationCapability,
             reverseGeocodeCapability = reverseGeocodeCapability,
             remoteDataSource = remoteDataSource,
@@ -517,6 +527,8 @@ private fun PlaceMapContent(
         PlaceListDetailPane(
             place = selected,
             favorite = selected.id in state.favoriteIds,
+            photo = state.photoByPlaceId[selected.id],
+            onCachedPhotoFailed = { dispatch(PlaceListIntent.CachedPhotoFailed(selected.id)) },
             onOpen = { dispatch(PlaceListIntent.PlaceClicked(selected.id)) },
             onToggleFavorite = { dispatch(PlaceListIntent.FavoriteToggled(selected.id)) }
         )
@@ -733,6 +745,10 @@ private fun PlaceListContent(
                         PlaceListDetailPane(
                             place = selected,
                             favorite = selected?.id in state.favoriteIds,
+                            photo = selected?.id?.let(state.photoByPlaceId::get),
+                            onCachedPhotoFailed = {
+                                selected?.let { dispatch(PlaceListIntent.CachedPhotoFailed(it.id)) }
+                            },
                             onOpen = {
                                 selected?.let {
                                     dispatch(PlaceListIntent.PlaceClicked(it.id))
@@ -765,6 +781,8 @@ private fun PlaceResults(
             favorite = place.id in state.favoriteIds,
             favoriteEnabled = !state.readOnly && state.busyFavoriteId == null,
             distanceLabel = state.distanceLabel(place),
+            photo = state.photoByPlaceId[place.id],
+            onCachedPhotoFailed = { dispatch(PlaceListIntent.CachedPhotoFailed(place.id)) },
             onOpen = { onPlaceSelected(place.id) },
             onToggleFavorite = { dispatch(PlaceListIntent.FavoriteToggled(place.id)) }
         )
@@ -776,6 +794,8 @@ private fun PlaceResults(
 private fun PlaceListDetailPane(
     place: com.y.citycapsule.core.place.Place?,
     favorite: Boolean,
+    photo: com.y.citycapsule.core.place.PlacePhotoCacheEntry? = null,
+    onCachedPhotoFailed: () -> Unit = {},
     onOpen: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
@@ -784,6 +804,14 @@ private fun PlaceListDetailPane(
         return
     }
     Column {
+        Box(
+            Modifier.fillMaxWidth()
+                .height(AppTheme.dimensions.placeHeroHeight)
+                .clip(RoundedCornerShape(AppTheme.dimensions.radiusLg))
+        ) {
+            PlaceMedia(place, photo, onCachedPhotoFailed = onCachedPhotoFailed)
+        }
+        Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
         AppSectionTitle(place.name)
         Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
         AppSecondaryText(

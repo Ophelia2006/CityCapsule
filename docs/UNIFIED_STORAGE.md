@@ -32,6 +32,7 @@ MMKV 只用于小型、可明确键控的数据：
 | `AppStorageKeys.Onboarding.COMPLETED_VERSION` | `cc_preferences` | `onboarding.completed_version` | `long` | `0` | 已完成的首次引导版本 |
 | `AppStorageKeys.Onboarding.DRAFT` | `cc_cache` | `onboarding.draft` | `json_object` | 空草稿 | 可清理、可重新生成的引导中间状态 |
 | `AppStorageKeys.Places.CATALOG` | `cc_preferences` | `places.catalog` | `json_object` | 空目录 v1 | 最多 500 条的离线地点目录 |
+| `AppStorageKeys.Places.PHOTO_CACHE` | `cc_cache` | `places.photo_cache` | `json_object` | 空缓存 v1 | 最多 100 条高德地点图片 URL；30 天过期、失败删除、不备份 |
 | `AppStorageKeys.Favorites.PLACE_IDS` | `cc_preferences` | `favorites.place_ids` | `json_object` | 空集合 v1 | 与地点目录分离的收藏 ID |
 | `AppStorageKeys.Capsules.CATALOG` | `cc_preferences` | `capsules.catalog` | `json_object` | 空目录 v1 | 最多 500 条城市碎片，含媒体路径 |
 | `AppStorageKeys.Capsules.DRAFT` | `cc_cache` | `capsules.draft` | `json_object` | 空草稿 v1 | 单个可恢复的新建/编辑草稿 |

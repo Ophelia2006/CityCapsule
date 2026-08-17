@@ -26,6 +26,7 @@ import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.place.LocalPlaceRepository
+import com.y.citycapsule.core.place.LocalPlacePhotoCacheRepository
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.core.storage.SettingsRepository
@@ -41,6 +42,7 @@ internal class AppShellPager : BasePager() {
         val navigator = KuiklyAppNavigator(this)
         val storage = KuiklyKeyValueStore(this)
         val placeRepository = LocalPlaceRepository(storage)
+        val photoCacheRepository = LocalPlacePhotoCacheRepository(storage)
         val initialTab = AppRootTab.fromInitialRouteValue(
             pageData.params.optString(AppRouteTable.PARAM_INITIAL_ROOT_TAB)
         ) ?: AppRootTab.EXPLORE
@@ -52,6 +54,7 @@ internal class AppShellPager : BasePager() {
                 profileRepository = LocalProfileRepository(storage),
                 cityRepository = LocalExploreCityRepository(storage),
                 placeRepository = placeRepository,
+                photoCacheRepository = photoCacheRepository,
                 favoriteRepository = LocalFavoriteRepository(storage, placeRepository),
                 capsuleRepository = LocalCapsuleRepository(storage),
                 dateFormatter = KuiklyLocalCapsuleDateFormatter(this),
@@ -70,6 +73,7 @@ private fun AppShellScreen(
     profileRepository: LocalProfileRepository,
     cityRepository: LocalExploreCityRepository,
     placeRepository: LocalPlaceRepository,
+    photoCacheRepository: LocalPlacePhotoCacheRepository,
     favoriteRepository: LocalFavoriteRepository,
     capsuleRepository: LocalCapsuleRepository,
     dateFormatter: KuiklyLocalCapsuleDateFormatter,
@@ -125,6 +129,7 @@ private fun AppShellScreen(
                         profileRepository = profileRepository,
                         cityRepository = cityRepository,
                         placeRepository = placeRepository,
+                        photoCacheRepository = photoCacheRepository,
                         favoriteRepository = favoriteRepository,
                         capsuleRepository = capsuleRepository,
                         dateFormatter = dateFormatter,

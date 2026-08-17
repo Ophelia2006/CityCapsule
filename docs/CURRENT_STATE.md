@@ -21,7 +21,7 @@
 - 用户明确点击后才把单个 POI 写入本地 Catalog，来源为 `IMPORTED`，`contentSource` 保存高德 POI ID 用于去重；不会把整座城市结果批量写入 MMKV。
 - 高德国内查询坐标在网络边界完成 WGS-84/GCJ-02 转换，持久层继续只保存 WGS-84。真实 Web Key 已以“上海/外滩”最小请求验证 `status=1` 且返回照片。
 - 在线逆地理编码已接入并以原离线城市半径判定兜底。当前城市持久协议仍只接受 `CityRegistry` 已登记城市，因此任意新城市的长期选择仍需后续扩展城市目录协议；本轮没有虚构“全国城市已经完整支持”。
-- 地点详情优先展示地点自己的托管封面；没有本地封面时通过 `PlaceRemoteDataSource` 按名称与城市临时补充高德 POI 首图，并独立标注图片来源。在线图片不持久化，失败时回退类别图形，地点文字仍保留原 `contentSource`。
+- 地点详情优先展示地点自己的托管封面；没有本地封面时先读本地远程图片缓存，未命中才通过 `PlaceRemoteDataSource` 按名称与城市补充高德 POI 首图，并独立标注图片来源。Home、Explore 列表和详情共用 `PlaceMedia`，统一按“本地封面 → 30 天高德 URL 缓存 → 类别 fallback”展示；列表不批量联网，缓存最多 100 条、不进入备份，图片加载失败会删除失效项。地点文字仍保留原 `contentSource`。
 - `CCPlaceNetworkModule` 的 shared proxy 已在所有业务 Pager 的共同基类 `BasePager` 注册；此前只完成平台宿主注册、遗漏 Pager 内模块表会使独立地点详情首次查询时触发 `acquireModule` 致命异常，该缺口已由架构守卫覆盖。
 
 > 账户迁移检查点：2026-07-30 当前 `main` 位于 `da99137 P1-1：Explore`，其后仍有固定操作层与文档的未提交增量。迁移或重新 clone 前必须先阅读 `MIGRATION_HANDOFF.md` 并保存工作树；不能只依赖远端 HEAD。
