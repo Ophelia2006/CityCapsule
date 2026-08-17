@@ -143,7 +143,7 @@ class LocalPlaceRepository(
                                     description = normalizedDraft.description,
                                     personalNote = normalizedDraft.personalNote,
                                     contentSource = normalizedDraft.contentSource,
-                                    source = PlaceSource.USER,
+                                    source = normalizedDraft.source,
                                     geoPoint = normalizedDraft.geoPoint,
                                     visualRef = normalizedDraft.visualRef,
                                     createdAtEpochMs = now,

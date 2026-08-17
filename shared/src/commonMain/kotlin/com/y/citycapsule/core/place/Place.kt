@@ -122,6 +122,7 @@ data class PlaceDraft(
     val description: String? = null,
     val personalNote: String? = null,
     val contentSource: String? = null,
+    val source: PlaceSource = PlaceSource.USER,
     val geoPoint: GeoPoint? = null,
     val visualRef: PlaceVisualRef? = null
 )

@@ -39,6 +39,7 @@ import com.y.citycapsule.module.KRMediaModule
 import com.y.citycapsule.module.KRTrackModule
 import com.y.citycapsule.module.KRLocaleModule
 import com.y.citycapsule.module.KRLocationModule
+import com.y.citycapsule.module.KRPlaceNetworkModule
 import com.y.citycapsule.module.KRExternalNavigationModule
 import com.y.citycapsule.module.KRStorageModule
 import com.y.citycapsule.module.KRThemeHostModule
@@ -280,6 +281,7 @@ class KuiklyHostActivity :
                 KRDataArchiveModule()
             }
             moduleExport(KRLocationModule.MODULE_NAME) { KRLocationModule() }
+            moduleExport(KRPlaceNetworkModule.MODULE_NAME) { KRPlaceNetworkModule() }
             moduleExport(KRExternalNavigationModule.MODULE_NAME) { KRExternalNavigationModule() }
         }
     }

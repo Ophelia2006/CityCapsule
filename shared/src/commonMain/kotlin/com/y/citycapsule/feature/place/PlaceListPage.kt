@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.tencent.kuikly.compose.foundation.clickable
+import com.tencent.kuikly.compose.foundation.Image
 import com.tencent.kuikly.compose.foundation.layout.Box
 import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.Row
@@ -23,6 +24,8 @@ import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.layout.ContentScale
+import com.tencent.kuikly.compose.coil3.rememberAsyncImagePainter
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.compose.ui.platform.LocalConfiguration
 import com.tencent.kuikly.compose.ui.unit.dp
@@ -47,6 +50,10 @@ import com.y.citycapsule.core.map.AmapNativeView
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceValidator
+import com.y.citycapsule.core.place.AmapReverseGeocodeCapability
+import com.y.citycapsule.core.place.AmapPlaceRemoteDataSource
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
+import com.y.citycapsule.core.place.FallbackReverseGeocodeCapability
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.designsystem.component.AppActionTopBar
 import com.y.citycapsule.designsystem.component.AppBodyText
@@ -102,7 +109,10 @@ internal class PlaceListPager : BasePager() {
                 placeRepository = placeRepository,
                 favoriteRepository = favoriteRepository,
                 locationCapability = KuiklyLocationCapability(this),
-                reverseGeocodeCapability = SupportedCityReverseGeocoder,
+                reverseGeocodeCapability = FallbackReverseGeocodeCapability(
+                    AmapReverseGeocodeCapability(this), SupportedCityReverseGeocoder
+                ),
+                remoteDataSource = AmapPlaceRemoteDataSource(this),
                 themeHost = themeHost,
                 initialCategory = initialCategory
             )
@@ -128,7 +138,10 @@ internal class FavoritesPager : BasePager() {
                 placeRepository = placeRepository,
                 favoriteRepository = favoriteRepository,
                 locationCapability = KuiklyLocationCapability(this),
-                reverseGeocodeCapability = SupportedCityReverseGeocoder,
+                reverseGeocodeCapability = FallbackReverseGeocodeCapability(
+                    AmapReverseGeocodeCapability(this), SupportedCityReverseGeocoder
+                ),
+                remoteDataSource = AmapPlaceRemoteDataSource(this),
                 themeHost = themeHost
             )
         }
@@ -144,6 +157,7 @@ private fun PlaceListScreen(
     favoriteRepository: LocalFavoriteRepository,
     locationCapability: LocationCapability,
     reverseGeocodeCapability: com.y.citycapsule.core.city.ReverseGeocodeCapability,
+    remoteDataSource: PlaceRemoteDataSource,
     themeHost: AppThemeHost,
     initialCategory: PlaceCategory? = null
 ) {
@@ -156,6 +170,7 @@ private fun PlaceListScreen(
         favoriteRepository,
         locationCapability,
         reverseGeocodeCapability,
+        remoteDataSource,
         mode,
         initialCategory
     ) {
@@ -165,6 +180,7 @@ private fun PlaceListScreen(
             favoriteRepository = favoriteRepository,
             locationCapability = locationCapability,
             reverseGeocodeCapability = reverseGeocodeCapability,
+            remoteDataSource = remoteDataSource,
             parentScope = storeScope,
             mode = mode,
             initialCategory = initialCategory
@@ -244,6 +260,21 @@ private fun PlaceListScreen(
                 },
                 enabled = uiState.status == PlaceListUiStatus.READY
                 )
+                if (mode == PlaceListMode.ALL) {
+                    Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+                    AppButton(
+                        text = when {
+                            uiState.query.isNotBlank() -> "在线搜索“${uiState.query}”"
+                            uiState.currentLocation != null -> "在线发现附近地点"
+                            else -> "输入关键词或先获取位置"
+                        },
+                        onClick = { store.dispatch(PlaceListIntent.OnlineSearchRequested) },
+                        variant = AppButtonVariant.TEXT,
+                        enabled = uiState.status == PlaceListUiStatus.READY &&
+                            uiState.onlineStatus != OnlinePlaceStatus.LOADING &&
+                            (uiState.query.isNotBlank() || uiState.currentLocation != null)
+                    )
+                }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
                 CategoryChips(uiState, store::dispatch)
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
@@ -319,6 +350,15 @@ private fun PlaceListScreen(
             )
         }
 
+        AppBottomSheet(
+            visible = uiState.onlineStatus != OnlinePlaceStatus.IDLE,
+            title = "在线地点",
+            onDismiss = { store.dispatch(PlaceListIntent.OnlineResultsDismissed) },
+            dismissLabel = "完成"
+        ) {
+            OnlinePlaceResults(uiState, store::dispatch)
+        }
+
         uiState.detectedCity?.let { city ->
             AppConfirmDialog(
                 title = "切换到${city.displayName}？",
@@ -348,6 +388,49 @@ private fun PlaceListScreen(
             },
             onDismiss = { showMenu = false }
         )
+    }
+}
+
+@Composable
+private fun OnlinePlaceResults(
+    state: PlaceListUiState,
+    dispatch: (PlaceListIntent) -> Unit
+) {
+    when (state.onlineStatus) {
+        OnlinePlaceStatus.LOADING -> LoadingState("正在搜索${state.selectedCity.displayName}的地点…")
+        OnlinePlaceStatus.EMPTY -> EmptyState(
+            title = "没有找到在线地点",
+            message = "可以更换关键词或城市后重试。"
+        )
+        OnlinePlaceStatus.ERROR,
+        OnlinePlaceStatus.UNAVAILABLE -> ErrorState(
+            message = "本地点目录仍可离线浏览。",
+            onRetry = { dispatch(PlaceListIntent.OnlineSearchRequested) }
+        )
+        OnlinePlaceStatus.RESULTS -> state.onlinePlaces.forEach { place ->
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = AppTheme.dimensions.spacingSm)) {
+                place.photoUrl?.let { url ->
+                    Image(
+                        painter = rememberAsyncImagePainter(url),
+                        contentDescription = "${place.name}地点照片",
+                        modifier = Modifier.fillMaxWidth().height(AppTheme.dimensions.placeHeroHeight),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+                }
+                AppSectionTitle(place.name)
+                AppSecondaryText(listOfNotNull(place.district, place.address).joinToString(" · "))
+                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+                AppButton(
+                    text = if (state.importingProviderId == place.providerId) "保存中…" else "保存到本地",
+                    onClick = { dispatch(PlaceListIntent.RemotePlaceImportRequested(place.providerId)) },
+                    variant = AppButtonVariant.SECONDARY,
+                    enabled = state.importingProviderId == null && !state.readOnly
+                )
+                AppDivider(Modifier.padding(top = AppTheme.dimensions.spacingSm))
+            }
+        }
+        OnlinePlaceStatus.IDLE -> Unit
     }
 }
 

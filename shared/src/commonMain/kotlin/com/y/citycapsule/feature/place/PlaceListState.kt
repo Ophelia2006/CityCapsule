@@ -26,6 +26,9 @@ import com.y.citycapsule.core.place.PlaceCatalogSource
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceFilter
 import com.y.citycapsule.core.place.PlaceRepository
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
+import com.y.citycapsule.core.place.RemotePlace
+import com.y.citycapsule.core.place.RemotePlaceResult
 import com.y.citycapsule.core.place.PlaceSearchEngine
 import com.y.citycapsule.core.storage.StorageResult
 import kotlinx.coroutines.CoroutineScope
@@ -65,6 +68,7 @@ enum class PlaceLocationStatus {
 }
 
 enum class PlaceDirectoryViewMode { LIST, MAP }
+enum class OnlinePlaceStatus { IDLE, LOADING, RESULTS, EMPTY, ERROR, UNAVAILABLE }
 
 data class PlaceListUiState(
     val status: PlaceListUiStatus = PlaceListUiStatus.LOADING,
@@ -90,7 +94,10 @@ data class PlaceListUiState(
     val showMapPrivacyPrompt: Boolean = false,
     val mapPrivacyAccepted: Boolean = false,
     val selectedMapPlaceId: String? = null,
-    val mapCamera: MapCameraModel? = null
+    val mapCamera: MapCameraModel? = null,
+    val onlineStatus: OnlinePlaceStatus = OnlinePlaceStatus.IDLE,
+    val onlinePlaces: List<RemotePlace> = emptyList(),
+    val importingProviderId: String? = null
 ) {
     val hasActiveFilters: Boolean
         get() = filter.categories.isNotEmpty() || activeAdvancedFilterCount > 0
@@ -165,6 +172,9 @@ sealed interface PlaceListIntent {
     data object MapPrivacyAccepted : PlaceListIntent
     data object MapPrivacyDeclined : PlaceListIntent
     data class MapEventReceived(val event: MapViewEvent) : PlaceListIntent
+    data object OnlineSearchRequested : PlaceListIntent
+    data object OnlineResultsDismissed : PlaceListIntent
+    data class RemotePlaceImportRequested(val providerId: String) : PlaceListIntent
 }
 
 sealed interface PlaceListEffect {
@@ -210,6 +220,11 @@ internal sealed interface PlaceListMutation {
     data class MapMarkerSelected(val placeId: String) : PlaceListMutation
     data class MapCameraChanged(val camera: MapCameraModel) : PlaceListMutation
     data class MapUnavailable(val reason: MapAvailability) : PlaceListMutation
+    data object OnlineSearchStarted : PlaceListMutation
+    data class OnlineSearchFinished(val result: RemotePlaceResult) : PlaceListMutation
+    data object OnlineResultsDismissed : PlaceListMutation
+    data class RemoteImportStarted(val providerId: String) : PlaceListMutation
+    data class RemoteImportFinished(val place: Place?) : PlaceListMutation
 }
 
 internal object PlaceListReducer {
@@ -405,6 +420,42 @@ internal object PlaceListReducer {
                 PlaceNoticeTone.WARNING
             )
         )
+        PlaceListMutation.OnlineSearchStarted -> state.copy(
+            onlineStatus = OnlinePlaceStatus.LOADING,
+            onlinePlaces = emptyList(),
+            notice = null
+        )
+        is PlaceListMutation.OnlineSearchFinished -> when (val result = mutation.result) {
+            is RemotePlaceResult.Success -> state.copy(
+                onlineStatus = if (result.places.isEmpty()) OnlinePlaceStatus.EMPTY else OnlinePlaceStatus.RESULTS,
+                onlinePlaces = result.places
+            )
+            is RemotePlaceResult.Failure -> state.copy(
+                onlineStatus = OnlinePlaceStatus.ERROR,
+                notice = PlaceFeatureNotice(result.message, PlaceNoticeTone.WARNING)
+            )
+            RemotePlaceResult.Unavailable -> state.copy(
+                onlineStatus = OnlinePlaceStatus.UNAVAILABLE,
+                notice = PlaceFeatureNotice("在线地点服务当前不可用，本地点仍可浏览。", PlaceNoticeTone.WARNING)
+            )
+        }
+        PlaceListMutation.OnlineResultsDismissed -> state.copy(
+            onlineStatus = OnlinePlaceStatus.IDLE,
+            onlinePlaces = emptyList(),
+            importingProviderId = null
+        )
+        is PlaceListMutation.RemoteImportStarted -> state.copy(importingProviderId = mutation.providerId)
+        is PlaceListMutation.RemoteImportFinished -> if (mutation.place != null) state.copy(
+            catalogPlaces = (state.catalogPlaces + mutation.place).distinctBy(Place::id),
+            importingProviderId = null,
+            onlinePlaces = state.onlinePlaces.filterNot {
+                mutation.place.contentSource?.endsWith(it.providerId) == true
+            },
+            notice = PlaceFeatureNotice("地点已保存到本地。", PlaceNoticeTone.SUCCESS)
+        ).withSearchResults() else state.copy(
+            importingProviderId = null,
+            notice = PlaceFeatureNotice("地点保存失败，请重试。", PlaceNoticeTone.ERROR)
+        )
     }
 
     private fun ifReady(
@@ -441,6 +492,7 @@ class PlaceListStore(
     private val reverseGeocodeCapability: ReverseGeocodeCapability = ReverseGeocodeCapability {
         _, callback -> callback(ReverseGeocodeResult.UnsupportedCity())
     },
+    private val remoteDataSource: PlaceRemoteDataSource? = null,
     parentScope: CoroutineScope,
     mode: PlaceListMode = PlaceListMode.ALL,
     initialCategory: PlaceCategory? = null
@@ -462,6 +514,8 @@ class PlaceListStore(
         ) : Event
         data class CitySelectionResult(val result: StorageResult<ExploreCitySelection>) : Event
         data class ReverseGeocodeResultEvent(val result: ReverseGeocodeResult) : Event
+        data class OnlineResultEvent(val result: RemotePlaceResult) : Event
+        data class ImportResultEvent(val result: StorageResult<Place>) : Event
     }
 
     private val job = SupervisorJob(parentScope.coroutineContext[Job])
@@ -487,6 +541,8 @@ class PlaceListStore(
                     is Event.LocationResultEvent -> handleLocationResult(event)
                     is Event.CitySelectionResult -> handleCitySelectionResult(event.result)
                     is Event.ReverseGeocodeResultEvent -> handleReverseGeocodeResult(event.result)
+                    is Event.OnlineResultEvent -> reduce(PlaceListMutation.OnlineSearchFinished(event.result))
+                    is Event.ImportResultEvent -> handleImportResult(event.result)
                 }
             }
         }
@@ -576,7 +632,48 @@ class PlaceListStore(
                     PlaceListMutation.MapUnavailable(event.reason)
                 )
             }
+            PlaceListIntent.OnlineSearchRequested -> startOnlineSearch()
+            PlaceListIntent.OnlineResultsDismissed -> reduce(PlaceListMutation.OnlineResultsDismissed)
+            is PlaceListIntent.RemotePlaceImportRequested -> startRemoteImport(intent.providerId)
         }
+    }
+
+    private fun startOnlineSearch() {
+        val remote = remoteDataSource ?: run {
+            reduce(PlaceListMutation.OnlineSearchFinished(RemotePlaceResult.Unavailable))
+            return
+        }
+        val current = mutableState.value
+        if (current.onlineStatus == OnlinePlaceStatus.LOADING) return
+        reduce(PlaceListMutation.OnlineSearchStarted)
+        remote.search(
+            query = current.query,
+            city = current.selectedCity.displayName,
+            near = current.currentLocation.takeIf { current.query.isBlank() }
+        ) { result -> if (!disposed) events.trySend(Event.OnlineResultEvent(result)) }
+    }
+
+    private fun startRemoteImport(providerId: String) {
+        val current = mutableState.value
+        if (current.importingProviderId != null || current.readOnly) return
+        val remote = current.onlinePlaces.firstOrNull { it.providerId == providerId } ?: return
+        val existing = current.catalogPlaces.firstOrNull {
+            it.contentSource?.endsWith(providerId) == true ||
+                (it.name == remote.name && it.city == remote.city && it.address == remote.address)
+        }
+        if (existing != null) {
+            reduce(PlaceListMutation.RemoteImportFinished(existing))
+            return
+        }
+        reduce(PlaceListMutation.RemoteImportStarted(providerId))
+        placeRepository.createPlace(remote.toImportedDraft()) { result ->
+            if (!disposed) events.trySend(Event.ImportResultEvent(result))
+        }
+    }
+
+    private fun handleImportResult(result: StorageResult<Place>) {
+        reduce(PlaceListMutation.RemoteImportFinished((result as? StorageResult.Success)?.value))
+        if (result is StorageResult.Success) PlaceFeatureRuntime.invalidate()
     }
 
     private fun startLoad() {

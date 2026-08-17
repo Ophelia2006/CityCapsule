@@ -11,7 +11,9 @@
 - `[Code Scan][DONE code+automation/PARTIAL device]` 用户地点可手填 WGS-84 坐标或主动使用当前位置；需补双端键盘、非法输入、权限拒绝和重启读取真机验收。
 - `[Code Scan][DONE code+automation/PARTIAL device]` 地点封面替换、移除、放弃和删除已使用 Place/Capsule/草稿引用保护清理；需补双端文件缺失、删除失败与导入恢复真机验收。
 - `[Code Scan][DONE code+automation/PARTIAL device]` 已知未支持城市可被选择并持久化，Home/Explore 显示诚实空态且不串入其他城市地点；当前北京仅用于验证此状态，不代表已有北京内容包。
-- `[Initial Plan][BLOCKED external dependency]` 在线 POI 导入与真实逆地理编码需要确认服务商、Web Service 凭据、配额和失败策略；凭据不得进入源码、普通 MMKV 或默认备份。
+- `[Initial Plan][DONE code+automation/PARTIAL device]` 高德在线 POI 搜索、照片预览、单个选择性导入和在线逆地理编码已接入双端网络桥；Web Key 只存在本机忽略配置，断网/空结果/服务错误降级到本地点。仍需双端真机验证弱网、图片加载失败、重复导入和请求生命周期。
+- `[Initial Plan][P1]` 把探索城市目录从编译期 `CityRegistry` 扩展为可持久化的全国城市定义/行政区编码；当前在线搜索只覆盖已登记并可选择的城市，不能宣称全国城市选择已完成。
+- `[Code Scan][P1]` 在线 POI 图片目前只在在线结果中展示；导入后的本地点详情使用类别 fallback。后续新增带版本迁移的远程视觉引用，或在导入时下载为托管文件，不能复用 `BUNDLED_ASSET` 冒充远程 URL。
 
 优先级同时考虑产品闭环、数据安全和架构阻塞。标签说明来源：`[Initial Plan]`、`[Code Scan]`、`[UI/UX Redesign]`。Record Flow 的 Phase 2 首版已实现；其他 Feature 仍按用户确认的范围逐项推进。
 

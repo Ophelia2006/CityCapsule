@@ -10,6 +10,7 @@ val localProperties = Properties().apply {
     if (file.isFile) file.inputStream().use(::load)
 }
 val amapAndroidApiKey = localProperties.getProperty("AMAP_ANDROID_API_KEY").orEmpty()
+val amapWebServiceKey = localProperties.getProperty("AMAP_WEB_SERVICE_KEY").orEmpty()
 val isAmapAndroidApiKeyValid = amapAndroidApiKey.isEmpty() ||
     amapAndroidApiKey.matches(Regex("[A-Za-z0-9]{20,64}"))
 check(isAmapAndroidApiKeyValid) {
@@ -31,6 +32,7 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["AMAP_ANDROID_API_KEY"] = amapAndroidApiKey
+        buildConfigField("String", "AMAP_WEB_SERVICE_KEY", "\"$amapWebServiceKey\"")
     }
 
     buildTypes {
