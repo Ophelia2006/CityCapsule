@@ -14,6 +14,7 @@
 - `[Initial Plan][DONE code+automation/PARTIAL device]` 高德在线 POI 搜索、照片预览、单个选择性导入和在线逆地理编码已接入双端网络桥；Web Key 只存在本机忽略配置，断网/空结果/服务错误降级到本地点。仍需双端真机验证弱网、图片加载失败、重复导入和请求生命周期。
 - `[Initial Plan][P1]` 把探索城市目录从编译期 `CityRegistry` 扩展为可持久化的全国城市定义/行政区编码；当前在线搜索只覆盖已登记并可选择的城市，不能宣称全国城市选择已完成。
 - `[Code Scan][DONE code/PARTIAL device]` 地点详情已按“本地托管封面 → 高德 POI 临时首图 → 类别 fallback”展示，并分开标注文字与图片来源；在线 URL 不写入 `BUNDLED_ASSET`、MMKV 或备份。仍需双端真机验证图片成功、慢加载、失败和页面反复进入退出。
+- `[Code Scan][DONE code+Android log verification]` `CCPlaceNetworkModule` 已在 `BasePager` 的 shared proxy 模块表统一注册，并增加架构守卫；地点详情因漏注册导致的 Android `acquireModule` 闪退已定位并修复，HarmonyOS 仍需真机复验同一路径。
 
 优先级同时考虑产品闭环、数据安全和架构阻塞。标签说明来源：`[Initial Plan]`、`[Code Scan]`、`[UI/UX Redesign]`。Record Flow 的 Phase 2 首版已实现；其他 Feature 仍按用户确认的范围逐项推进。
 

@@ -16,6 +16,8 @@ import com.y.citycapsule.core.location.KuiklyLocationCapability
 import com.y.citycapsule.core.location.KuiklyLocationModule
 import com.y.citycapsule.core.navigation.KuiklyExternalNavigationCapability
 import com.y.citycapsule.core.navigation.KuiklyExternalNavigationModule
+import com.y.citycapsule.core.place.AmapPlaceRemoteDataSource
+import com.y.citycapsule.core.place.KuiklyPlaceNetworkModule
 import com.y.citycapsule.core.storage.KuiklyStorageModule
 import com.y.citycapsule.core.storage.StorageProtocol
 import com.y.citycapsule.core.theme.ThemeBootstrapContract
@@ -37,6 +39,7 @@ internal abstract class BasePager : ComposeContainer() {
         externalModules[KuiklyDataArchiveCapability.MODULE_NAME] = KuiklyDataArchiveModule()
         externalModules[KuiklyLocationCapability.MODULE_NAME] = KuiklyLocationModule()
         externalModules[KuiklyExternalNavigationCapability.MODULE_NAME] = KuiklyExternalNavigationModule()
+        externalModules[AmapPlaceRemoteDataSource.MODULE_NAME] = KuiklyPlaceNetworkModule()
         externalModules[KuiklyTrackFiles.MODULE] = TrackModule()
         return externalModules
     }
