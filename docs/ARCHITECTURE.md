@@ -353,3 +353,19 @@ CapsuleEditorPage
 ```
 
 系统相机启动前由平台宿主创建受控目标；取消、失败或空结果由平台立即清理。成功路径与相册复制路径进入相同的 `imagePaths` 协议，移除照片、丢弃草稿和删除碎片继续经 `RepositoryCapsuleMediaCleanup` 做 catalog/草稿全引用保护，再由双端 `CCMediaModule.deleteImages` 限定删除 `images/original` 直属文件。
+
+## 本地路线 7A
+
+`Explore → typed AppRoute → LocalRoute Page → LocalRouteStore (MVI) → DefaultLocalRouteRepository → routes.catalog / MMKV`。Repository 在写入前通过 PlaceRepository 校验有序地点 ID；当前不存在在线规划或漫游运行时。
+
+## 漫游会话 7B
+
+`LocalRoute Page → typed RoamingSession route → RoamingSessionStore → LocalRoamingSessionRepository → roaming.session / MMKV`。Repository 串行执行状态转换；绑定路线开始前校验 `routeId`。该链路不访问 Location Capability。
+
+## 前台轨迹 7C
+
+`RoamingSessionPage 前台循环 → LocationCapability → TrackRepository → CCTrackModule → files/tracks/*/chunk_N.json`；Repository 只把分片路径索引和状态写入 `roaming.track`。定位失败进入 `INTERRUPTED`，不结束漫游。
+
+## 打卡与总结 7D
+
+定位采样用 `GeoDistance` 判断 150 米附近，只产生“确认到达”候选；用户确认后才写 `roaming.check_ins`。定位中断只允许 `MANUAL` 标记。总结按需读取 Route、RoamingSession、CheckIn、轨迹分片和时间范围内 CityCapsule，不保存伪造或重复的 summary snapshot。

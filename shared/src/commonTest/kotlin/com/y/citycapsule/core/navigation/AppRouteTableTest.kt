@@ -96,6 +96,27 @@ class AppRouteTableTest {
     }
 
     @Test
+    fun localRoutesUseSecondaryPagesAndOnlyPassRouteId() {
+        val list = AppRouteTable.resolve(AppRoute.LocalRoutes)
+        val create = AppRouteTable.resolve(AppRoute.LocalRouteEditor())
+        val edit = AppRouteTable.resolve(AppRoute.LocalRouteEditor("route-1"))
+
+        assertEquals(RouteDestination.Kuikly(AppRouteTable.PAGE_LOCAL_ROUTES), list.destination)
+        assertEquals(emptyMap(), create.params)
+        assertEquals(mapOf(AppRouteTable.PARAM_ROUTE_ID to "route-1"), edit.params)
+    }
+
+    @Test
+    fun roamingSessionOnlyPassesOptionalRouteId() {
+        val free = AppRouteTable.resolve(AppRoute.RoamingSession())
+        val routed = AppRouteTable.resolve(AppRoute.RoamingSession("route-1"))
+
+        assertEquals(RouteDestination.Kuikly(AppRouteTable.PAGE_ROAMING_SESSION), free.destination)
+        assertEquals(emptyMap(), free.params)
+        assertEquals(mapOf(AppRouteTable.PARAM_ROUTE_ID to "route-1"), routed.params)
+    }
+
+    @Test
     fun recordRoutesUseStablePagesAndOnlyPassIdentifiers() {
         val editor = AppRouteTable.resolve(
             AppRoute.CapsuleEditor(capsuleId = "capsule-1", placeId = "place-1")

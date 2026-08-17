@@ -30,6 +30,9 @@ export const PLACE_DETAIL_ROUTE_KEY: string = 'place_detail';
 export const PLACE_DETAIL_PAGE_NAME: string = 'place_detail';
 export const PLACE_EDITOR_ROUTE_KEY: string = 'place_editor';
 export const PLACE_EDITOR_PAGE_NAME: string = 'place_editor';
+export const LOCAL_ROUTES_PAGE_NAME: string = 'local_routes';
+export const LOCAL_ROUTE_EDITOR_PAGE_NAME: string = 'local_route_editor';
+export const ROAMING_SESSION_PAGE_NAME: string = 'roaming_session';
 export const FAVORITES_ROUTE_KEY: string = 'favorites';
 export const FAVORITES_PAGE_NAME: string = 'favorites';
 export const CAPSULE_EDITOR_PAGE_NAME: string = 'capsule_editor';
@@ -54,6 +57,9 @@ export class HarmonyRouteCatalog {
       case PLACE_LIST_PAGE_NAME:
       case PLACE_DETAIL_PAGE_NAME:
       case PLACE_EDITOR_PAGE_NAME:
+      case LOCAL_ROUTES_PAGE_NAME:
+      case LOCAL_ROUTE_EDITOR_PAGE_NAME:
+      case ROAMING_SESSION_PAGE_NAME:
       case FAVORITES_PAGE_NAME:
       case CAPSULE_EDITOR_PAGE_NAME:
       case CAPSULE_DETAIL_PAGE_NAME:

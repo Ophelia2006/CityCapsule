@@ -193,3 +193,19 @@ Settings 只依赖共享 `DataArchiveCapability`；Android 以系统 Storage Acc
 - 取消、启动失败或没有有效内容时立即删除预创建文件；成功只返回该目录内的 `file://` 路径。
 - 拍摄路径继续写入既有 `CapsuleDraft.imagePaths`，不修改 Capsule wire/schema；后续移除、丢弃和删除继续走 ADR-014 的全引用保护清理。
 - 相机不可用不是编辑器阻断条件：相册与纯文字记录继续可用。
+
+## ADR-022：7A 使用手动排序的本地路线
+
+用户明确要求四字段 Route、手动选点排序、不接在线路径规划且入口位于 Explore。因此采用有界 schema v1 `routes.catalog`、Feature-owned MVI Store 和备份 v3；不创建“漫游”Tab，不预建轨迹与打卡空壳。
+
+## ADR-023：7B 只实现可恢复的本地会话状态机
+
+用户明确把 7B 限定为可选路线以及开始、暂停、继续、结束。因此会话采用单条 `roaming.session` 持久记录和严格状态转换，并进入备份 v4；定位、轨迹与打卡继续留给后续步骤。
+
+## ADR-024：轨迹点进文件，MMKV 只保存索引
+
+7C 要求分片文件存点、MMKV 保存元数据与索引，并推迟后台能力。因此采用双端专用 `CCTrackModule` 限制沙箱写入；前台页面驱动采样，失败只更新轨迹中断状态。
+
+## ADR-025：打卡必须区分 GPS 确认与手动记录
+
+7D 明确禁止伪造 GPS 到达。因此附近判定本身不自动打卡，用户确认后记录 `GPS_CONFIRMED`；定位不可用时只能记录 `MANUAL`。总结从真实源数据实时计算，数据不足时显示不可计算。

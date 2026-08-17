@@ -21,6 +21,8 @@ import com.y.citycapsule.core.storage.StorageProtocol
 import com.y.citycapsule.core.theme.ThemeBootstrapContract
 import com.y.citycapsule.core.theme.ThemeHostProtocol
 import com.y.citycapsule.core.theme.ThemeMode
+import com.y.citycapsule.core.track.KuiklyTrackFiles
+import com.y.citycapsule.core.track.TrackModule
 
 internal abstract class BasePager : ComposeContainer() {
     private var nightModel: Boolean? by observable(null)
@@ -35,6 +37,7 @@ internal abstract class BasePager : ComposeContainer() {
         externalModules[KuiklyDataArchiveCapability.MODULE_NAME] = KuiklyDataArchiveModule()
         externalModules[KuiklyLocationCapability.MODULE_NAME] = KuiklyLocationModule()
         externalModules[KuiklyExternalNavigationCapability.MODULE_NAME] = KuiklyExternalNavigationModule()
+        externalModules[KuiklyTrackFiles.MODULE] = TrackModule()
         return externalModules
     }
 

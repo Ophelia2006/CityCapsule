@@ -58,3 +58,28 @@
 - `[Initial Plan][DONE code/PARTIAL build+device]` 确定性缩略图、Timeline/Gallery 按需加载与原图降级、删除联动、1 小时宽限扫描、引用读取失败停删、Settings 真实 bytes/count 与安全清理已实现；未新增 MMKV key。shared Kotlin 编译通过；完整 Android 测试被本机 `shared/build` 文件锁阻断，HarmonyOS strict build 与双端真机矩阵待按 `P2_MEDIA_MAINTENANCE_ACCEPTANCE.md` 完成。
 
 任务只有在真实数据、失败/空/加载状态、双端能力（或明确降级）、自动测试和必要手工验收都成立时才可从 TODO 移入 DONE。仅有 route、接口、静态页面、mock 或“已接入”文案不算完成。
+
+## P2-7 分步状态（2026-08-12）
+
+- [x] 7A 本地路线：手动选点、排序和持久化。
+- [ ] 7B 漫游会话。
+- [ ] 7C GPS 轨迹。
+- [ ] 7D 打卡。
+
+## P2-7B 状态（2026-08-12）
+
+- [x] 漫游会话：开始、暂停、继续、结束及进程重启恢复。
+- [ ] 7C GPS 轨迹。
+- [ ] 7D 打卡。
+
+## P2-7C 状态（2026-08-12）
+
+- [x] 前台轨迹：沙箱分片、MMKV 索引、定位失败不中止漫游。
+- [ ] 后台定位、耗电策略和系统保活（独立平台 Feature）。
+- [ ] 7D 打卡。
+
+## P2-7D 状态（2026-08-12）
+
+- [x] 附近确认、显式手动打卡、城市碎片入口和真实总结。
+- [ ] Android/HarmonyOS 完成 P2-7 总验收并留存证据。
+- [ ] 仅在总验收通过后评估“漫游”一级 Tab，不默认增加。

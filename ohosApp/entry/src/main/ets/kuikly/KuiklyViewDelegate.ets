@@ -14,6 +14,7 @@ import { KRLocaleModule } from './modules/KRLocaleModule';
 import { KRDataArchiveModule } from './modules/KRDataArchiveModule';
 import { KRLocationModule } from './modules/KRLocationModule';
 import { KRExternalNavigationModule } from './modules/KRExternalNavigationModule';
+import { KRTrackModule } from './modules/KRTrackModule';
 import hilog from '@ohos.hilog';
 
 export class KuiklyViewDelegate extends IKuiklyViewDelegate {
@@ -38,6 +39,7 @@ export class KuiklyViewDelegate extends IKuiklyViewDelegate {
     map.set(KRDataArchiveModule.MODULE_NAME, () => new KRDataArchiveModule())
     map.set(KRLocationModule.MODULE_NAME, () => new KRLocationModule())
     map.set(KRExternalNavigationModule.MODULE_NAME, () => new KRExternalNavigationModule())
+    map.set(KRTrackModule.MODULE_NAME, () => new KRTrackModule())
     return map;
   }
 }

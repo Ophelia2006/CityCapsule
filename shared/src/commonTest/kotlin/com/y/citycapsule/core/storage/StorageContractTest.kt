@@ -44,7 +44,13 @@ class StorageContractTest {
         assertEquals(StorageStore.PREFERENCES, AppStorageKeys.Capsules.CATALOG.store)
         assertEquals("capsules.draft", AppStorageKeys.Capsules.DRAFT.wireKey)
         assertEquals(StorageStore.CACHE, AppStorageKeys.Capsules.DRAFT.store)
-        assertEquals(8, AppStorageKeys.all.size)
+        assertEquals("routes.catalog", AppStorageKeys.Routes.CATALOG.wireKey)
+        assertEquals(StorageStore.PREFERENCES, AppStorageKeys.Routes.CATALOG.store)
+        assertEquals("roaming.session", AppStorageKeys.Roaming.SESSION.wireKey)
+        assertEquals(StorageStore.PREFERENCES, AppStorageKeys.Roaming.SESSION.store)
+        assertEquals("roaming.track", AppStorageKeys.Roaming.TRACK.wireKey)
+        assertEquals("roaming.check_ins", AppStorageKeys.Roaming.CHECK_INS.wireKey)
+        assertEquals(12, AppStorageKeys.all.size)
     }
 
     @Test

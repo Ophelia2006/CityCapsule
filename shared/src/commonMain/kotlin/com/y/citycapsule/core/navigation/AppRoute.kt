@@ -31,6 +31,16 @@ sealed interface AppRoute {
 
     data object MapExplore : AppRoute
 
+    data object LocalRoutes : AppRoute
+
+    data class LocalRouteEditor(val routeId: String? = null) : AppRoute {
+        init { requireOptionalRouteArgument("routeId", routeId) }
+    }
+
+    data class RoamingSession(val routeId: String? = null) : AppRoute {
+        init { requireOptionalRouteArgument("routeId", routeId) }
+    }
+
     data class CapsuleEditor(
         val capsuleId: String? = null,
         val placeId: String? = null
@@ -81,6 +91,9 @@ enum class AppRouteKey {
     PLACE_DETAIL,
     PLACE_EDITOR,
     MAP_EXPLORE,
+    LOCAL_ROUTES,
+    LOCAL_ROUTE_EDITOR,
+    ROAMING_SESSION,
     CAPSULE_EDITOR,
     CAPSULE_DETAIL,
     TIMELINE,

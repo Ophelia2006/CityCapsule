@@ -36,6 +36,7 @@ import com.y.citycapsule.designsystem.AndroidThemePageData
 import com.y.citycapsule.module.KRBridgeModule
 import com.y.citycapsule.module.KRShareModule
 import com.y.citycapsule.module.KRMediaModule
+import com.y.citycapsule.module.KRTrackModule
 import com.y.citycapsule.module.KRLocaleModule
 import com.y.citycapsule.module.KRLocationModule
 import com.y.citycapsule.module.KRExternalNavigationModule
@@ -268,6 +269,7 @@ class KuiklyHostActivity :
             moduleExport(KRMediaModule.MODULE_NAME) {
                 KRMediaModule()
             }
+            moduleExport(KRTrackModule.MODULE_NAME) { KRTrackModule() }
             moduleExport(KRLocaleModule.MODULE_NAME) {
                 KRLocaleModule()
             }

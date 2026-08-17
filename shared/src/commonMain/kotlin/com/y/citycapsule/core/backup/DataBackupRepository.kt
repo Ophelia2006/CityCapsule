@@ -16,6 +16,7 @@ data class BackupPreview(
     val placeCount: Int,
     val favoriteCount: Int,
     val capsuleCount: Int,
+    val routeCount: Int,
     val photoCount: Int,
     internal val entries: List<BackupEntry>
 )
@@ -27,7 +28,8 @@ data class LocalStorageSnapshot(
     val profileCount: Int,
     val placeCount: Int,
     val favoriteCount: Int,
-    val capsuleCount: Int
+    val capsuleCount: Int,
+    val routeCount: Int
 )
 
 data class BackupEntry(
@@ -128,6 +130,8 @@ class DataBackupRepository(private val storage: KeyValueStore) {
             .encodedValue?.let(AppStorageKeys.Places.CATALOG.codec::decode)
         val favorites = entries.first { it.key == AppStorageKeys.Favorites.PLACE_IDS }
             .encodedValue?.let(AppStorageKeys.Favorites.PLACE_IDS.codec::decode)
+        val routes = entries.first { it.key == AppStorageKeys.Routes.CATALOG }
+            .encodedValue?.let(AppStorageKeys.Routes.CATALOG.codec::decode)
         return BackupDataResult.Success(
             LocalStorageSnapshot(
                 payload = payload,
@@ -136,7 +140,8 @@ class DataBackupRepository(private val storage: KeyValueStore) {
                 profileCount = if (profile) 1 else 0,
                 placeCount = places?.places?.size ?: 0,
                 favoriteCount = favorites?.placeIds?.size ?: 0,
-                capsuleCount = capsules.capsules.size
+                capsuleCount = capsules.capsules.size,
+                routeCount = routes?.routes?.size ?: 0
             )
         )
     }
@@ -179,28 +184,40 @@ class DataBackupRepository(private val storage: KeyValueStore) {
                     add(BackupEntry(key, exists, value))
                 }
             }
-            if (entries.map { it.key }.toSet() != PERSISTENT_KEYS.toSet()) {
+            var normalizedEntries = entries
+            if (backupVersion < 3 && normalizedEntries.none { it.key == AppStorageKeys.Routes.CATALOG }) {
+                normalizedEntries = normalizedEntries + BackupEntry(AppStorageKeys.Routes.CATALOG, false, null)
+            }
+            if (backupVersion < 4 && normalizedEntries.none { it.key == AppStorageKeys.Roaming.SESSION }) {
+                normalizedEntries = normalizedEntries + BackupEntry(AppStorageKeys.Roaming.SESSION, false, null)
+            }
+            if (backupVersion < 5 && normalizedEntries.none { it.key == AppStorageKeys.Roaming.TRACK }) normalizedEntries = normalizedEntries + BackupEntry(AppStorageKeys.Roaming.TRACK, false, null)
+            if (backupVersion < 6 && normalizedEntries.none { it.key == AppStorageKeys.Roaming.CHECK_INS }) normalizedEntries = normalizedEntries + BackupEntry(AppStorageKeys.Roaming.CHECK_INS, false, null)
+            if (normalizedEntries.map { it.key }.toSet() != PERSISTENT_KEYS.toSet()) {
                 return BackupDataResult.Failure("备份数据清单不完整。")
             }
-            val capsules = entries.first { it.key == AppStorageKeys.Capsules.CATALOG }
+            val capsules = normalizedEntries.first { it.key == AppStorageKeys.Capsules.CATALOG }
                 .encodedValue?.let(AppStorageKeys.Capsules.CATALOG.codec::decode)
                 ?: CapsuleCatalog.EMPTY
-            val places = entries.first { it.key == AppStorageKeys.Places.CATALOG }
+            val places = normalizedEntries.first { it.key == AppStorageKeys.Places.CATALOG }
                 .encodedValue?.let(AppStorageKeys.Places.CATALOG.codec::decode)
-            val favorites = entries.first { it.key == AppStorageKeys.Favorites.PLACE_IDS }
+            val favorites = normalizedEntries.first { it.key == AppStorageKeys.Favorites.PLACE_IDS }
                 .encodedValue?.let(AppStorageKeys.Favorites.PLACE_IDS.codec::decode)
+            val routes = normalizedEntries.first { it.key == AppStorageKeys.Routes.CATALOG }
+                .encodedValue?.let(AppStorageKeys.Routes.CATALOG.codec::decode)
             BackupDataResult.Success(
                 BackupPreview(
                     sessionId = selection.sessionId,
                     fileName = selection.fileName,
                     profileCount = if (
-                        entries.first { it.key == AppStorageKeys.Profile.LOCAL_PROFILE }.exists
+                        normalizedEntries.first { it.key == AppStorageKeys.Profile.LOCAL_PROFILE }.exists
                     ) 1 else 0,
                     placeCount = places?.places?.size ?: 0,
                     favoriteCount = favorites?.placeIds?.size ?: 0,
                     capsuleCount = capsules.capsules.size,
+                    routeCount = routes?.routes?.size ?: 0,
                     photoCount = capsules.capsules.flatMap { it.imagePaths }.distinct().size,
-                    entries = entries
+                    entries = normalizedEntries
                 )
             )
         } catch (_: Throwable) {
@@ -255,14 +272,18 @@ class DataBackupRepository(private val storage: KeyValueStore) {
     private companion object {
         const val APP_ID = "CityCapsule"
         const val MIN_SUPPORTED_BACKUP_VERSION = 1
-        const val BACKUP_VERSION = 2
+        const val BACKUP_VERSION = 6
         val PERSISTENT_KEYS = listOf(
             AppStorageKeys.Settings.THEME_MODE,
             AppStorageKeys.Profile.LOCAL_PROFILE,
             AppStorageKeys.Onboarding.COMPLETED_VERSION,
             AppStorageKeys.Places.CATALOG,
             AppStorageKeys.Favorites.PLACE_IDS,
-            AppStorageKeys.Capsules.CATALOG
+            AppStorageKeys.Capsules.CATALOG,
+            AppStorageKeys.Routes.CATALOG,
+            AppStorageKeys.Roaming.SESSION,
+            AppStorageKeys.Roaming.TRACK,
+            AppStorageKeys.Roaming.CHECK_INS
         )
     }
 }

@@ -260,6 +260,13 @@ private fun HomeContent(
     }
 
     Spacer(Modifier.height(dimensions.spacingXl))
+    AppSectionTitle("规划下一次探索")
+    Spacer(Modifier.height(dimensions.spacingXxs))
+    AppSecondaryText("手动挑选地点并安排顺序；当前不会计算交通或推荐路线。")
+    Spacer(Modifier.height(dimensions.spacingSm))
+    AppButton("我的路线", { navigator.navigate(AppRoute.LocalRoutes) }, variant = AppButtonVariant.SECONDARY)
+
+    Spacer(Modifier.height(dimensions.spacingXl))
     AppSectionTitle("最近留下的城市记忆")
     Spacer(Modifier.height(dimensions.spacingSm))
     if (state.recentMemories.isEmpty()) {

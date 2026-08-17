@@ -12,6 +12,14 @@ import com.y.citycapsule.core.place.PlaceCatalog
 import com.y.citycapsule.core.place.PlaceCatalogCodec
 import com.y.citycapsule.core.profile.LocalProfile
 import com.y.citycapsule.core.profile.LocalProfileCodec
+import com.y.citycapsule.core.route.LocalRouteCatalog
+import com.y.citycapsule.core.route.LocalRouteCatalogCodec
+import com.y.citycapsule.core.roaming.RoamingSession
+import com.y.citycapsule.core.roaming.RoamingSessionCodec
+import com.y.citycapsule.core.track.TrackMetadata
+import com.y.citycapsule.core.track.TrackMetadataCodec
+import com.y.citycapsule.core.checkin.CheckInCatalog
+import com.y.citycapsule.core.checkin.CheckInCodec
 
 /** Source-compatible alias; the neutral model now lives outside the storage package. */
 typealias ThemeMode = com.y.citycapsule.core.theme.ThemeMode
@@ -105,6 +113,34 @@ object AppStorageKeys {
         )
     }
 
+    object Routes {
+        val CATALOG = StorageKey(
+            store = StorageStore.PREFERENCES,
+            namespace = "routes",
+            name = "catalog",
+            defaultValue = LocalRouteCatalog.EMPTY,
+            codec = LocalRouteCatalogCodec
+        )
+    }
+
+    object Roaming {
+        val SESSION = StorageKey<RoamingSession>(
+            store = StorageStore.PREFERENCES,
+            namespace = "roaming",
+            name = "session",
+            defaultValue = RoamingSession(startedAtEpochMs = 0L, endedAtEpochMs = 0L, status = com.y.citycapsule.core.roaming.RoamingStatus.ENDED),
+            codec = RoamingSessionCodec
+        )
+        val TRACK = StorageKey(
+            store = StorageStore.PREFERENCES,
+            namespace = "roaming",
+            name = "track",
+            defaultValue = TrackMetadata(0L),
+            codec = TrackMetadataCodec
+        )
+        val CHECK_INS = StorageKey(store = StorageStore.PREFERENCES, namespace = "roaming", name = "check_ins", defaultValue = CheckInCatalog(sessionStartedAtEpochMs = 0L), codec = CheckInCodec)
+    }
+
     val all: List<StorageKey<*>> = listOf(
         Settings.THEME_MODE,
         Profile.LOCAL_PROFILE,
@@ -113,6 +149,10 @@ object AppStorageKeys {
         Places.CATALOG,
         Favorites.PLACE_IDS,
         Capsules.CATALOG,
-        Capsules.DRAFT
+        Capsules.DRAFT,
+        Routes.CATALOG,
+        Roaming.SESSION,
+        Roaming.TRACK,
+        Roaming.CHECK_INS
     )
 }
