@@ -12,6 +12,11 @@ import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceClock
 import com.y.citycapsule.core.place.PlaceIdGenerator
 import com.y.citycapsule.core.place.PlaceDraft
+import com.y.citycapsule.core.place.PlaceVisualRef
+import com.y.citycapsule.core.place.PlaceVisualType
+import com.y.citycapsule.core.place.RepositoryPlaceMediaCleanup
+import com.y.citycapsule.core.media.ManagedMediaDeleteResult
+import com.y.citycapsule.core.media.ManagedMediaFileCapability
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
 import com.y.citycapsule.core.storage.StorageKey
@@ -179,6 +184,39 @@ class PlaceFeatureStateTest {
 
         assertFalse(immediate)
         assertTrue(holder.state.showDiscardConfirmation)
+    }
+
+    @Test
+    fun placeMediaCleanupDeletesOnlyFilesWithoutPlaceOrCapsuleReferences() {
+        val fixture = fixture()
+        var created: StorageResult<Place>? = null
+        fixture.placeRepository.createPlace(
+            PlaceDraft(
+                name = "带封面的地点",
+                city = "上海",
+                category = PlaceCategory.OTHER,
+                visualRef = PlaceVisualRef(PlaceVisualType.MANAGED_FILE, "file://kept.jpg")
+            )
+        ) { created = it }
+        assertIs<StorageResult.Success<Place>>(created)
+        val deleted = mutableListOf<String>()
+        val media = ManagedMediaFileCapability { paths, callback ->
+            deleted += paths
+            callback(ManagedMediaDeleteResult.Success(paths))
+        }
+        val cleanup = RepositoryPlaceMediaCleanup(
+            fixture.placeRepository,
+            fixture.capsuleRepository,
+            media
+        )
+        var completed = false
+
+        cleanup.cleanupCandidates(listOf("file://kept.jpg", "file://orphan.jpg")) {
+            completed = it
+        }
+
+        assertTrue(completed)
+        assertEquals(listOf("file://orphan.jpg"), deleted)
     }
 
     private fun fixture(

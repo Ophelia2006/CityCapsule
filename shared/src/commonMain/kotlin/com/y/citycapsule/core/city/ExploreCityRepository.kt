@@ -39,7 +39,7 @@ class LocalExploreCityRepository(private val storage: KeyValueStore) : ExploreCi
 
     override fun select(cityId: String, callback: StorageCallback<ExploreCitySelection>) {
         val city = CityRegistry.byId(cityId)
-        if (city?.supported != true) return callback(failure("Explore city is unsupported."))
+        if (city == null) return callback(failure("Explore city is unknown."))
         get { result ->
             if (result !is StorageResult.Success) return@get callback(
                 if (result is StorageResult.Failure) result else failure("Explore city is unavailable.")

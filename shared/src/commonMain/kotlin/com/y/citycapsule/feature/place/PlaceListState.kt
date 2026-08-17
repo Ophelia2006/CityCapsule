@@ -13,6 +13,7 @@ import com.y.citycapsule.core.mvi.MviStore
 import com.y.citycapsule.core.location.GeoDistance
 import com.y.citycapsule.core.location.LocationCapability
 import com.y.citycapsule.core.location.LocationResult
+import com.y.citycapsule.core.location.CurrentLocationRuntime
 import com.y.citycapsule.core.map.ExploreMapViewState
 import com.y.citycapsule.core.map.MapAvailability
 import com.y.citycapsule.core.map.MapCameraModel
@@ -348,7 +349,8 @@ internal object PlaceListReducer {
                 locationStatus = PlaceLocationStatus.AVAILABLE,
                 currentLocation = result.point,
                 locationAccuracyMeters = result.accuracyMeters,
-                locationMessage = "已按当前位置显示直线距离。"
+                locationMessage = "已按当前位置显示直线距离。",
+                mapCamera = MapCameraModel(result.point, 14.0)
             )
             LocationResult.PermissionDenied -> state.locationFailure(
                 PlaceLocationStatus.PERMISSION_DENIED, "未获得定位权限，地点目录仍可浏览。"
@@ -437,7 +439,7 @@ class PlaceListStore(
         it(LocationResult.Unavailable)
     },
     private val reverseGeocodeCapability: ReverseGeocodeCapability = ReverseGeocodeCapability {
-        _, callback -> callback(ReverseGeocodeResult.UnsupportedCity)
+        _, callback -> callback(ReverseGeocodeResult.UnsupportedCity())
     },
     parentScope: CoroutineScope,
     mode: PlaceListMode = PlaceListMode.ALL,
@@ -658,6 +660,7 @@ class PlaceListStore(
         if (event.operation != locationOperation) return
         reduce(PlaceListMutation.LocationResolved(event.result))
         val success = event.result as? LocationResult.Success ?: return
+        CurrentLocationRuntime.update(success.point)
         reverseGeocodeCapability.resolve(success.point) { result ->
             if (!disposed) events.trySend(Event.ReverseGeocodeResultEvent(result))
         }
@@ -681,7 +684,11 @@ class PlaceListStore(
     private fun handleReverseGeocodeResult(result: ReverseGeocodeResult) {
         reduce(
             PlaceListMutation.DetectedCity(
-                (result as? ReverseGeocodeResult.SupportedCity)?.city
+                when (result) {
+                    is ReverseGeocodeResult.SupportedCity -> result.city
+                    is ReverseGeocodeResult.UnsupportedCity -> result.city
+                    is ReverseGeocodeResult.Failure -> null
+                }
             )
         )
     }

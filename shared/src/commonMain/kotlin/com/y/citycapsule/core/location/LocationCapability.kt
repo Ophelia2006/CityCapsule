@@ -1,5 +1,8 @@
 package com.y.citycapsule.core.location
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.tencent.kuikly.core.module.Module
 import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
 import com.tencent.kuikly.core.pager.Pager
@@ -25,6 +28,19 @@ sealed interface LocationResult {
 
 fun interface LocationCapability {
     fun getCurrentLocation(callback: (LocationResult) -> Unit)
+}
+
+/** Process-only location shared after an explicit user request; never persisted. */
+object CurrentLocationRuntime {
+    var point: GeoPoint? by mutableStateOf(null)
+        private set
+    var revision: Long by mutableStateOf(0L)
+        private set
+
+    fun update(value: GeoPoint?) {
+        point = value
+        revision += 1L
+    }
 }
 
 object GeoDistance {

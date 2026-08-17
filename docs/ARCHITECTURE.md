@@ -1,5 +1,7 @@
 # CityCapsule 当前架构
 
+> 2026-08-17 增量：一次性定位成功结果只进入 `CurrentLocationRuntime` 进程内状态，供 Explore、地图相机与 Home 距离排序复用，不新增持久化 Key；用户地点显式坐标仍随 Place V3 持久化。地点托管封面删除必须先经 `RepositoryPlaceMediaCleanup` 读取 Place catalog、已发布 Capsule 与草稿的全部引用，任一读取失败即停止删除。
+
 ## 范围
 
 本文只描述截至 2026-07-30 仓库中真实存在的架构。初始目标见 `INITIAL_PLANNING_BASELINE.md`；目标架构不会被写成当前事实。

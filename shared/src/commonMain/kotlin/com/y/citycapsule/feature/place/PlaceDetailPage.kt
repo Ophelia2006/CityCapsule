@@ -37,6 +37,9 @@ import com.y.citycapsule.core.navigation.ExternalNavigationResult
 import com.y.citycapsule.core.navigation.KuiklyExternalNavigationCapability
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.Place
+import com.y.citycapsule.core.place.RepositoryPlaceMediaCleanup
+import com.y.citycapsule.core.place.PlaceMediaCleanup
+import com.y.citycapsule.core.media.KuiklyManagedMediaFiles
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.core.capsule.CapsuleRepository
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
@@ -74,6 +77,7 @@ internal class PlaceDetailPager : BasePager() {
         val storage = KuiklyKeyValueStore(this)
         val placeRepository = LocalPlaceRepository(storage)
         val favoriteRepository = LocalFavoriteRepository(storage, placeRepository)
+        val capsuleRepository = LocalCapsuleRepository(storage)
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
             PlaceDetailScreen(
@@ -81,7 +85,8 @@ internal class PlaceDetailPager : BasePager() {
                 navigator,
                 placeRepository,
                 favoriteRepository,
-                LocalCapsuleRepository(storage),
+                capsuleRepository,
+                RepositoryPlaceMediaCleanup(placeRepository, capsuleRepository, KuiklyManagedMediaFiles(this)),
                 KuiklyLocalCapsuleDateFormatter(this),
                 KuiklyExternalNavigationCapability(this),
                 themeHost
@@ -98,6 +103,7 @@ private fun PlaceDetailScreen(
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
     capsuleRepository: CapsuleRepository,
+    mediaCleanup: PlaceMediaCleanup,
     dateFormatter: KuiklyLocalCapsuleDateFormatter,
     externalNavigation: ExternalNavigationCapability,
     themeHost: AppThemeHost
@@ -107,12 +113,13 @@ private fun PlaceDetailScreen(
     var menuExpanded by remember { mutableStateOf(false) }
     var navigationMessage by remember { mutableStateOf<String?>(null) }
     val invalidationOwner = remember { PlaceFeatureRuntime.newOwnerToken() }
-    val holder = remember(placeId, placeRepository, favoriteRepository, capsuleRepository) {
+    val holder = remember(placeId, placeRepository, favoriteRepository, capsuleRepository, mediaCleanup) {
         PlaceDetailStateHolder(
             placeId = placeId,
             placeRepository = placeRepository,
             favoriteRepository = favoriteRepository,
             capsuleRepository = capsuleRepository,
+            mediaCleanup = mediaCleanup,
             onDataChanged = { PlaceFeatureRuntime.invalidateFrom(invalidationOwner) },
             onStateChanged = { uiState = it }
         )

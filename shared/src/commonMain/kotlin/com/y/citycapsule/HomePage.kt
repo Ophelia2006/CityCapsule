@@ -30,6 +30,7 @@ import com.y.citycapsule.core.city.ExploreCityRepository
 import com.y.citycapsule.core.city.ExploreCityRuntime
 import com.y.citycapsule.core.favorite.FavoriteRepository
 import com.y.citycapsule.core.navigation.AppNavigator
+import com.y.citycapsule.core.location.CurrentLocationRuntime
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
@@ -97,7 +98,8 @@ internal fun HomeRootContent(
     val placeRevision = PlaceFeatureRuntime.revision
     val capsuleRevision = CapsuleFeatureRuntime.revision
     val cityRevision = ExploreCityRuntime.revision
-    LaunchedEffect(holder, active, placeRevision, capsuleRevision, cityRevision) {
+    val locationRevision = CurrentLocationRuntime.revision
+    LaunchedEffect(holder, active, placeRevision, capsuleRevision, cityRevision, locationRevision) {
         if (active) holder.load()
     }
 
@@ -202,12 +204,21 @@ private fun HomeContent(
             onRetry = onRetry
         )
     } else if (featured == null) {
-        EmptyState(
-            "还没有可探索的地点",
-            "新建一个真实地点，再从这里开始记录城市。",
-            actionLabel = "新建地点",
-            onAction = { navigator.navigate(AppRoute.PlaceEditor()) }
-        )
+        if (!state.selectedCity.supported) {
+            EmptyState(
+                "${state.selectedCity.displayName}内容尚未开放",
+                "当前不会用其他城市的地点冒充推荐，可以前往探索页切换城市。",
+                actionLabel = "选择其他城市",
+                onAction = { navigator.navigate(AppRoute.PlaceList()) }
+            )
+        } else {
+            EmptyState(
+                "还没有可探索的地点",
+                "新建一个真实地点，再从这里开始记录城市。",
+                actionLabel = "新建地点",
+                onAction = { navigator.navigate(AppRoute.PlaceEditor()) }
+            )
+        }
     } else {
         HomePlaceCard(
             featured,

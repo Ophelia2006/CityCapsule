@@ -4,6 +4,10 @@ import com.y.citycapsule.core.media.CameraCapability
 import com.y.citycapsule.core.media.CameraCaptureResult
 import com.y.citycapsule.core.media.PhotoPickerCapability
 import com.y.citycapsule.core.media.PhotoPickerResult
+import com.y.citycapsule.core.location.LocationCapability
+import com.y.citycapsule.core.location.LocationResult
+import com.y.citycapsule.core.location.CurrentLocationRuntime
+import com.y.citycapsule.core.place.GeoPoint
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceDraft
@@ -11,6 +15,7 @@ import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlaceValidator
 import com.y.citycapsule.core.place.PlaceVisualRef
 import com.y.citycapsule.core.place.PlaceVisualType
+import com.y.citycapsule.core.place.PlaceMediaCleanup
 import com.y.citycapsule.core.storage.StorageResult
 
 enum class PlaceEditorMode {
@@ -29,6 +34,8 @@ data class PlaceEditorUiState(
     val status: PlaceEditorUiStatus = PlaceEditorUiStatus.LOADING,
     val mode: PlaceEditorMode = PlaceEditorMode.CREATE,
     val draft: PlaceDraft = EMPTY_DRAFT,
+    val latitudeText: String = "",
+    val longitudeText: String = "",
     val validationMessage: String? = null,
     val showDiscardConfirmation: Boolean = false,
     val notice: PlaceFeatureNotice? = null
@@ -49,6 +56,7 @@ data class PlaceEditorUiState(
 class PlaceEditorStateHolder(
     private val placeId: String?,
     private val placeRepository: PlaceRepository,
+    private val mediaCleanup: PlaceMediaCleanup = PlaceMediaCleanup.NO_OP,
     private val onDataChanged: () -> Unit = {},
     private val onStateChanged: (PlaceEditorUiState) -> Unit = {}
 ) {
@@ -59,11 +67,15 @@ class PlaceEditorStateHolder(
 
     private var originalPlace: Place? = null
     private var initialDraft: PlaceDraft = PlaceEditorUiState.EMPTY_DRAFT
+    private var initialLatitudeText: String = ""
+    private var initialLongitudeText: String = ""
 
     fun load() {
         if (placeId == null) {
             originalPlace = null
             initialDraft = PlaceEditorUiState.EMPTY_DRAFT
+            initialLatitudeText = ""
+            initialLongitudeText = ""
             update(
                 PlaceEditorUiState(
                     status = PlaceEditorUiStatus.READY,
@@ -79,11 +91,15 @@ class PlaceEditorStateHolder(
                 is StorageResult.Success -> {
                     originalPlace = result.value
                     initialDraft = result.value.toDraft()
+                    initialLatitudeText = initialDraft.geoPoint?.latitude?.toString().orEmpty()
+                    initialLongitudeText = initialDraft.geoPoint?.longitude?.toString().orEmpty()
                     update(
                         PlaceEditorUiState(
                             status = PlaceEditorUiStatus.READY,
                             mode = PlaceEditorMode.EDIT,
-                            draft = initialDraft
+                            draft = initialDraft,
+                            latitudeText = initialDraft.geoPoint?.latitude?.toString().orEmpty(),
+                            longitudeText = initialDraft.geoPoint?.longitude?.toString().orEmpty()
                         )
                     )
                 }
@@ -121,6 +137,58 @@ class PlaceEditorStateHolder(
 
     fun updateDescription(value: String) = updateDraft { copy(description = value) }
 
+    fun updateLatitude(value: String) = updateCoordinates(value, state.longitudeText)
+
+    fun updateLongitude(value: String) = updateCoordinates(state.latitudeText, value)
+
+    fun useCurrentLocation(location: LocationCapability) {
+        if (state.status != PlaceEditorUiStatus.READY) return
+        location.getCurrentLocation { result ->
+            when (result) {
+                is LocationResult.Success -> {
+                    CurrentLocationRuntime.update(result.point)
+                    update(
+                        state.copy(
+                            draft = state.draft.copy(geoPoint = result.point),
+                            latitudeText = result.point.latitude.toString(),
+                            longitudeText = result.point.longitude.toString(),
+                            notice = PlaceFeatureNotice("已使用当前位置。", PlaceNoticeTone.SUCCESS)
+                        )
+                    )
+                }
+                LocationResult.PermissionDenied -> coordinateNotice("未获得定位权限，可以手动填写坐标。")
+                LocationResult.PermissionPermanentlyDenied -> coordinateNotice("定位权限已被长期拒绝，可以手动填写坐标。")
+                LocationResult.ServiceDisabled -> coordinateNotice("系统定位服务已关闭，可以手动填写坐标。")
+                LocationResult.Unavailable -> coordinateNotice("当前无法定位，可以手动填写坐标。")
+                is LocationResult.Failure -> coordinateNotice(result.message)
+            }
+        }
+    }
+
+    private fun updateCoordinates(latitude: String, longitude: String) {
+        if (state.status != PlaceEditorUiStatus.READY) return
+        val lat = latitude.trim().toDoubleOrNull()
+        val lon = longitude.trim().toDoubleOrNull()
+        val point = when {
+            latitude.isBlank() && longitude.isBlank() -> null
+            lat != null && lon != null && lat in -90.0..90.0 && lon in -180.0..180.0 -> GeoPoint(lat, lon)
+            else -> state.draft.geoPoint
+        }
+        update(
+            state.copy(
+                latitudeText = latitude,
+                longitudeText = longitude,
+                draft = state.draft.copy(geoPoint = point),
+                validationMessage = null,
+                notice = null
+            )
+        )
+    }
+
+    private fun coordinateNotice(message: String) = update(
+        state.copy(notice = PlaceFeatureNotice(message, PlaceNoticeTone.WARNING))
+    )
+
     fun captureCover(camera: CameraCapability) {
         if (state.status != PlaceEditorUiStatus.READY) return
         camera.captureImage { result ->
@@ -145,15 +213,26 @@ class PlaceEditorStateHolder(
         }
     }
 
-    fun removeCover() = updateDraft { copy(visualRef = null) }
+    fun removeCover() {
+        val previous = state.draft.visualRef?.takeIf { it.type == PlaceVisualType.MANAGED_FILE }?.value
+        updateDraft { copy(visualRef = null) }
+        if (previous != null && previous != originalPlace?.visualRef?.value) {
+            mediaCleanup.cleanupCandidates(listOf(previous)) { }
+        }
+    }
 
-    private fun setCover(path: String) = updateDraft {
-        copy(visualRef = PlaceVisualRef(PlaceVisualType.MANAGED_FILE, path))
+    private fun setCover(path: String) {
+        val previous = state.draft.visualRef?.takeIf { it.type == PlaceVisualType.MANAGED_FILE }?.value
+        updateDraft { copy(visualRef = PlaceVisualRef(PlaceVisualType.MANAGED_FILE, path)) }
+        if (previous != null && previous != path && previous != originalPlace?.visualRef?.value) {
+            mediaCleanup.cleanupCandidates(listOf(previous)) { }
+        }
     }
 
     fun tagsText(): String = state.draft.tags.joinToString("，")
 
-    fun isDirty(): Boolean = state.draft != initialDraft
+    fun isDirty(): Boolean = state.draft != initialDraft ||
+        state.latitudeText != initialLatitudeText || state.longitudeText != initialLongitudeText
 
     fun requestDiscard(onDiscardImmediately: () -> Unit) {
         if (state.isBusy) {
@@ -175,12 +254,21 @@ class PlaceEditorStateHolder(
     fun confirmDiscard(onDiscarded: () -> Unit) {
         if (!state.isBusy) {
             update(state.copy(showDiscardConfirmation = false))
-            onDiscarded()
+            cleanupUncommittedCover(onDiscarded)
         }
     }
 
     fun save(onSaved: (place: Place, created: Boolean) -> Unit) {
         if (state.status != PlaceEditorUiStatus.READY) {
+            return
+        }
+        if (!coordinatesAreValid()) {
+            update(
+                state.copy(
+                    validationMessage = "请同时填写有效的纬度和经度，或将两项都留空。",
+                    notice = PlaceFeatureNotice("地点坐标无效。", PlaceNoticeTone.ERROR)
+                )
+            )
             return
         }
         val normalized = PlaceValidator.normalizeDraftOrNull(state.draft)
@@ -241,8 +329,13 @@ class PlaceEditorStateHolder(
     ) {
         when (result) {
             is StorageResult.Success -> {
+                val previousCover = originalPlace?.visualRef
+                    ?.takeIf { it.type == PlaceVisualType.MANAGED_FILE }
+                    ?.value
                 originalPlace = result.value
                 initialDraft = result.value.toDraft()
+                initialLatitudeText = initialDraft.geoPoint?.latitude?.toString().orEmpty()
+                initialLongitudeText = initialDraft.geoPoint?.longitude?.toString().orEmpty()
                 update(
                     state.copy(
                         status = PlaceEditorUiStatus.READY,
@@ -254,6 +347,10 @@ class PlaceEditorStateHolder(
                     )
                 )
                 onDataChanged()
+                val currentCover = result.value.visualRef?.value
+                previousCover?.takeIf { it != currentCover }?.let {
+                    mediaCleanup.cleanupCandidates(listOf(it)) { }
+                }
                 onSaved(result.value, created)
             }
             StorageResult.Missing -> update(
@@ -289,6 +386,13 @@ class PlaceEditorStateHolder(
         }
     }
 
+    private fun coordinatesAreValid(): Boolean {
+        if (state.latitudeText.isBlank() && state.longitudeText.isBlank()) return true
+        val latitude = state.latitudeText.trim().toDoubleOrNull() ?: return false
+        val longitude = state.longitudeText.trim().toDoubleOrNull() ?: return false
+        return latitude in -90.0..90.0 && longitude in -180.0..180.0
+    }
+
     private fun validationMessage(draft: PlaceDraft): String = when {
         draft.name.trim().isEmpty() -> "地点名称不能为空。"
         draft.city.trim().isEmpty() -> "城市不能为空。"
@@ -318,5 +422,14 @@ class PlaceEditorStateHolder(
     private fun update(nextState: PlaceEditorUiState) {
         state = nextState
         onStateChanged(nextState)
+    }
+
+    private fun cleanupUncommittedCover(onComplete: () -> Unit) {
+        val current = state.draft.visualRef
+            ?.takeIf { it.type == PlaceVisualType.MANAGED_FILE }
+            ?.value
+        val original = originalPlace?.visualRef?.value
+        if (current == null || current == original) onComplete()
+        else mediaCleanup.cleanupCandidates(listOf(current)) { onComplete() }
     }
 }

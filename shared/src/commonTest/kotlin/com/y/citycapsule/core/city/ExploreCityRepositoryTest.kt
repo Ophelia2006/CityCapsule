@@ -33,6 +33,15 @@ class ExploreCityRepositoryTest {
     }
 
     @Test
+    fun knownCityWithoutContentCanBeSelectedForHonestEmptyState() {
+        val repository = LocalExploreCityRepository(InMemoryKeyValueStore())
+        var result: StorageResult<ExploreCitySelection>? = null
+        repository.select("cn-beijing") { result = it }
+        assertEquals("cn-beijing", (result as StorageResult.Success).value.selectedCityId)
+        assertEquals(false, CityRegistry.byId("cn-beijing")?.supported)
+    }
+
+    @Test
     fun offlineReverseGeocoderOnlyReturnsSupportedNearbyCity() {
         var shanghai: ReverseGeocodeResult? = null
         SupportedCityReverseGeocoder.resolve(GeoPoint(31.2304, 121.4737)) { shanghai = it }

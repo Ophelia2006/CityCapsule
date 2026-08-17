@@ -7,6 +7,11 @@
 - `[Code Scan][DONE code+shared automation/PARTIAL device]` 独立探索城市、最近城市、手动选择、主动定位确认、Home/Explore/Map 同一城市范围及重启恢复；仍需双端定位拒绝/关闭/超时和城市切换设备验收。
 - `[UI/UX Redesign][DONE code/PARTIAL device]` 地点详情公共简介/来源、私人备注隔离、用户地点相册/相机封面、备份媒体重定位；仍需双端选择、拍摄、替换、导出导入与缺文件降级验收。
 - `[Code Scan][PENDING]` 引入上海真实摄影前必须逐项完成 `ASSET_ATTRIBUTION.md`，否则保持类别 fallback。
+- `[Code Scan][DONE code+automation/PARTIAL device]` Home 推荐已使用当前城市、想去/到访、真实封面、进程内定位距离、类别多样性和稳定 ID；没有定位时不伪造距离。
+- `[Code Scan][DONE code+automation/PARTIAL device]` 用户地点可手填 WGS-84 坐标或主动使用当前位置；需补双端键盘、非法输入、权限拒绝和重启读取真机验收。
+- `[Code Scan][DONE code+automation/PARTIAL device]` 地点封面替换、移除、放弃和删除已使用 Place/Capsule/草稿引用保护清理；需补双端文件缺失、删除失败与导入恢复真机验收。
+- `[Code Scan][DONE code+automation/PARTIAL device]` 已知未支持城市可被选择并持久化，Home/Explore 显示诚实空态且不串入其他城市地点；当前北京仅用于验证此状态，不代表已有北京内容包。
+- `[Initial Plan][BLOCKED external dependency]` 在线 POI 导入与真实逆地理编码需要确认服务商、Web Service 凭据、配额和失败策略；凭据不得进入源码、普通 MMKV 或默认备份。
 
 优先级同时考虑产品闭环、数据安全和架构阻塞。标签说明来源：`[Initial Plan]`、`[Code Scan]`、`[UI/UX Redesign]`。Record Flow 的 Phase 2 首版已实现；其他 Feature 仍按用户确认的范围逐项推进。
 

@@ -359,10 +359,14 @@ private fun CityPickerContent(
     onUseCurrentLocation: () -> Unit
 ) {
     val recent = state.recentCityIds.mapNotNull(CityRegistry::byId)
-    val ordered = (recent + CityRegistry.supportedCities).distinctBy { it.id }
+    val ordered = (recent + CityRegistry.cities).distinctBy { it.id }
     ordered.forEach { city ->
         AppButton(
-            text = if (!state.browseAllCities && city.id == state.selectedCity.id) "${city.displayName} · 当前" else city.displayName,
+            text = when {
+                !state.browseAllCities && city.id == state.selectedCity.id -> "${city.displayName} · 当前"
+                !city.supported -> "${city.displayName} · 暂无内容"
+                else -> city.displayName
+            },
             onClick = { onCitySelected(city.id) },
             variant = AppButtonVariant.TEXT,
             modifier = Modifier.fillMaxWidth()
@@ -602,10 +606,14 @@ private fun PlaceListContent(
     when (state.contentState) {
         PlaceListContentState.LOADING -> LoadingState("正在整理本地点目录…")
         PlaceListContentState.EMPTY_CATALOG -> EmptyState(
-            title = "还没有可探索的地点",
-            message = "添加第一个地点后，就可以从这里开始探索。",
-            actionLabel = if (state.mode == PlaceListMode.ALL) "新建地点" else null,
-            onAction = if (state.mode == PlaceListMode.ALL) {
+            title = if (!state.selectedCity.supported) "${state.selectedCity.displayName}内容尚未开放" else "还没有可探索的地点",
+            message = if (!state.selectedCity.supported) {
+                "这里不会显示其他城市的假推荐，请从顶部切换到已有内容的城市。"
+            } else {
+                "添加第一个地点后，就可以从这里开始探索。"
+            },
+            actionLabel = if (state.mode == PlaceListMode.ALL && state.selectedCity.supported) "新建地点" else null,
+            onAction = if (state.mode == PlaceListMode.ALL && state.selectedCity.supported) {
                 { dispatch(PlaceListIntent.CreatePlaceClicked) }
             } else {
                 null

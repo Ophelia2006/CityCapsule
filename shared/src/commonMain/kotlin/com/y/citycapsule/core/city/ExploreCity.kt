@@ -27,6 +27,13 @@ object CityRegistry {
             centerPoint = GeoPoint(30.2741, 120.1551),
             supported = true,
             contentPackVersion = 2
+        ),
+        CityDefinition(
+            id = "cn-beijing",
+            displayName = "北京",
+            centerPoint = GeoPoint(39.9042, 116.4074),
+            supported = false,
+            contentPackVersion = 0
         )
     )
 

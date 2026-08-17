@@ -4,6 +4,8 @@ import com.y.citycapsule.core.favorite.FavoriteRepository
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceSource
 import com.y.citycapsule.core.place.PlaceRepository
+import com.y.citycapsule.core.place.PlaceMediaCleanup
+import com.y.citycapsule.core.place.PlaceVisualType
 import com.y.citycapsule.core.storage.StorageResult
 import com.y.citycapsule.core.capsule.CapsuleRepository
 import com.y.citycapsule.core.capsule.CityCapsule
@@ -36,6 +38,7 @@ class PlaceDetailStateHolder(
     private val placeRepository: PlaceRepository,
     private val favoriteRepository: FavoriteRepository,
     private val capsuleRepository: CapsuleRepository,
+    private val mediaCleanup: PlaceMediaCleanup = PlaceMediaCleanup.NO_OP,
     private val onDataChanged: () -> Unit = {},
     private val onStateChanged: (PlaceDetailUiState) -> Unit = {}
 ) {
@@ -202,12 +205,17 @@ class PlaceDetailStateHolder(
                         )
                     )
                 )
-                else -> placeRepository.deletePlace(placeId) { result ->
+                else -> {
+                    val coverPath = state.place?.visualRef
+                        ?.takeIf { it.type == PlaceVisualType.MANAGED_FILE }
+                        ?.value
+                    placeRepository.deletePlace(placeId) { result ->
                     when (result) {
                         is StorageResult.Success,
                         StorageResult.Missing -> {
                             onDataChanged()
-                            onDeleted()
+                            if (coverPath == null) onDeleted()
+                            else mediaCleanup.cleanupCandidates(listOf(coverPath)) { onDeleted() }
                         }
                         is StorageResult.Failure -> update(
                             state.copy(
@@ -219,6 +227,7 @@ class PlaceDetailStateHolder(
                             )
                         )
                     }
+                }
                 }
             }
         }

@@ -5,7 +5,7 @@ import com.y.citycapsule.core.place.GeoPoint
 
 sealed interface ReverseGeocodeResult {
     data class SupportedCity(val city: CityDefinition) : ReverseGeocodeResult
-    data object UnsupportedCity : ReverseGeocodeResult
+    data class UnsupportedCity(val city: CityDefinition? = null) : ReverseGeocodeResult
     data class Failure(val message: String) : ReverseGeocodeResult
 }
 
@@ -19,14 +19,15 @@ fun interface ReverseGeocodeCapability {
  */
 object SupportedCityReverseGeocoder : ReverseGeocodeCapability {
     override fun resolve(point: GeoPoint, callback: (ReverseGeocodeResult) -> Unit) {
-        val nearest = CityRegistry.supportedCities
+        val nearest = CityRegistry.cities
             .map { city -> city to GeoDistance.meters(point, city.centerPoint) }
             .minByOrNull { it.second }
         callback(
             if (nearest != null && nearest.second <= SUPPORTED_CITY_RADIUS_METERS) {
-                ReverseGeocodeResult.SupportedCity(nearest.first)
+                if (nearest.first.supported) ReverseGeocodeResult.SupportedCity(nearest.first)
+                else ReverseGeocodeResult.UnsupportedCity(nearest.first)
             } else {
-                ReverseGeocodeResult.UnsupportedCity
+                ReverseGeocodeResult.UnsupportedCity()
             }
         )
     }

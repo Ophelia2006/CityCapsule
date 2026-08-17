@@ -39,11 +39,11 @@ object ExploreCityCodec : StorageCodec<ExploreCitySelection> {
     private fun normalize(value: ExploreCitySelection): ExploreCitySelection? {
         if (value.schemaVersion != ExploreCitySelection.SCHEMA_VERSION) return null
         val selected = value.selectedCityId.trim()
-        if (CityRegistry.byId(selected)?.supported != true) return null
+        if (CityRegistry.byId(selected) == null) return null
         val recent = (listOf(selected) + value.recentCityIds)
             .map(String::trim)
             .distinct()
-            .filter { CityRegistry.byId(it)?.supported == true }
+            .filter { CityRegistry.byId(it) != null }
             .take(ExploreCitySelection.MAX_RECENT_CITIES)
         return ExploreCitySelection(selectedCityId = selected, recentCityIds = recent)
     }

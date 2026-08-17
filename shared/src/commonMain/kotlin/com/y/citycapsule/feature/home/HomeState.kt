@@ -8,6 +8,8 @@ import com.y.citycapsule.core.capsule.CapsuleRepository
 import com.y.citycapsule.core.capsule.CityCapsule
 import com.y.citycapsule.core.favorite.FavoritePlaceIds
 import com.y.citycapsule.core.favorite.FavoriteRepository
+import com.y.citycapsule.core.location.CurrentLocationRuntime
+import com.y.citycapsule.core.location.GeoDistance
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCatalogSource
 import com.y.citycapsule.core.place.PlaceCategory
@@ -52,18 +54,24 @@ object HomeRecommendationPolicy {
         places: List<Place>,
         currentCity: String?,
         favoriteIds: Set<String>,
-        recordedPlaceIds: Set<String>
+        recordedPlaceIds: Set<String>,
+        currentLocation: com.y.citycapsule.core.place.GeoPoint? = null
     ): List<Place> {
         val normalizedCity = currentCity?.trim().orEmpty()
         val tiers = places.groupBy { place ->
             HomePlaceTier(
                 cityRank = if (normalizedCity.isNotEmpty() && place.city.equals(normalizedCity, true)) 0 else 1,
-                discoveryRank = if (place.id in favoriteIds || place.id !in recordedPlaceIds) 0 else 1
+                discoveryRank = when {
+                    place.id in favoriteIds -> 0
+                    place.id !in recordedPlaceIds -> 1
+                    else -> 2
+                },
+                coverRank = if (place.visualRef != null) 0 else 1
             )
         }
         return tiers.keys
-            .sortedWith(compareBy<HomePlaceTier> { it.cityRank }.thenBy { it.discoveryRank })
-            .flatMap { tier -> diversify(tiers[tier].orEmpty()) }
+            .sortedWith(compareBy<HomePlaceTier> { it.cityRank }.thenBy { it.discoveryRank }.thenBy { it.coverRank })
+            .flatMap { tier -> diversify(tiers[tier].orEmpty(), currentLocation) }
     }
 
     fun supportingSection(
@@ -90,9 +98,14 @@ object HomeRecommendationPolicy {
         return HomeSupportingSection(title, places.map(Place::id))
     }
 
-    private fun diversify(places: List<Place>): List<Place> {
+    private fun diversify(places: List<Place>, currentLocation: com.y.citycapsule.core.place.GeoPoint?): List<Place> {
         val buckets = PlaceCategory.entries.map { category ->
-            places.filter { it.category == category }.sortedBy(Place::id).toMutableList()
+            places.filter { it.category == category }.sortedWith(
+                compareBy<Place> { place ->
+                    if (currentLocation == null || place.geoPoint == null) Double.MAX_VALUE
+                    else GeoDistance.meters(currentLocation, place.geoPoint)
+                }.thenBy(Place::id)
+            ).toMutableList()
         }
         val result = mutableListOf<Place>()
         while (buckets.any { it.isNotEmpty() }) {
@@ -101,7 +114,7 @@ object HomeRecommendationPolicy {
         return result
     }
 
-    private data class HomePlaceTier(val cityRank: Int, val discoveryRank: Int)
+    private data class HomePlaceTier(val cityRank: Int, val discoveryRank: Int, val coverRank: Int)
 }
 
 class HomeStateHolder(
@@ -144,7 +157,8 @@ class HomeStateHolder(
                             places,
                             selectedCity.displayName,
                             favorites.placeIds,
-                            recordedPlaceIds
+                            recordedPlaceIds,
+                            CurrentLocationRuntime.point
                         )
                         val supportingSection = HomeRecommendationPolicy.supportingSection(
                             rankedPlaces,

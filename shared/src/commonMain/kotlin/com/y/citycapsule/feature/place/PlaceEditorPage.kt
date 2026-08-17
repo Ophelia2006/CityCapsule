@@ -23,10 +23,15 @@ import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.media.CameraCapability
 import com.y.citycapsule.core.media.KuiklyCameraCapability
 import com.y.citycapsule.core.media.KuiklyPhotoPicker
+import com.y.citycapsule.core.media.KuiklyManagedMediaFiles
 import com.y.citycapsule.core.media.PhotoPickerCapability
+import com.y.citycapsule.core.location.LocationCapability
+import com.y.citycapsule.core.location.KuiklyLocationCapability
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceValidator
+import com.y.citycapsule.core.place.RepositoryPlaceMediaCleanup
+import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
@@ -49,7 +54,8 @@ internal class PlaceEditorPager : BasePager() {
             ?.trim()
             ?.takeIf(String::isNotEmpty)
         val navigator = KuiklyAppNavigator(this)
-        val placeRepository = LocalPlaceRepository(KuiklyKeyValueStore(this))
+        val storage = KuiklyKeyValueStore(this)
+        val placeRepository = LocalPlaceRepository(storage)
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
             PlaceEditorScreen(
@@ -58,6 +64,12 @@ internal class PlaceEditorPager : BasePager() {
                 placeRepository,
                 KuiklyCameraCapability(this),
                 KuiklyPhotoPicker(this),
+                KuiklyLocationCapability(this),
+                RepositoryPlaceMediaCleanup(
+                    placeRepository,
+                    LocalCapsuleRepository(storage),
+                    KuiklyManagedMediaFiles(this)
+                ),
                 themeHost
             )
         }
@@ -71,6 +83,8 @@ private fun PlaceEditorScreen(
     placeRepository: LocalPlaceRepository,
     camera: CameraCapability,
     photoPicker: PhotoPickerCapability,
+    location: LocationCapability,
+    mediaCleanup: com.y.citycapsule.core.place.PlaceMediaCleanup,
     themeHost: AppThemeHost
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
@@ -85,6 +99,7 @@ private fun PlaceEditorScreen(
         PlaceEditorStateHolder(
             placeId = placeId,
             placeRepository = placeRepository,
+            mediaCleanup = mediaCleanup,
             onDataChanged = PlaceFeatureRuntime::invalidate,
             onStateChanged = { uiState = it }
         )
@@ -111,7 +126,7 @@ private fun PlaceEditorScreen(
             if (uiState.status == PlaceEditorUiStatus.NOT_FOUND) {
                 AppSecondaryText("待编辑地点不存在或暂时无法读取。")
             } else {
-                PlaceEditorForm(uiState, holder, camera, photoPicker)
+                PlaceEditorForm(uiState, holder, camera, photoPicker, location)
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
                 AppButton(
                     text = "保存地点",
@@ -155,7 +170,8 @@ private fun PlaceEditorForm(
     state: PlaceEditorUiState,
     holder: PlaceEditorStateHolder,
     camera: CameraCapability,
-    photoPicker: PhotoPickerCapability
+    photoPicker: PhotoPickerCapability,
+    location: LocationCapability
 ) {
     AppSection(title = "基本信息") {
         AppTextField(
@@ -220,6 +236,31 @@ private fun PlaceEditorForm(
             label = "我的备注",
             maxLength = PlaceValidator.PERSONAL_NOTE_MAX_LENGTH,
             maxLines = NOTE_MAX_LINES,
+            enabled = !state.isBusy
+        )
+    }
+    Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+    AppSection(title = "位置", description = "有坐标的地点才能在地图与附近结果中出现。") {
+        AppTextField(
+            value = state.latitudeText,
+            onValueChange = holder::updateLatitude,
+            label = "纬度（WGS-84）",
+            placeholder = "例如：31.2304",
+            enabled = !state.isBusy
+        )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+        AppTextField(
+            value = state.longitudeText,
+            onValueChange = holder::updateLongitude,
+            label = "经度（WGS-84）",
+            placeholder = "例如：121.4737",
+            enabled = !state.isBusy
+        )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+        AppButton(
+            text = "使用当前位置",
+            onClick = { holder.useCurrentLocation(location) },
+            variant = AppButtonVariant.TEXT,
             enabled = !state.isBusy
         )
     }

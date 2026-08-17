@@ -10,6 +10,9 @@ import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
+import com.y.citycapsule.core.place.GeoPoint
+import com.y.citycapsule.core.place.PlaceVisualRef
+import com.y.citycapsule.core.place.PlaceVisualType
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
@@ -117,6 +120,29 @@ class HomeRecommendationPolicyTest {
             recordedPlaceIds = emptySet()
         )
         assertEquals(listOf("culture_a", "nature_a", "culture_b"), ranked.map { it.id })
+    }
+
+    @Test
+    fun coverAndDistanceAreUsedWithoutBreakingDiscoveryPriority() {
+        val near = place("near", "上海", PlaceCategory.CULTURE).copy(
+            geoPoint = GeoPoint(31.2305, 121.4737),
+            visualRef = PlaceVisualRef(PlaceVisualType.MANAGED_FILE, "file:///near.jpg")
+        )
+        val far = place("far", "上海", PlaceCategory.CULTURE).copy(
+            geoPoint = GeoPoint(31.9, 121.9),
+            visualRef = PlaceVisualRef(PlaceVisualType.MANAGED_FILE, "file:///far.jpg")
+        )
+        val noCover = place("no_cover", "上海", PlaceCategory.CULTURE).copy(
+            geoPoint = GeoPoint(31.2304, 121.4737)
+        )
+        val ranked = HomeRecommendationPolicy.rank(
+            listOf(far, noCover, near),
+            "上海",
+            favoriteIds = emptySet(),
+            recordedPlaceIds = emptySet(),
+            currentLocation = GeoPoint(31.2304, 121.4737)
+        )
+        assertEquals(listOf("near", "far", "no_cover"), ranked.map(Place::id))
     }
 
     @Test
