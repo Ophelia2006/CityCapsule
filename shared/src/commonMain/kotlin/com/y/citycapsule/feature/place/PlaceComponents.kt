@@ -18,6 +18,7 @@ import com.tencent.kuikly.compose.ui.layout.ContentScale
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlacePhotoCacheEntry
+import com.y.citycapsule.core.place.normalizeRemoteImageUrl
 import com.y.citycapsule.core.media.ImageLoadPriority
 import com.y.citycapsule.core.media.PlaceImageLoadRuntime
 import com.y.citycapsule.designsystem.component.PlaceCard
@@ -72,7 +73,10 @@ internal fun PlaceMedia(
     onLoaded: () -> Unit = {}
 ) {
     val localUrl = place.visualRef?.value
-    val displayUrl = localUrl ?: cachedPhoto?.url
+    // Old photo-cache entries may contain AMap's clear-text HTTP URL. HarmonyOS
+    // rejects that transport, so normalize again at the display boundary as a
+    // backwards-compatible migration for already persisted entries.
+    val displayUrl = localUrl ?: cachedPhoto?.url?.let(::normalizeRemoteImageUrl)
     val coordinatedUrl = displayUrl?.takeIf { localUrl == null && it.startsWith("http") }
     var loadAllowed by remember(displayUrl) { mutableStateOf(coordinatedUrl == null) }
     var failureReported by remember(displayUrl) { mutableStateOf(false) }
@@ -87,22 +91,25 @@ internal fun PlaceMedia(
     Box(modifier.fillMaxSize()) {
         com.y.citycapsule.designsystem.component.PlaceMediaFallback(place.category.toFallbackKind())
         displayUrl?.takeIf { loadAllowed }?.let { url ->
-            Image(
-                painter = rememberAsyncImagePainter(
-                    url,
-                    onSuccess = {
-                        coordinatedUrl?.let { PlaceImageLoadRuntime.coordinator.complete(it, true) }
-                        failureReported = false
-                        onLoaded()
-                    },
-                    onError = {
-                        coordinatedUrl?.let { PlaceImageLoadRuntime.coordinator.complete(it, false) }
-                        if (localUrl == null && !failureReported) {
-                            failureReported = true
-                            onCachedPhotoFailed()
-                        }
+            val painter = rememberAsyncImagePainter(
+                url,
+                onSuccess = {
+                    coordinatedUrl?.let { PlaceImageLoadRuntime.coordinator.complete(it, true) }
+                    failureReported = false
+                    onLoaded()
+                },
+                onError = {
+                    coordinatedUrl?.let { PlaceImageLoadRuntime.coordinator.complete(it, false) }
+                    if (localUrl == null && !failureReported) {
+                        failureReported = true
+                        onCachedPhotoFailed()
                     }
-                ),
+                }
+            )
+            // HarmonyOS starts URL download/cache through explicit painter prefetch.
+            painter.prefetch()
+            Image(
+                painter = painter,
                 contentDescription = "${place.name}地点照片",
                 modifier = Modifier.fillMaxWidth().fillMaxSize(),
                 contentScale = ContentScale.Crop

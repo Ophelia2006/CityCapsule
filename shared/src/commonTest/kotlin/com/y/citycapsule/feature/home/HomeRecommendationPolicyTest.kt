@@ -13,6 +13,7 @@ import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.GeoPoint
 import com.y.citycapsule.core.place.PlaceVisualRef
 import com.y.citycapsule.core.place.PlaceVisualType
+import com.y.citycapsule.core.place.PlacePhotoCacheEntry
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
@@ -21,6 +22,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class HomeRecommendationPolicyTest {
+    @Test
+    fun heroPrefersFirstPlaceWithConfirmedPhoto() {
+        val withoutPhoto = place("without", "上海", PlaceCategory.CULTURE)
+        val withPhoto = place("with", "上海", PlaceCategory.NATURE)
+        val state = HomeUiState(
+            rankedPlaces = listOf(withoutPhoto, withPhoto),
+            photoByPlaceId = mapOf(
+                withPhoto.id to PlacePhotoCacheEntry(withPhoto.id, "https://example.com/photo.jpg", "test", 1L)
+            )
+        )
+
+        assertEquals(withPhoto.id, state.featuredPlace?.id)
+    }
+
     @Test
     fun recoveryReadOnlyCatalogIsNotTreatedAsWritableEmptyState() {
         val storage = InMemoryKeyValueStore().apply {

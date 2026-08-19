@@ -109,7 +109,8 @@ class AmapPlaceRemoteDataSource(pager: Pager) : PlaceRemoteDataSource {
             val gcjLatitude = coordinate[1].toDoubleOrNull() ?: return null
             val type = poi.optString("type")
             val photos = poi.optJSONArray("photos")
-            val photo = photos?.optJSONObject(0)?.optString("url")?.trim()?.takeIf(String::isNotEmpty)
+            val photo = photos?.optJSONObject(0)?.optString("url")
+                ?.let(::normalizeRemoteImageUrl)
             val tag = poi.optString("tag").split(',', ';', '；').map(String::trim).filter(String::isNotEmpty)
             return RemotePlace(
                 providerId = providerId,
@@ -132,6 +133,16 @@ class AmapPlaceRemoteDataSource(pager: Pager) : PlaceRemoteDataSource {
             listOf("购物", "商场").any(type::contains) -> PlaceCategory.SHOPPING
             else -> PlaceCategory.OTHER
         }
+    }
+}
+
+internal fun normalizeRemoteImageUrl(rawUrl: String): String? {
+    val trimmed = rawUrl.trim()
+    if (trimmed.isEmpty()) return null
+    return when {
+        trimmed.startsWith("https://", ignoreCase = true) -> trimmed
+        trimmed.startsWith("http://", ignoreCase = true) -> "https://${trimmed.substring(7)}"
+        else -> null
     }
 }
 

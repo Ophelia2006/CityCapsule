@@ -10,6 +10,19 @@ import kotlin.test.assertTrue
 
 class AmapPlaceRemoteDataSourceTest {
     @Test
+    fun normalizesClearTextPhotoUrlForHarmonyImageTransport() {
+        assertEquals(
+            "https://store.is.autonavi.com/showpic/example.jpg",
+            normalizeRemoteImageUrl(" http://store.is.autonavi.com/showpic/example.jpg ")
+        )
+        assertEquals(
+            "https://example.com/photo.jpg",
+            normalizeRemoteImageUrl("https://example.com/photo.jpg")
+        )
+        assertEquals(null, normalizeRemoteImageUrl("file:///tmp/photo.jpg"))
+    }
+
+    @Test
     fun parsesPoiAndConvertsItToImportedDraft() {
         val body = """{
           "status":"1","info":"OK","pois":[{

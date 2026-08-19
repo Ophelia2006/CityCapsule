@@ -14,7 +14,11 @@ export class KRPlaceNetworkModule extends KuiklyRenderBaseModule {
       callback(JSON.stringify({ status: 'unavailable', message: '未配置高德 Web 服务 Key。' }));
       return null;
     }
-    const request = params as Record<string, KRAny>;
+    const request = this.decodeRequest(params);
+    if (request === undefined) {
+      callback(JSON.stringify({ status: 'failure', message: '网络请求参数无效。' }));
+      return null;
+    }
     let url = '';
     if (method === KRPlaceNetworkModule.SEARCH) {
       url = this.searchUrl(request);
@@ -59,6 +63,20 @@ export class KRPlaceNetworkModule extends KuiklyRenderBaseModule {
       values.push(this.param('sortrule', 'distance'));
     }
     return `https://restapi.amap.com/v3/place/${endpoint}?${values.join('&')}`;
+  }
+
+  private decodeRequest(params: KRAny): Record<string, KRAny> | undefined {
+    if (typeof params === 'string') {
+      try {
+        return JSON.parse(params) as Record<string, KRAny>;
+      } catch (_) {
+        return undefined;
+      }
+    }
+    if (typeof params === 'object' && params !== null) {
+      return params as Record<string, KRAny>;
+    }
+    return undefined;
   }
 
   private reverseUrl(request: Record<string, KRAny>): string {

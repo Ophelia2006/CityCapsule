@@ -27,6 +27,8 @@ import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.LocalPlacePhotoCacheRepository
+import com.y.citycapsule.core.place.AmapPlaceRemoteDataSource
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.core.storage.SettingsRepository
@@ -55,6 +57,7 @@ internal class AppShellPager : BasePager() {
                 cityRepository = LocalExploreCityRepository(storage),
                 placeRepository = placeRepository,
                 photoCacheRepository = photoCacheRepository,
+                remoteDataSource = AmapPlaceRemoteDataSource(this),
                 favoriteRepository = LocalFavoriteRepository(storage, placeRepository),
                 capsuleRepository = LocalCapsuleRepository(storage),
                 dateFormatter = KuiklyLocalCapsuleDateFormatter(this),
@@ -74,6 +77,7 @@ private fun AppShellScreen(
     cityRepository: LocalExploreCityRepository,
     placeRepository: LocalPlaceRepository,
     photoCacheRepository: LocalPlacePhotoCacheRepository,
+    remoteDataSource: PlaceRemoteDataSource,
     favoriteRepository: LocalFavoriteRepository,
     capsuleRepository: LocalCapsuleRepository,
     dateFormatter: KuiklyLocalCapsuleDateFormatter,
@@ -130,6 +134,7 @@ private fun AppShellScreen(
                         cityRepository = cityRepository,
                         placeRepository = placeRepository,
                         photoCacheRepository = photoCacheRepository,
+                        remoteDataSource = remoteDataSource,
                         favoriteRepository = favoriteRepository,
                         capsuleRepository = capsuleRepository,
                         dateFormatter = dateFormatter,

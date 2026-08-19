@@ -10,6 +10,7 @@ import com.y.citycapsule.core.place.RemotePlaceResult
 import com.y.citycapsule.core.place.PlacePhotoCacheEntry
 import com.y.citycapsule.core.place.PlacePhotoCacheContract
 import com.y.citycapsule.core.place.PlacePhotoCacheRepository
+import com.y.citycapsule.core.place.selectPlacePhotoUrl
 import com.y.citycapsule.core.place.SystemPlaceClock
 import com.y.citycapsule.core.place.PlaceVisualType
 import com.y.citycapsule.core.storage.StorageResult
@@ -136,17 +137,7 @@ class PlaceDetailStateHolder(
     private fun loadRemotePhoto(place: Place, generation: Int) {
         remoteDataSource?.search(place.name, place.city, place.geoPoint) { result ->
             if (generation != loadGeneration) return@search
-            val photoUrl = (result as? RemotePlaceResult.Success)
-                ?.places
-                ?.asSequence()
-                ?.filter { !it.photoUrl.isNullOrBlank() }
-                ?.sortedBy { if (it.name.equals(place.name, ignoreCase = true)) 0 else 1 }
-                ?.firstOrNull { candidate ->
-                    candidate.name.equals(place.name, ignoreCase = true) ||
-                        candidate.name.contains(place.name, ignoreCase = true) ||
-                        place.name.contains(candidate.name, ignoreCase = true)
-                }
-                ?.photoUrl
+            val photoUrl = selectPlacePhotoUrl(place, result)
             if (photoUrl != null) {
                 val entry = PlacePhotoCacheEntry(
                     placeId = place.id,

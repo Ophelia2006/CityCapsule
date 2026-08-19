@@ -2,6 +2,7 @@ package com.y.citycapsule
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,7 @@ import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlacePhotoCacheRepository
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.designsystem.component.AppBodyText
 import com.y.citycapsule.designsystem.component.AppBottomSheet
@@ -78,6 +80,7 @@ internal fun HomeRootContent(
     cityRepository: ExploreCityRepository,
     placeRepository: PlaceRepository,
     photoCacheRepository: PlacePhotoCacheRepository,
+    remoteDataSource: PlaceRemoteDataSource,
     favoriteRepository: FavoriteRepository,
     capsuleRepository: CapsuleRepository,
     dateFormatter: CapsuleDateFormatter,
@@ -87,7 +90,7 @@ internal fun HomeRootContent(
 ) {
     var uiState by remember { mutableStateOf(HomeUiState()) }
     var showPlacePicker by remember { mutableStateOf(false) }
-    val holder = remember(profileRepository, cityRepository, placeRepository, favoriteRepository, capsuleRepository, photoCacheRepository, dateFormatter) {
+    val holder = remember(profileRepository, cityRepository, placeRepository, favoriteRepository, capsuleRepository, photoCacheRepository, remoteDataSource, dateFormatter) {
         HomeStateHolder(
             profileRepository,
             cityRepository,
@@ -96,8 +99,12 @@ internal fun HomeRootContent(
             capsuleRepository,
             dateFormatter,
             photoCacheRepository,
+            remoteDataSource,
             onStateChanged = { uiState = it }
         )
+    }
+    DisposableEffect(holder) {
+        onDispose(holder::dispose)
     }
     val placeRevision = PlaceFeatureRuntime.revision
     val capsuleRevision = CapsuleFeatureRuntime.revision

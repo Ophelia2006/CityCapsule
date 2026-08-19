@@ -29,6 +29,7 @@ import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.place.PlacePhotoCacheEntry
 import com.y.citycapsule.core.place.PlacePhotoCacheRepository
+import com.y.citycapsule.core.place.PlacePhotoHydrator
 import com.y.citycapsule.core.place.RemotePlace
 import com.y.citycapsule.core.place.RemotePlaceResult
 import com.y.citycapsule.core.place.PlaceSearchEngine
@@ -204,6 +205,7 @@ internal sealed interface PlaceListMutation {
         val result: StorageResult<Map<String, PlacePhotoCacheEntry>>
     ) : PlaceListMutation
     data class CachedPhotoRemoved(val placeId: String) : PlaceListMutation
+    data class CachedPhotoAdded(val entry: PlacePhotoCacheEntry) : PlaceListMutation
     data class QueryChanged(val query: String) : PlaceListMutation
     data class CategoryToggled(val category: PlaceCategory) : PlaceListMutation
     data object CategoriesCleared : PlaceListMutation
@@ -306,6 +308,9 @@ internal object PlaceListReducer {
         )
         is PlaceListMutation.CachedPhotoRemoved -> state.copy(
             photoByPlaceId = state.photoByPlaceId - mutation.placeId
+        )
+        is PlaceListMutation.CachedPhotoAdded -> state.copy(
+            photoByPlaceId = state.photoByPlaceId + (mutation.entry.placeId to mutation.entry)
         )
         is PlaceListMutation.QueryChanged -> ifReady(state) {
             copy(query = mutation.query).withSearchResults()
@@ -531,6 +536,10 @@ class PlaceListStore(
         data class ReverseGeocodeResultEvent(val result: ReverseGeocodeResult) : Event
         data class OnlineResultEvent(val result: RemotePlaceResult) : Event
         data class ImportResultEvent(val result: StorageResult<Place>) : Event
+        data class PhotoResolvedEvent(
+            val generation: Long,
+            val entry: PlacePhotoCacheEntry
+        ) : Event
     }
 
     private val job = SupervisorJob(parentScope.coroutineContext[Job])
@@ -542,6 +551,9 @@ class PlaceListStore(
     private var favoriteOperation = 0L
     private var locationOperation = 0L
     private var disposed = false
+    private val photoHydrator = remoteDataSource?.let {
+        PlacePhotoHydrator(it, photoCacheRepository)
+    }
 
     override val state: StateFlow<PlaceListUiState> = mutableState.asStateFlow()
     override val effects: Flow<PlaceListEffect> = effectChannel.receiveAsFlow()
@@ -558,6 +570,9 @@ class PlaceListStore(
                     is Event.ReverseGeocodeResultEvent -> handleReverseGeocodeResult(event.result)
                     is Event.OnlineResultEvent -> reduce(PlaceListMutation.OnlineSearchFinished(event.result))
                     is Event.ImportResultEvent -> handleImportResult(event.result)
+                    is Event.PhotoResolvedEvent -> if (event.generation == loadGeneration) {
+                        reduce(PlaceListMutation.CachedPhotoAdded(event.entry))
+                    }
                 }
             }
         }
@@ -572,6 +587,7 @@ class PlaceListStore(
         disposed = true
         events.close()
         effectChannel.close()
+        photoHydrator?.dispose()
         scope.cancel()
     }
 
@@ -728,6 +744,16 @@ class PlaceListStore(
                 val generation = event.generation ?: return
                 favoriteRepository.getFavoriteIds { result ->
                     enqueue(generation, PlaceListMutation.FavoritesLoaded(result))
+                }
+            }
+            is PlaceListMutation.FavoritesLoaded -> {
+                val generation = event.generation ?: return
+                val current = mutableState.value
+                photoHydrator?.request(
+                    current.visiblePlaces,
+                    current.photoByPlaceId.keys
+                ) { entry ->
+                    if (!disposed) events.trySend(Event.PhotoResolvedEvent(generation, entry))
                 }
             }
             else -> Unit

@@ -16,6 +16,8 @@ import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlacePhotoCacheEntry
 import com.y.citycapsule.core.place.PlacePhotoCacheRepository
+import com.y.citycapsule.core.place.PlacePhotoHydrator
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.profile.LocalProfile
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.StorageResult
@@ -41,13 +43,16 @@ data class HomeUiState(
     val notice: String? = null,
     val busyFavoriteId: String? = null
 ) {
-    val featuredPlace: Place? get() = rankedPlaces.firstOrNull()
+    val featuredPlace: Place? get() = rankedPlaces.firstOrNull {
+        it.visualRef != null || it.id in photoByPlaceId
+    } ?: rankedPlaces.firstOrNull()
     val categories: List<PlaceCategory>
         get() = PlaceCategory.entries.filter { category -> rankedPlaces.any { it.category == category } }
     val supportingPlaces: List<Place>
         get() {
             val placeById = rankedPlaces.associateBy(Place::id)
-            return supportingPlaceIds.mapNotNull(placeById::get)
+            val featuredId = featuredPlace?.id
+            return supportingPlaceIds.mapNotNull(placeById::get).filterNot { it.id == featuredId }
         }
 }
 
@@ -128,12 +133,16 @@ class HomeStateHolder(
     private val capsuleRepository: CapsuleRepository,
     private val dateFormatter: CapsuleDateFormatter,
     private val photoCacheRepository: PlacePhotoCacheRepository = PlacePhotoCacheRepository.NONE,
+    remoteDataSource: PlaceRemoteDataSource? = null,
     private val onDataChanged: () -> Unit = {},
     private val onStateChanged: (HomeUiState) -> Unit = {}
 ) {
     var state = HomeUiState()
         private set
     private var loadGeneration = 0
+    private val photoHydrator = remoteDataSource?.let {
+        PlacePhotoHydrator(it, photoCacheRepository)
+    }
 
     fun load() {
         val generation = ++loadGeneration
@@ -200,12 +209,25 @@ class HomeStateHolder(
                                     }
                                 )
                             )
+                            photoHydrator?.request(
+                                rankedPlaces.take(HOME_PHOTO_LOOKUP_LIMIT),
+                                state.photoByPlaceId.keys
+                            ) { entry ->
+                                if (generation == loadGeneration) {
+                                    update(state.copy(photoByPlaceId = state.photoByPlaceId + (entry.placeId to entry)))
+                                }
+                            }
                         }
                     }
                 }
             }
         }
         }
+    }
+
+    fun dispose() {
+        loadGeneration++
+        photoHydrator?.dispose()
     }
 
     fun invalidateCachedPhoto(placeId: String) {
@@ -250,4 +272,5 @@ class HomeStateHolder(
 
 internal const val HOME_RECENT_MEMORY_LIMIT = 3
 internal const val HOME_SUPPORTING_PLACE_LIMIT = 3
+internal const val HOME_PHOTO_LOOKUP_LIMIT = 8
 private const val HOME_FAVORITE_FAILURE_NOTICE = "想去操作失败，页面状态已保持不变。"
