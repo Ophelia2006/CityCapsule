@@ -49,6 +49,8 @@ import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.location.KuiklyLocationCapability
 import com.y.citycapsule.core.location.LocationCapability
 import com.y.citycapsule.core.map.AmapNativeView
+import com.y.citycapsule.core.media.ImageLoadPriority
+import com.y.citycapsule.core.media.PlaceImageLoadRuntime
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.LocalPlacePhotoCacheRepository
 import com.y.citycapsule.core.place.PlaceCategory
@@ -782,6 +784,11 @@ private fun PlaceResults(
             favoriteEnabled = !state.readOnly && state.busyFavoriteId == null,
             distanceLabel = state.distanceLabel(place),
             photo = state.photoByPlaceId[place.id],
+            imagePriority = if (index < PlaceImageLoadRuntime.INITIAL_VISIBLE_LIMIT) {
+                ImageLoadPriority.VISIBLE
+            } else {
+                ImageLoadPriority.PREFETCH
+            },
             onCachedPhotoFailed = { dispatch(PlaceListIntent.CachedPhotoFailed(place.id)) },
             onOpen = { onPlaceSelected(place.id) },
             onToggleFavorite = { dispatch(PlaceListIntent.FavoriteToggled(place.id)) }

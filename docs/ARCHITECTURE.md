@@ -141,6 +141,8 @@ Home 不使用网络、天气或 AI 推荐。当前探索城市由 `explore.city
 
 地点媒体统一由 `PlaceMedia` 解析：地点自己的 `visualRef` 优先，其次读取 `places.photo_cache` 中仍有效的高德 POI 图片 URL，最后始终保留代码生成的类别 fallback。Home 与 Explore 只读取本地缓存，不为列表批量发起网络请求；地点详情在没有本地封面和有效缓存时才按需查询 `PlaceRemoteDataSource`，成功后写入最多 100 条、有效期 30 天的可清理缓存。远程图片加载失败会立即删除对应缓存项。
 
+远程地点图片在进入平台图片 adapter 前还经过 commonMain `ImageLoadCoordinator`：首批 6 个地点使用 `VISIBLE` 优先级，其余使用 `PREFETCH`；进程内最多 3 个唯一 URL 冷请求并发，同 URL 订阅等待首个 owner 完成并复用平台缓存。`DisposableEffect` 释放离开组合的 lease；Android adapter 由 Glide 按实际布局尺寸解码并使用其内存/磁盘缓存。详细边界见 `IMAGE_LOADING_OPTIMIZATION.md`。
+
 ```text
 PlaceDetailPage(placeId)
   → PlaceDetailStateHolder

@@ -14,6 +14,7 @@
 - `[Initial Plan][DONE code+automation/PARTIAL device]` 高德在线 POI 搜索、照片预览、单个选择性导入和在线逆地理编码已接入双端网络桥；Web Key 只存在本机忽略配置，断网/空结果/服务错误降级到本地点。仍需双端真机验证弱网、图片加载失败、重复导入和请求生命周期。
 - `[Initial Plan][P1]` 把探索城市目录从编译期 `CityRegistry` 扩展为可持久化的全国城市定义/行政区编码；当前在线搜索只覆盖已登记并可选择的城市，不能宣称全国城市选择已完成。
 - `[Code Scan][DONE code+automation/PARTIAL device]` Home、Explore 与地点详情已统一按“本地托管封面 → 高德 POI 有效缓存 → 类别 fallback”展示；详情按需查询，列表不批量联网。URL 只进入 `cc_cache/places.photo_cache`（100 条/30 天），不写入地点模型或备份，加载失败删除。仍需双端真机验证成功、慢加载、失败、离线和页面反复进入退出。
+- `[Code Scan][DONE code+automation/PARTIAL profiling 2026-08-19]` 地点图片已增加首批 6 张优先、最大并发 3、URL 去重、lease 释放和进程内调度指标。下一步在 Android/HarmonyOS 真机记录首图/首屏时间、缓存命中、峰值内存和滚动丢帧；地点规模扩大前将 Explore 单一 lazy item 改为 viewport 驱动的独立 lazy items。
 - `[Code Scan][DONE code+Android log verification]` `CCPlaceNetworkModule` 已在 `BasePager` 的 shared proxy 模块表统一注册，并增加架构守卫；地点详情因漏注册导致的 Android `acquireModule` 闪退已定位并修复，HarmonyOS 仍需真机复验同一路径。
 
 优先级同时考虑产品闭环、数据安全和架构阻塞。标签说明来源：`[Initial Plan]`、`[Code Scan]`、`[UI/UX Redesign]`。Record Flow 的 Phase 2 首版已实现；其他 Feature 仍按用户确认的范围逐项推进。

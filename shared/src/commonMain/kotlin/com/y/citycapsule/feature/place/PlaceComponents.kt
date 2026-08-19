@@ -1,6 +1,7 @@
 package com.y.citycapsule.feature.place
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,6 +18,8 @@ import com.tencent.kuikly.compose.ui.layout.ContentScale
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlacePhotoCacheEntry
+import com.y.citycapsule.core.media.ImageLoadPriority
+import com.y.citycapsule.core.media.PlaceImageLoadRuntime
 import com.y.citycapsule.designsystem.component.PlaceCard
 import com.y.citycapsule.designsystem.component.PlaceCardModel
 import com.y.citycapsule.designsystem.component.PlaceCardVariant
@@ -29,6 +32,7 @@ internal fun PlaceSummaryCard(
     favoriteEnabled: Boolean,
     distanceLabel: String? = null,
     photo: PlacePhotoCacheEntry? = null,
+    imagePriority: ImageLoadPriority = ImageLoadPriority.PREFETCH,
     onCachedPhotoFailed: () -> Unit = {},
     onOpen: () -> Unit,
     onToggleFavorite: () -> Unit
@@ -51,6 +55,7 @@ internal fun PlaceSummaryCard(
             PlaceMedia(
                 place = place,
                 cachedPhoto = photo,
+                imagePriority = imagePriority,
                 onCachedPhotoFailed = onCachedPhotoFailed
             )
         }
@@ -61,24 +66,37 @@ internal fun PlaceSummaryCard(
 internal fun PlaceMedia(
     place: Place,
     cachedPhoto: PlacePhotoCacheEntry? = null,
+    imagePriority: ImageLoadPriority = ImageLoadPriority.VISIBLE,
     modifier: Modifier = Modifier,
     onCachedPhotoFailed: () -> Unit = {},
     onLoaded: () -> Unit = {}
 ) {
     val localUrl = place.visualRef?.value
     val displayUrl = localUrl ?: cachedPhoto?.url
+    val coordinatedUrl = displayUrl?.takeIf { localUrl == null && it.startsWith("http") }
+    var loadAllowed by remember(displayUrl) { mutableStateOf(coordinatedUrl == null) }
     var failureReported by remember(displayUrl) { mutableStateOf(false) }
+    DisposableEffect(coordinatedUrl, imagePriority) {
+        val lease = coordinatedUrl?.let { url ->
+            PlaceImageLoadRuntime.coordinator.acquire(url, imagePriority) { allowed ->
+                loadAllowed = allowed
+            }
+        }
+        onDispose { lease?.release() }
+    }
     Box(modifier.fillMaxSize()) {
         com.y.citycapsule.designsystem.component.PlaceMediaFallback(place.category.toFallbackKind())
-        displayUrl?.let { url ->
+        displayUrl?.takeIf { loadAllowed }?.let { url ->
             Image(
                 painter = rememberAsyncImagePainter(
                     url,
                     onSuccess = {
+                        coordinatedUrl?.let { PlaceImageLoadRuntime.coordinator.complete(it, true) }
                         failureReported = false
                         onLoaded()
                     },
                     onError = {
+                        coordinatedUrl?.let { PlaceImageLoadRuntime.coordinator.complete(it, false) }
                         if (localUrl == null && !failureReported) {
                             failureReported = true
                             onCachedPhotoFailed()
