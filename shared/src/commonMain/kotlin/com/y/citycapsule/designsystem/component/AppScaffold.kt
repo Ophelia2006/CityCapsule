@@ -70,6 +70,8 @@ fun AppFixedHeaderScaffold(
     modifier: Modifier = Modifier,
     contentMaxWidth: Dp = AppTheme.dimensions.contentMaxWidth,
     bottomBar: (@Composable () -> Unit)? = null,
+    contentListState: com.tencent.kuikly.compose.foundation.lazy.LazyListState =
+        com.tencent.kuikly.compose.foundation.lazy.rememberLazyListState(),
     header: @Composable ColumnScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -97,6 +99,7 @@ fun AppFixedHeaderScaffold(
             )
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
+                state = contentListState,
                 contentPadding = PaddingValues(
                     start = dimensions.screenHorizontalPadding,
                     end = dimensions.screenHorizontalPadding,

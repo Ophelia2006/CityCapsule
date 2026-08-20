@@ -49,10 +49,15 @@ object CityRegistry {
 data class ExploreCitySelection(
     val schemaVersion: Int = SCHEMA_VERSION,
     val selectedCityId: String = CityRegistry.DEFAULT_CITY_ID,
-    val recentCityIds: List<String> = listOf(CityRegistry.DEFAULT_CITY_ID)
+    val recentCityIds: List<String> = listOf(CityRegistry.DEFAULT_CITY_ID),
+    val selectedCityOverride: CityDefinition? = null
 ) {
+    val selectedCity: CityDefinition
+        get() = selectedCityOverride ?: CityRegistry.byId(selectedCityId)
+            ?: CityRegistry.byId(CityRegistry.DEFAULT_CITY_ID)!!
+
     companion object {
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 2
         const val MAX_RECENT_CITIES = 5
         val DEFAULT = ExploreCitySelection()
     }

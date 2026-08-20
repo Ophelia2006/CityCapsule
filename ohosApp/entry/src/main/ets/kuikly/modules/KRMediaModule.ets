@@ -15,6 +15,8 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
   private static readonly METHOD_PICK_IMAGES: string = 'pickImages';
   private static readonly METHOD_CAPTURE_IMAGE: string = 'captureImage';
   private static readonly METHOD_DELETE_IMAGES: string = 'deleteImages';
+  private static readonly METHOD_PREPARE_AVATAR: string = 'prepareAvatar';
+  private static readonly METHOD_DELETE_AVATAR: string = 'deleteAvatar';
   private static readonly METHOD_ENSURE_THUMBNAIL: string = 'ensureThumbnail';
   private static readonly METHOD_MEDIA_STATISTICS: string = 'mediaStatistics';
   private static readonly METHOD_CLEAR_THUMBNAILS: string = 'clearThumbnails';
@@ -37,6 +39,10 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
       this.captureImage(callback);
     } else if (method === KRMediaModule.METHOD_DELETE_IMAGES) {
       this.deleteImages(params, callback);
+    } else if (method === KRMediaModule.METHOD_PREPARE_AVATAR) {
+      this.prepareAvatar(params, callback);
+    } else if (method === KRMediaModule.METHOD_DELETE_AVATAR) {
+      this.deleteAvatar(params, callback);
     } else if (method === KRMediaModule.METHOD_ENSURE_THUMBNAIL) {
       this.ensureThumbnail(params, callback);
     } else if (method === KRMediaModule.METHOD_MEDIA_STATISTICS) {
@@ -330,6 +336,73 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
         }).catch((): void => callback(JSON.stringify({ 'status': 'failure', 'message': '缩略图生成失败。' })));
       }).catch((): void => callback(JSON.stringify({ 'status': 'failure', 'message': '原图无法解码。' })));
     } catch (_) { callback(JSON.stringify({ 'status': 'failure', 'message': '缩略图生成失败。' })); }
+  }
+
+  private prepareAvatar(params: KRAny, callback: KuiklyRenderCallback): void {
+    const context = this.controller?.getUIAbilityContext();
+    if (context === null || context === undefined) return callback(JSON.stringify({ 'status': 'unsupported' }));
+    let sourceUri = '';
+    try { sourceUri = (JSON.parse(params as string) as MediaThumbnailRequest).path; } catch (_) {}
+    const originalDir = `${context.filesDir}/images/original`;
+    if (!this.isManagedPath(sourceUri, `file://${originalDir}/`)) {
+      callback(JSON.stringify({ 'status': 'failure', 'message': '头像源文件无效。' }));
+      return;
+    }
+    const sourcePath = sourceUri.substring('file://'.length);
+    const avatarDir = `${context.filesDir}/images/avatar`;
+    const target = `${avatarDir}/avatar_${Date.now()}.jpg`;
+    try {
+      if (!fileIo.accessSync(avatarDir)) fileIo.mkdirSync(avatarDir, true);
+      const source = image.createImageSource(sourcePath);
+      source.getImageInfo().then((info: image.ImageInfo): void => {
+        const edge = Math.min(info.size.width, info.size.height);
+        source.createPixelMap({
+          desiredRegion: {
+            x: Math.floor((info.size.width - edge) / 2),
+            y: Math.floor((info.size.height - edge) / 2),
+            size: { width: edge, height: edge }
+          },
+          desiredSize: { width: 256, height: 256 }
+        }).then((pixelMap: image.PixelMap): void => {
+          const packer = image.createImagePacker();
+          packer.packing(pixelMap, { format: 'image/jpeg', quality: 88 }).then((buffer: ArrayBuffer): void => {
+            const file = fileIo.openSync(target, fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE);
+            try { fileIo.writeSync(file.fd, buffer); } finally {
+              fileIo.closeSync(file); pixelMap.release(); source.release();
+            }
+            callback(JSON.stringify({ 'status': 'success', 'path': `file://${target}` }));
+          }).catch((): void => {
+            pixelMap.release(); source.release();
+            callback(JSON.stringify({ 'status': 'failure', 'message': '头像编码失败。' }));
+          });
+        }).catch((): void => {
+          source.release(); callback(JSON.stringify({ 'status': 'failure', 'message': '头像裁剪失败。' }));
+        });
+      }).catch((): void => {
+        source.release(); callback(JSON.stringify({ 'status': 'failure', 'message': '头像原图无法读取。' }));
+      });
+    } catch (_) {
+      callback(JSON.stringify({ 'status': 'failure', 'message': '头像处理失败。' }));
+    }
+  }
+
+  private deleteAvatar(params: KRAny, callback: KuiklyRenderCallback): void {
+    const context = this.controller?.getUIAbilityContext();
+    if (context === null || context === undefined) return callback(JSON.stringify({ 'status': 'unsupported' }));
+    let avatarUri = '';
+    try { avatarUri = (JSON.parse(params as string) as MediaThumbnailRequest).path; } catch (_) {}
+    const avatarDir = `${context.filesDir}/images/avatar`;
+    if (!this.isManagedPath(avatarUri, `file://${avatarDir}/`)) {
+      callback(JSON.stringify({ 'status': 'failure', 'message': '头像路径无效。' }));
+      return;
+    }
+    try {
+      const path = avatarUri.substring('file://'.length);
+      if (fileIo.accessSync(path)) fileIo.unlinkSync(path);
+      callback(JSON.stringify({ 'status': 'success' }));
+    } catch (_) {
+      callback(JSON.stringify({ 'status': 'failure', 'message': '头像文件无法删除。' }));
+    }
   }
 
   private mediaStatistics(callback: KuiklyRenderCallback): void {

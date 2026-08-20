@@ -42,6 +42,37 @@ class ExploreCityRepositoryTest {
     }
 
     @Test
+    fun detectedCityWithoutBundledContentCanBeSelectedAndRestored() {
+        val repository = LocalExploreCityRepository(InMemoryKeyValueStore())
+        val xian = CityDefinition(
+            id = "remote-xian",
+            displayName = "西安",
+            centerPoint = GeoPoint(34.3416, 108.9398),
+            supported = false,
+            contentPackVersion = 0
+        )
+
+        var selected: StorageResult<ExploreCitySelection>? = null
+        repository.select(xian) { selected = it }
+        assertEquals("西安", (selected as StorageResult.Success).value.selectedCity.displayName)
+
+        var restored: StorageResult<ExploreCitySelection>? = null
+        repository.get { restored = it }
+        val restoredCity = (restored as StorageResult.Success).value.selectedCity
+        assertEquals("remote-xian", restoredCity.id)
+        assertEquals(34.3416, restoredCity.centerPoint.latitude)
+    }
+
+    @Test
+    fun codecMigratesSchemaOneKnownCitySelection() {
+        val migrated = ExploreCityCodec.decode(
+            """{"schemaVersion":1,"selectedCityId":"cn-hangzhou","recentCityIds":["cn-hangzhou"]}"""
+        )
+        assertEquals("杭州", migrated?.selectedCity?.displayName)
+        assertEquals(ExploreCitySelection.SCHEMA_VERSION, migrated?.schemaVersion)
+    }
+
+    @Test
     fun offlineReverseGeocoderOnlyReturnsSupportedNearbyCity() {
         var shanghai: ReverseGeocodeResult? = null
         SupportedCityReverseGeocoder.resolve(GeoPoint(31.2304, 121.4737)) { shanghai = it }

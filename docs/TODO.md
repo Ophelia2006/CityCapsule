@@ -1,5 +1,16 @@
 ﻿# CityCapsule 待办
 
+## 2026-08-20 P1 产品能力检查点
+
+- `[Code Scan][P0 verification]` Pura 80 启动 SIGABRT 已按 faultlogger 根因增加 Kuikly native 预加载并成功构建/安装；设备解锁后验证首次启动、连续 20 次冷启动、前后台切换及 faultlogger 不再新增 `cppcrash-com.y.citycapsule-*`。
+
+- `[Code Scan][DONE code+shared automation/PARTIAL device]` 用户头像：Profile v2、相册/相机、256×256 托管头像、MMKV 引用、替换/放弃清理、缺文件 fallback、备份 v9 已接通；待双端原生构建和真机矩阵。
+- `[UI/UX Redesign][DONE code+shared automation/PARTIAL gesture device]` 路线排序：`Reorder(fromIndex,toIndex)`、长按 Drag Handle、滚动、保存后持久化及辅助菜单已完成；待双端长列表边缘自动滚动和辅助技术验收。
+- `[Code Scan][DONE code+shared automation/PARTIAL device]` 自由漫游：500 米附近地点、200 米 GPS 到达、手动降级、typed `roamingSessionId`、显式总结关联和按打卡顺序保存路线已完成；待双端移动、定位异常、杀进程和文件失败验收。通过前继续隐藏一级入口。
+- `[Code Scan][P1]` 若要从 Timeline 的历史 Capsule 打开对应漫游总结，先把单一 `RoamingSession` 存储升级为有上限的会话历史 catalog，并迁移轨迹/打卡索引；当前只显示来源标记，不用时间范围猜测或把 session ID 冒充 route ID。
+- `[Code Scan][DONE code+automation/PARTIAL device]` 真实搜索/分类/附近及在线单项导入已复核存在；待无 Key、断网、弱网、重复导入和距离真机验收。
+- 统一验收步骤见 `docs/P1_PRODUCT_CAPABILITIES_ACCEPTANCE.md`。
+
 ## 2026-08-17 当前 P0 检查点
 
 - `[Code Scan][DONE code+shared automation]` Place V3、v1/v2 迁移、`IMPORTED`、公共简介/私人备注/内容来源、备份 v8 与旧备份恢复。
@@ -38,6 +49,10 @@
 - `[UI/UX Redesign][DONE code/PARTIAL device 2026-07-30]` P0-5 Record Flow 视觉完善：Editor 顶栏关闭/完成与三分支退出；Timeline 本地年月分组、大日期、地点、照片和正文摘录；Gallery 年月分组、自适应网格及 18 张分批原图保护；Detail 照片优先且管理动作下沉更多菜单；产品空态无技术说明。按 `docs/P0_RECORD_VISUAL_ACCEPTANCE.md` 完成 Android/HarmonyOS 图片渲染、返回栈、大字体与长列表真机走查后关闭设备验收项。
 
 ## P1：补齐基础版探索与本地数据完整性
+
+- `[Code Scan][DONE code+automation/PARTIAL device 2026-08-20]` 路线拖拽修正：稳定 `placeId` 身份、把手随卡片移动、整卡选中色、取消反向页面滚动、持续边界自动滚动已实现；在双端使用超过一屏的路线验收向上/向下拖动、长名称不换行回归、边界滚动及保存后顺序。
+- `[Code Scan][DONE code+automation/PARTIAL device 2026-08-20]` 探索城市修正：动态定位城市可确认、持久化并迁移，Explore 左上标题区打开选择器，选中项使用勾选/品牌色/加粗。在双端验收西安确认后标题即时更新、重启恢复，以及“暂无内容”降级。
+- `[Code Scan][DONE code/PARTIAL device 2026-08-20]` 头像编辑只保留相册选择；双端验收选择、取消、文件缺失回退和更换时旧文件清理。
 
 - `[UI/UX Redesign][DONE code 2026-07-30]` 固定关键操作层：Explore 顶栏/搜索/chips、Record 标题/视图切换、Capsule Editor 关闭/完成、Place/Capsule Detail 返回/更多；Bottom Sheet 固定头尾并让中部滚动；SearchField 图标与文字对齐。仍需 Android/HarmonyOS 小屏、横屏、大字体、键盘遮挡和滚动边界真机验收。
 - `[Architecture Decision]` PlaceList 试点双端验收后，后续页面级重构默认按 `MVI_ARCHITECTURE.md` 渐进迁移；建议顺序 Home → PlaceDetail → Profile → Timeline/Gallery/CapsuleDetail → 编辑器/Onboarding。小缺陷和纯样式修改不强制扩大为架构迁移。

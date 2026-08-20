@@ -33,7 +33,7 @@ sealed interface LocalRouteIntent {
     data object Load : LocalRouteIntent; data object Back : LocalRouteIntent; data object Create : LocalRouteIntent
     data class Open(val id: String) : LocalRouteIntent; data class NameChanged(val value: String) : LocalRouteIntent
     data class AddPlace(val id: String) : LocalRouteIntent; data class RemovePlace(val id: String) : LocalRouteIntent
-    data class Move(val id: String, val offset: Int) : LocalRouteIntent
+    data class Reorder(val fromIndex: Int, val toIndex: Int) : LocalRouteIntent
     data object Save : LocalRouteIntent; data object Delete : LocalRouteIntent
     data class StartRoaming(val routeId: String?) : LocalRouteIntent
 }
@@ -56,7 +56,7 @@ class LocalRouteStore(
         is LocalRouteIntent.NameChanged -> mutable.value = mutable.value.copy(name = intent.value.take(40), message = null)
         is LocalRouteIntent.AddPlace -> if (intent.id !in mutable.value.orderedPlaceIds && mutable.value.orderedPlaceIds.size < 20) mutable.value = mutable.value.copy(orderedPlaceIds = mutable.value.orderedPlaceIds + intent.id)
         is LocalRouteIntent.RemovePlace -> mutable.value = mutable.value.copy(orderedPlaceIds = mutable.value.orderedPlaceIds - intent.id)
-        is LocalRouteIntent.Move -> move(intent.id, intent.offset)
+        is LocalRouteIntent.Reorder -> reorder(intent.fromIndex, intent.toIndex)
         LocalRouteIntent.Save -> save(); LocalRouteIntent.Delete -> delete()
         is LocalRouteIntent.StartRoaming -> effectChannel.send(LocalRouteEffect.Roaming(intent.routeId))
     } }
@@ -70,11 +70,24 @@ class LocalRouteStore(
             } else mutable.value = mutable.value.copy(loading = false, message = "本地路线读取失败，请重试。")
         } }
     } }
-    private fun move(id: String, offset: Int) { val list = mutable.value.orderedPlaceIds.toMutableList(); val from = list.indexOf(id); val to = from + offset; if (from >= 0 && to in list.indices) { val item = list.removeAt(from); list.add(to, item); mutable.value = mutable.value.copy(orderedPlaceIds = list) } }
+    private fun reorder(fromIndex: Int, toIndex: Int) {
+        val reordered = reorderPlaceIds(mutable.value.orderedPlaceIds, fromIndex, toIndex)
+        if (reordered != mutable.value.orderedPlaceIds) {
+            mutable.value = mutable.value.copy(orderedPlaceIds = reordered)
+        }
+    }
     private fun save() { val state = mutable.value; if (!state.canSave) return; mutable.value = state.copy(saving = true, message = null); val callback: (StorageResult<LocalRoute>) -> Unit = { result -> scope.launch { if (result is StorageResult.Success) { effectChannel.send(LocalRouteEffect.Changed); effectChannel.send(LocalRouteEffect.Back) } else mutable.value = mutable.value.copy(saving = false, message = "路线保存失败，请检查地点与名称。") } }
         val existing = state.routes.firstOrNull { it.id == state.editingId }; if (existing == null) routes.create(LocalRouteDraft(state.name, state.orderedPlaceIds), callback) else routes.update(existing.copy(name = state.name, orderedPlaceIds = state.orderedPlaceIds), callback)
     }
     private fun delete() { val id = mutable.value.editingId ?: return; mutable.value = mutable.value.copy(saving = true); routes.delete(id) { scope.launch { if (it is StorageResult.Success) { effectChannel.send(LocalRouteEffect.Changed); effectChannel.send(LocalRouteEffect.Back) } else mutable.value = mutable.value.copy(saving = false, message = "路线删除失败。") } } }
+}
+
+internal fun reorderPlaceIds(ids: List<String>, fromIndex: Int, toIndex: Int): List<String> {
+    if (fromIndex !in ids.indices || toIndex !in ids.indices || fromIndex == toIndex) return ids
+    return ids.toMutableList().apply {
+        val moved = removeAt(fromIndex)
+        add(toIndex, moved)
+    }
 }
 
 object LocalRouteFeatureRuntime {

@@ -30,6 +30,7 @@ import com.tencent.kuikly.compose.ui.layout.ContentScale
 import com.tencent.kuikly.compose.coil3.rememberAsyncImagePainter
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.compose.ui.platform.LocalConfiguration
+import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.tencent.kuikly.core.annotations.Page
 import com.y.citycapsule.app.navigation.AppRootTab
@@ -240,8 +241,18 @@ private fun PlaceListScreen(
             contentMaxWidth = AppTheme.dimensions.adaptiveContentMaxWidth,
             header = {
                 AppActionTopBar(
-                title = if (mode == PlaceListMode.FAVORITES) "想去的地方" else "探索地点",
+                title = if (mode == PlaceListMode.FAVORITES) {
+                    "想去的地方"
+                } else if (uiState.browseAllCities) {
+                    "全部城市"
+                } else {
+                    uiState.selectedCity.displayName
+                },
                 onLeadingClick = { store.dispatch(PlaceListIntent.BackClicked) },
+                subtitle = if (mode == PlaceListMode.ALL) "探索地点" else null,
+                onTitleClick = if (mode == PlaceListMode.ALL && uiState.status == PlaceListUiStatus.READY) {
+                    { showCities = true }
+                } else null,
                 actionIcon = if (mode == PlaceListMode.ALL) AppIconName.MORE else null,
                 actionDescription = "更多操作",
                 onActionClick = if (mode == PlaceListMode.ALL) {
@@ -250,15 +261,6 @@ private fun PlaceListScreen(
                     null
                 }
                 )
-                if (mode == PlaceListMode.ALL) {
-                    AppButton(
-                        text = if (uiState.browseAllCities) "全部城市" else uiState.selectedCity.displayName,
-                        onClick = { showCities = true },
-                        variant = AppButtonVariant.TEXT,
-                        enabled = uiState.status == PlaceListUiStatus.READY
-                    )
-                    Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-                }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
                 SearchField(
                 value = uiState.query,
@@ -454,18 +456,35 @@ private fun CityPickerContent(
     onUseCurrentLocation: () -> Unit
 ) {
     val recent = state.recentCityIds.mapNotNull(CityRegistry::byId)
-    val ordered = (recent + CityRegistry.cities).distinctBy { it.id }
+    val ordered = (listOf(state.selectedCity) + recent + CityRegistry.cities).distinctBy { it.id }
     ordered.forEach { city ->
-        AppButton(
-            text = when {
-                !state.browseAllCities && city.id == state.selectedCity.id -> "${city.displayName} · 当前"
-                !city.supported -> "${city.displayName} · 暂无内容"
-                else -> city.displayName
-            },
-            onClick = { onCitySelected(city.id) },
-            variant = AppButtonVariant.TEXT,
-            modifier = Modifier.fillMaxWidth()
-        )
+        val selected = !state.browseAllCities && city.id == state.selectedCity.id
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onCitySelected(city.id) }
+                .padding(
+                    horizontal = AppTheme.dimensions.spacingMd,
+                    vertical = AppTheme.dimensions.spacingSm
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (selected) "✓ ${city.displayName}" else city.displayName,
+                color = if (selected) AppTheme.colors.primary else AppTheme.colors.textPrimary,
+                style = AppTheme.typography.body.copy(
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            if (!city.supported) {
+                Text(
+                    text = "暂无内容",
+                    color = AppTheme.colors.textSecondary,
+                    style = AppTheme.typography.caption
+                )
+            }
+        }
     }
     AppButton(
         text = "全部城市",

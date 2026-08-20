@@ -1,13 +1,23 @@
 package com.y.citycapsule.core.profile
 
 object LocalProfileContract {
-    const val SCHEMA_VERSION = 1
+    const val SCHEMA_VERSION = 2
+    const val LEGACY_SCHEMA_VERSION = 1
 
     const val FIELD_SCHEMA_VERSION = "schemaVersion"
     const val FIELD_DISPLAY_NAME = "displayName"
     const val FIELD_AVATAR_PRESET = "avatarPreset"
+    const val FIELD_AVATAR_MANAGED_PATH = "avatarManagedPath"
     const val FIELD_HOME_CITY = "homeCity"
     const val FIELD_BIO = "bio"
+}
+
+sealed interface AvatarRef {
+    data class Preset(val preset: AvatarPreset) : AvatarRef
+    data class ManagedFile(
+        val path: String,
+        val fallbackPreset: AvatarPreset
+    ) : AvatarRef
 }
 
 /**
@@ -19,9 +29,15 @@ data class LocalProfile(
     val schemaVersion: Int = LocalProfileContract.SCHEMA_VERSION,
     val displayName: String,
     val avatarPreset: AvatarPreset,
+    val avatarManagedPath: String? = null,
     val homeCity: String? = null,
     val bio: String? = null
 ) {
+    val avatarRef: AvatarRef
+        get() = avatarManagedPath?.let {
+            AvatarRef.ManagedFile(it, avatarPreset)
+        } ?: AvatarRef.Preset(avatarPreset)
+
     companion object {
         val DEFAULT = LocalProfile(
             displayName = "城市漫游者",

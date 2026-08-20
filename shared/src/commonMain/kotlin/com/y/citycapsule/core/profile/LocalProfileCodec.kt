@@ -9,12 +9,15 @@ object LocalProfileCodec : StorageCodec<LocalProfile> {
 
     override fun encode(value: LocalProfile): String {
         val profile = requireNotNull(LocalProfileValidator.normalizeOrNull(value)) {
-            "Local profile does not satisfy schema v1 validation."
+            "Local profile does not satisfy schema v2 validation."
         }
         return JSONObject().apply {
             put(LocalProfileContract.FIELD_SCHEMA_VERSION, profile.schemaVersion)
             put(LocalProfileContract.FIELD_DISPLAY_NAME, profile.displayName)
             put(LocalProfileContract.FIELD_AVATAR_PRESET, profile.avatarPreset.wireValue)
+            profile.avatarManagedPath?.let {
+                put(LocalProfileContract.FIELD_AVATAR_MANAGED_PATH, it)
+            }
             profile.homeCity?.let { put(LocalProfileContract.FIELD_HOME_CITY, it) }
             profile.bio?.let { put(LocalProfileContract.FIELD_BIO, it) }
         }.toString()
@@ -25,14 +28,24 @@ object LocalProfileCodec : StorageCodec<LocalProfile> {
         val avatarPreset = AvatarPreset.fromWireValue(
             json.optString(LocalProfileContract.FIELD_AVATAR_PRESET)
         ) ?: return null
+        val schemaVersion = json.optInt(
+            LocalProfileContract.FIELD_SCHEMA_VERSION,
+            UNSUPPORTED_SCHEMA
+        )
         LocalProfileValidator.normalizeOrNull(
             LocalProfile(
-                schemaVersion = json.optInt(
-                    LocalProfileContract.FIELD_SCHEMA_VERSION,
-                    UNSUPPORTED_SCHEMA
-                ),
+                schemaVersion = if (schemaVersion == LocalProfileContract.LEGACY_SCHEMA_VERSION) {
+                    LocalProfileContract.SCHEMA_VERSION
+                } else {
+                    schemaVersion
+                },
                 displayName = json.optString(LocalProfileContract.FIELD_DISPLAY_NAME),
                 avatarPreset = avatarPreset,
+                avatarManagedPath = if (schemaVersion == LocalProfileContract.SCHEMA_VERSION) {
+                    json.optionalString(LocalProfileContract.FIELD_AVATAR_MANAGED_PATH)
+                } else {
+                    null
+                },
                 homeCity = json.optionalString(LocalProfileContract.FIELD_HOME_CITY),
                 bio = json.optionalString(LocalProfileContract.FIELD_BIO)
             )

@@ -8,6 +8,7 @@ object AppRouteTable {
     const val PARAM_INITIAL_CATEGORY = "initialCategory"
     const val PARAM_INITIAL_ROOT_TAB = "initialRootTab"
     const val PARAM_ROUTE_ID = "routeId"
+    const val PARAM_ROAMING_SESSION_ID = "roamingSessionId"
 
     const val ROUTE_LAUNCH_GATE = "launch_gate"
     const val ROUTE_ONBOARDING = "onboarding"
@@ -95,7 +96,8 @@ object AppRouteTable {
             pageName = PAGE_CAPSULE_EDITOR,
             params = optionalParams(
                 "capsuleId" to route.capsuleId,
-                PARAM_PLACE_ID to route.placeId
+                PARAM_PLACE_ID to route.placeId,
+                PARAM_ROAMING_SESSION_ID to route.roamingSessionId
             )
         )
 

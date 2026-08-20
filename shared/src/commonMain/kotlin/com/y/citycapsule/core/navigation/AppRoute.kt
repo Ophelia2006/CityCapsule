@@ -43,11 +43,13 @@ sealed interface AppRoute {
 
     data class CapsuleEditor(
         val capsuleId: String? = null,
-        val placeId: String? = null
+        val placeId: String? = null,
+        val roamingSessionId: String? = null
     ) : AppRoute {
         init {
             requireOptionalRouteArgument("capsuleId", capsuleId)
             requireOptionalRouteArgument("placeId", placeId)
+            requireOptionalRouteArgument("roamingSessionId", roamingSessionId)
         }
     }
 

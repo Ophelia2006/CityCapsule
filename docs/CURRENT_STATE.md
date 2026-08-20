@@ -2,6 +2,10 @@
 
 > 当前代码检查点（2026-08-17）：P2-7 已由 `486bc9a` 独立提交，Place V3/上海城市包/探索城市闭环已由 `8ba3147` 提交。其后本轮推荐、用户地点坐标、未支持城市空态和地点封面生命周期收口已通过 shared 测试、Android Debug APK、HarmonyOS Hvigor test/HAP 构建，尚待提交；正式一级导航仍只有“探索 / 记录 / 我的”。以下历史段落若与本检查点冲突，以本段及当前代码为准。
 
+> 2026-08-20 P1 增量：Profile schema v2 与托管照片头像、路线 `Reorder(fromIndex,toIndex)` 长按拖动、自由漫游 500 米附近地点/200 米 GPS 到达/显式 Capsule 漫游关联/按打卡顺序保存路线已落地；真实本地搜索、分类、距离及高德单项导入经代码复核已在此前实现。shared 全量单测、Android App 编译和 HarmonyOS debug HAP 构建通过，双端真机矩阵尚未完成，统一状态为 `PARTIAL（代码与构建完成 / 设备验收未完成）`。验收见 `P1_PRODUCT_CAPABILITIES_ACCEPTANCE.md`。
+
+> 2026-08-20 HarmonyOS 启动闪退修复：Pura 80 faultlogger 明确记录 `SIGABRT`，Kuikly `DefaultRenderNativeContextHandler::CallKotlinMethod` 断言“make sure initKuikly() has been called”。`EntryAbility` 现于 HMRouter 创建首个 Kuikly Host 前同步调用全局 `KuiklyNativeManager.internalDoLoad()`，失败时记录错误并停止加载 UI，避免进入必然 native abort。修复版 signed HAP 已构建并覆盖安装；设备当前锁屏导致 `aa start` 返回 10106102，解锁后的启动/反复冷启动验证待完成。
+
 ## 2026-08-17 地点与探索城市增量
 
 - `Place` schema v3 增加公共 `description`、私人 `personalNote`、`contentSource`、`IMPORTED` 来源、可选坐标和 `visualRef`。v1/v2 旧 seed note 迁为公共简介，用户地点 note 迁为私人备注；业务 ID 关联不变。
@@ -236,3 +240,19 @@ P0-3A 于 2026-07-29 取代 P0-2 的根 Tab replace：Home/Timeline/Profile type
 - `DONE`：150 米附近提示后确认 GPS 打卡、定位中断时明确手动打卡、打卡后城市碎片入口，以及从路线/会话/轨迹文件/打卡/碎片实时生成总结。
 - `NOT_STARTED`：扫码、自动打卡、后台持续定位；“漫游”一级 Tab 仍未增加。
 - P2-7 双端总验收见 `P2_7_END_TO_END_ACCEPTANCE.md`。
+
+## HarmonyOS 启动稳定性（2026-08-20）
+
+- `DONE`：修复 Pura 80 冷启动 `SIGABRT`。故障 HAP 混用了旧版 `libshared.so` 与 Kuikly Render 2.23.3，导致渲染器在首帧触发 `make sure initKuikly() has been called` 断言。
+- `DONE`：Kuikly 依赖统一固定为 2.23.2：通用/Android 使用 `2.23.2-2.1.21`，HarmonyOS KMP 使用已发布的 `2.23.2-2.0.21-ohos`，ArkTS Render 使用 `2.23.2`。2.23.3 未发布对应的 `ohosArm64` Maven variant，当前不得单独升级 Render。
+- `DONE`：从当前源码重新链接 `libshared.so`、构建 signed Debug HAP，并在 HUAWEI Pura 80 上连续完成 3 次冷启动；每次 5 秒后进程均存活，未产生新的 C++ crash。
+- `PARTIAL`：本轮只证明应用启动链稳定；地图反复进入退出、定位权限与地图 Marker 等平台能力仍按各自验收清单执行。
+
+## 路线排序、头像与探索城市修正（2026-08-20）
+
+- `DONE code`：路线拖拽不再用拖动位移反向推动整页；排序项以 `placeId` 作为稳定身份，拖拽把手与卡片一起排序，选中卡片使用语义强调色，并在持续拖向上/下边界时循环滚动与重排。保留辅助菜单，仍然只在点击保存后写 Repository。
+- `DONE code`：资料编辑取消“拍摄头像”入口及对应 Intent/相机依赖，只保留系统相册选择；Capsule Editor 的拍照能力不受影响。
+- `DONE code`：探索城市协议升级为 schema v2，可保存定位检测到但不在本地 registry 的城市定义；确认西安等动态城市后 Store 会立即更新并持久化，schema v1 已有选择可迁移。
+- `DONE code`：城市选择入口移到 Explore 顶栏左上标题区；当前选中城市用品牌色、加粗和勾选表示，不再显示“当前”字样。不支持内容的动态城市明确显示“暂无内容”，不伪造地点。
+- `DONE automation`：Android 共享编译、`:shared:testDebugUnitTest` 和 HarmonyOS `:shared:compileKotlinOhosArm64` 通过；新增动态西安持久化及 schema v1 迁移测试。
+- `PARTIAL device`：拖拽视觉、边界自动滚动速度、长地点名稳定布局、动态城市确认和头像选图仍需 Android/HarmonyOS 真机验收。

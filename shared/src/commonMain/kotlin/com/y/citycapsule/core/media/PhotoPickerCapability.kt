@@ -29,6 +29,12 @@ fun interface PhotoPickerCapability {
     fun pickImages(maxCount: Int, callback: (PhotoPickerResult) -> Unit)
 }
 
+sealed interface AvatarImageResult {
+    data class Success(val path: String) : AvatarImageResult
+    data class Failure(val message: String) : AvatarImageResult
+    data object Unsupported : AvatarImageResult
+}
+
 fun interface CameraCapability {
     fun captureImage(callback: (CameraCaptureResult) -> Unit)
 }
@@ -103,6 +109,11 @@ class KuiklyPhotoPicker internal constructor(
         const val STATUS_FAILURE = "failure"
         const val STATUS_UNSUPPORTED = "unsupported"
     }
+}
+
+interface AvatarImageCapability {
+    fun prepareAvatar(sourcePath: String, callback: (AvatarImageResult) -> Unit)
+    fun deleteAvatar(path: String, callback: (ManagedMediaDeleteResult) -> Unit)
 }
 
 class KuiklyCameraCapability internal constructor(
@@ -218,6 +229,67 @@ internal fun interface PhotoPickerTransport {
     fun pick(request: JSONObject, callback: (JSONObject?) -> Unit)
 }
 
+class KuiklyAvatarImages internal constructor(
+    private val transport: AvatarImageTransport
+) : AvatarImageCapability {
+    constructor(pager: Pager) : this(PagerAvatarImageTransport(pager))
+
+    override fun prepareAvatar(sourcePath: String, callback: (AvatarImageResult) -> Unit) {
+        if (sourcePath.isBlank()) {
+            callback(AvatarImageResult.Failure("头像照片路径无效。"))
+            return
+        }
+        request(METHOD_PREPARE_AVATAR, sourcePath, callback)
+    }
+
+    override fun deleteAvatar(path: String, callback: (ManagedMediaDeleteResult) -> Unit) {
+        if (path.isBlank()) {
+            callback(ManagedMediaDeleteResult.Success(emptyList()))
+            return
+        }
+        transport.request(
+            METHOD_DELETE_AVATAR,
+            JSONObject().apply { put(FIELD_PATH, path) }
+        ) { response ->
+            when (response?.optString(FIELD_STATUS)) {
+                STATUS_SUCCESS -> callback(ManagedMediaDeleteResult.Success(listOf(path)))
+                STATUS_UNSUPPORTED -> callback(ManagedMediaDeleteResult.Unsupported)
+                else -> callback(ManagedMediaDeleteResult.Failure(
+                    response?.optString(FIELD_MESSAGE).orEmpty().ifBlank { "头像文件暂时无法清理。" }
+                ))
+            }
+        }
+    }
+
+    private fun request(method: String, sourcePath: String, callback: (AvatarImageResult) -> Unit) {
+        try {
+            transport.request(method, JSONObject().apply { put(FIELD_PATH, sourcePath) }) { response ->
+                when (response?.optString(FIELD_STATUS)) {
+                    STATUS_SUCCESS -> response.optString(FIELD_PATH).takeIf(String::isNotBlank)
+                        ?.let { callback(AvatarImageResult.Success(it)) }
+                        ?: callback(AvatarImageResult.Failure("头像处理没有返回文件。"))
+                    STATUS_UNSUPPORTED -> callback(AvatarImageResult.Unsupported)
+                    else -> callback(AvatarImageResult.Failure(
+                        response?.optString(FIELD_MESSAGE).orEmpty().ifBlank { "头像处理失败。" }
+                    ))
+                }
+            }
+        } catch (_: Throwable) {
+            callback(AvatarImageResult.Failure("头像处理能力不可用。"))
+        }
+    }
+
+    companion object {
+        const val METHOD_PREPARE_AVATAR = "prepareAvatar"
+        const val METHOD_DELETE_AVATAR = "deleteAvatar"
+        const val FIELD_PATH = "path"
+        const val FIELD_STATUS = KuiklyPhotoPicker.FIELD_STATUS
+        const val FIELD_MESSAGE = KuiklyPhotoPicker.FIELD_MESSAGE
+        const val STATUS_SUCCESS = KuiklyPhotoPicker.STATUS_SUCCESS
+        const val STATUS_UNSUPPORTED = KuiklyPhotoPicker.STATUS_UNSUPPORTED
+    }
+}
+
 internal fun interface CameraTransport {
     fun capture(request: JSONObject, callback: (JSONObject?) -> Unit)
 }
@@ -246,6 +318,10 @@ internal class KuiklyMediaModule : Module() {
     }
 }
 
+internal fun interface AvatarImageTransport {
+    fun request(method: String, request: JSONObject, callback: (JSONObject?) -> Unit)
+}
+
 private class PagerCameraTransport(
     private val pager: Pager
 ) : CameraTransport {
@@ -270,5 +346,14 @@ private class PagerManagedMediaTransport(
     override fun delete(request: JSONObject, callback: (JSONObject?) -> Unit) {
         pager.acquireModule<KuiklyMediaModule>(KuiklyManagedMediaFiles.MODULE_NAME)
             .delete(request, callback)
+    }
+}
+
+private class PagerAvatarImageTransport(
+    private val pager: Pager
+) : AvatarImageTransport {
+    override fun request(method: String, request: JSONObject, callback: (JSONObject?) -> Unit) {
+        pager.acquireModule<KuiklyMediaModule>(KuiklyPhotoPicker.MODULE_NAME)
+            .request(method, request, callback)
     }
 }

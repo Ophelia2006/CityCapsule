@@ -100,6 +100,16 @@ class DataBackupRepository(private val storage: KeyValueStore) {
                     }
                 )
                 entry.copy(encodedValue = AppStorageKeys.Places.CATALOG.codec.encode(updated))
+            } else if (entry.key == AppStorageKeys.Profile.LOCAL_PROFILE && entry.exists) {
+                val profile = entry.encodedValue
+                    ?.let(AppStorageKeys.Profile.LOCAL_PROFILE.codec::decode)
+                    ?: return callback(BackupDataResult.Failure("个人档案数据无法解码。"))
+                val updated = profile.copy(
+                    avatarManagedPath = profile.avatarManagedPath?.let(pathMapping::get)
+                )
+                entry.copy(
+                    encodedValue = AppStorageKeys.Profile.LOCAL_PROFILE.codec.encode(updated)
+                )
             } else {
                 entry
             }
@@ -144,7 +154,8 @@ class DataBackupRepository(private val storage: KeyValueStore) {
         val capsules = entries.first { it.key == AppStorageKeys.Capsules.CATALOG }
             .encodedValue?.let(AppStorageKeys.Capsules.CATALOG.codec::decode)
             ?: CapsuleCatalog.EMPTY
-        val profile = entries.first { it.key == AppStorageKeys.Profile.LOCAL_PROFILE }.exists
+        val profile = entries.first { it.key == AppStorageKeys.Profile.LOCAL_PROFILE }
+            .encodedValue?.let(AppStorageKeys.Profile.LOCAL_PROFILE.codec::decode)
         val places = entries.first { it.key == AppStorageKeys.Places.CATALOG }
             .encodedValue?.let(AppStorageKeys.Places.CATALOG.codec::decode)
         val favorites = entries.first { it.key == AppStorageKeys.Favorites.PLACE_IDS }
@@ -159,9 +170,9 @@ class DataBackupRepository(private val storage: KeyValueStore) {
                     capsules.capsules.flatMap { it.imagePaths } +
                         places?.places.orEmpty().mapNotNull { place ->
                             place.visualRef?.takeIf { it.type == PlaceVisualType.MANAGED_FILE }?.value
-                        }
+                        } + listOfNotNull(profile?.avatarManagedPath)
                     ).distinct(),
-                profileCount = if (profile) 1 else 0,
+                profileCount = if (profile != null) 1 else 0,
                 placeCount = places?.places?.size ?: 0,
                 favoriteCount = favorites?.placeIds?.size ?: 0,
                 capsuleCount = capsules.capsules.size,
@@ -232,6 +243,8 @@ class DataBackupRepository(private val storage: KeyValueStore) {
                 .encodedValue?.let(AppStorageKeys.Favorites.PLACE_IDS.codec::decode)
             val routes = normalizedEntries.first { it.key == AppStorageKeys.Routes.CATALOG }
                 .encodedValue?.let(AppStorageKeys.Routes.CATALOG.codec::decode)
+            val profile = normalizedEntries.first { it.key == AppStorageKeys.Profile.LOCAL_PROFILE }
+                .encodedValue?.let(AppStorageKeys.Profile.LOCAL_PROFILE.codec::decode)
             BackupDataResult.Success(
                 BackupPreview(
                     sessionId = selection.sessionId,
@@ -247,7 +260,7 @@ class DataBackupRepository(private val storage: KeyValueStore) {
                         capsules.capsules.flatMap { it.imagePaths } +
                             places?.places.orEmpty().mapNotNull { place ->
                                 place.visualRef?.takeIf { it.type == PlaceVisualType.MANAGED_FILE }?.value
-                            }
+                            } + listOfNotNull(profile?.avatarManagedPath)
                         ).distinct().size,
                     entries = normalizedEntries
                 )
@@ -304,7 +317,7 @@ class DataBackupRepository(private val storage: KeyValueStore) {
     private companion object {
         const val APP_ID = "CityCapsule"
         const val MIN_SUPPORTED_BACKUP_VERSION = 1
-        const val BACKUP_VERSION = 8
+        const val BACKUP_VERSION = 9
         val PERSISTENT_KEYS = listOf(
             AppStorageKeys.Settings.THEME_MODE,
             AppStorageKeys.Profile.LOCAL_PROFILE,

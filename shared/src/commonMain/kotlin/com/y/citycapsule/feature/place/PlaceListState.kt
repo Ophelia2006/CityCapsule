@@ -248,7 +248,7 @@ internal object PlaceListReducer {
             notice = null
         )
         is PlaceListMutation.CityContextLoaded -> {
-            val city = CityRegistry.byId(mutation.selection.selectedCityId) ?: state.selectedCity
+            val city = mutation.selection.selectedCity
             state.copy(
                 selectedCity = city,
                 recentCityIds = mutation.selection.recentCityIds,
@@ -635,7 +635,10 @@ class PlaceListStore(
             PlaceListIntent.CurrentLocationRequested -> startLocationRequest()
             is PlaceListIntent.ExploreCitySelected -> selectCity(intent.cityId)
             PlaceListIntent.AllCitiesSelected -> reduce(PlaceListMutation.AllCities)
-            PlaceListIntent.DetectedCityConfirmed -> mutableState.value.detectedCity?.let { selectCity(it.id) }
+            PlaceListIntent.DetectedCityConfirmed -> mutableState.value.detectedCity?.let { city ->
+                reduce(PlaceListMutation.DetectionDismissed)
+                selectCity(city)
+            }
             PlaceListIntent.DetectedCityDismissed -> reduce(PlaceListMutation.DetectionDismissed)
             PlaceListIntent.ListViewSelected -> reduce(PlaceListMutation.ListViewSelected)
             PlaceListIntent.MapViewSelected -> reduce(
@@ -816,6 +819,12 @@ class PlaceListStore(
 
     private fun selectCity(cityId: String) {
         cityRepository.select(cityId) { result ->
+            if (!disposed) events.trySend(Event.CitySelectionResult(result))
+        }
+    }
+
+    private fun selectCity(city: CityDefinition) {
+        cityRepository.select(city) { result ->
             if (!disposed) events.trySend(Event.CitySelectionResult(result))
         }
     }

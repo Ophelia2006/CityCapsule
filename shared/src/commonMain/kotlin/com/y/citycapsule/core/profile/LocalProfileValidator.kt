@@ -5,7 +5,8 @@ enum class LocalProfileValidationError {
     DISPLAY_NAME_REQUIRED,
     DISPLAY_NAME_TOO_LONG,
     HOME_CITY_TOO_LONG,
-    BIO_TOO_LONG
+    BIO_TOO_LONG,
+    AVATAR_PATH_INVALID
 }
 
 data class LocalProfileValidationResult(
@@ -25,7 +26,8 @@ object LocalProfileValidator {
         val normalized = profile.copy(
             displayName = profile.displayName.trim(),
             homeCity = profile.homeCity.normalizedOptionalText(),
-            bio = profile.bio.normalizedOptionalText()
+            bio = profile.bio.normalizedOptionalText(),
+            avatarManagedPath = profile.avatarManagedPath.normalizedOptionalText()
         )
         val errors = buildList {
             if (normalized.schemaVersion != LocalProfileContract.SCHEMA_VERSION) {
@@ -42,6 +44,9 @@ object LocalProfileValidator {
             if ((normalized.bio?.length ?: 0) > BIO_MAX_LENGTH) {
                 add(LocalProfileValidationError.BIO_TOO_LONG)
             }
+            if (normalized.avatarManagedPath?.let(::isManagedAvatarPath) == false) {
+                add(LocalProfileValidationError.AVATAR_PATH_INVALID)
+            }
         }
         return LocalProfileValidationResult(
             profile = normalized.takeIf { errors.isEmpty() },
@@ -51,6 +56,12 @@ object LocalProfileValidator {
 
     fun normalizeOrNull(profile: LocalProfile): LocalProfile? = validate(profile).profile
 }
+
+internal fun isManagedAvatarPath(path: String): Boolean =
+    path.startsWith("file://") &&
+        path.replace('\\', '/').contains("/images/avatar/") &&
+        path.substringAfterLast('/').isNotBlank() &&
+        !path.substringAfterLast('/').contains("..")
 
 internal fun String?.normalizedOptionalText(): String? =
     this?.trim()?.takeIf(String::isNotEmpty)

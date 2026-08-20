@@ -19,6 +19,7 @@ import com.y.citycapsule.core.capsule.CityCapsule
 import com.y.citycapsule.core.track.TrackFileCapability
 import com.y.citycapsule.core.track.TrackReadResult
 import com.y.citycapsule.core.location.GeoDistance
+import com.y.citycapsule.core.route.LocalRouteDraft
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +32,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
+data class NearbyRoamingPlace(val place: Place, val distanceMeters: Double)
+
 data class RoamingSessionUiState(
     val loading: Boolean = true,
     val requestedRouteId: String? = null,
@@ -40,7 +43,9 @@ data class RoamingSessionUiState(
     val message: String? = null,
     val track: TrackMetadata? = null,
     val sampling: Boolean = false,
-    val routePlaces: List<Place> = emptyList(), val nearbyPlaceId: String? = null,
+    val routePlaces: List<Place> = emptyList(),
+    val availablePlaces: List<Place> = emptyList(),
+    val nearbyPlaces: List<NearbyRoamingPlace> = emptyList(),
     val checkIns: List<CheckIn> = emptyList(), val distanceMeters: Double? = null,
     val relatedCapsules: List<CityCapsule> = emptyList()
 )
@@ -55,6 +60,7 @@ sealed interface RoamingSessionIntent {
     data object SampleLocation : RoamingSessionIntent
     data class ConfirmCheckIn(val placeId: String) : RoamingSessionIntent
     data class ManualCheckIn(val placeId: String) : RoamingSessionIntent
+    data object SaveAsRoute : RoamingSessionIntent
 }
 
 sealed interface RoamingSessionEffect { data object Back : RoamingSessionEffect }
@@ -65,10 +71,12 @@ internal sealed interface RoamingSessionMutation {
     data object OperationStarted : RoamingSessionMutation
     data class OperationSucceeded(val session: RoamingSession) : RoamingSessionMutation
     data class Failed(val message: String) : RoamingSessionMutation
+    data class Notice(val message: String) : RoamingSessionMutation
     data class TrackLoaded(val track: TrackMetadata?) : RoamingSessionMutation
     data object SamplingStarted : RoamingSessionMutation
     data class TrackUpdated(val track: TrackMetadata) : RoamingSessionMutation
-    data class Nearby(val placeId: String?) : RoamingSessionMutation
+    data class PlacesLoaded(val routePlaces: List<Place>, val availablePlaces: List<Place>) : RoamingSessionMutation
+    data class Nearby(val places: List<NearbyRoamingPlace>) : RoamingSessionMutation
     data class CheckInsLoaded(val values: List<CheckIn>) : RoamingSessionMutation
     data class Summary(val distance: Double?, val capsules: List<CityCapsule>) : RoamingSessionMutation
 }
@@ -80,10 +88,12 @@ internal object RoamingSessionReducer {
         RoamingSessionMutation.OperationStarted -> state.copy(busy = true, message = null)
         is RoamingSessionMutation.OperationSucceeded -> state.copy(loading = false, busy = false, session = mutation.session)
         is RoamingSessionMutation.Failed -> state.copy(loading = false, busy = false, message = mutation.message)
+        is RoamingSessionMutation.Notice -> state.copy(loading = false, busy = false, message = mutation.message)
         is RoamingSessionMutation.TrackLoaded -> state.copy(track = mutation.track)
         RoamingSessionMutation.SamplingStarted -> state.copy(sampling = true)
         is RoamingSessionMutation.TrackUpdated -> state.copy(track = mutation.track, sampling = false)
-        is RoamingSessionMutation.Nearby -> state.copy(nearbyPlaceId = mutation.placeId)
+        is RoamingSessionMutation.PlacesLoaded -> state.copy(routePlaces = mutation.routePlaces, availablePlaces = mutation.availablePlaces)
+        is RoamingSessionMutation.Nearby -> state.copy(nearbyPlaces = mutation.places, sampling = false)
         is RoamingSessionMutation.CheckInsLoaded -> state.copy(checkIns = mutation.values)
         is RoamingSessionMutation.Summary -> state.copy(distanceMeters = mutation.distance, relatedCapsules = mutation.capsules)
     }
@@ -126,6 +136,7 @@ class RoamingSessionStore(
         RoamingSessionIntent.SampleLocation -> sample()
         is RoamingSessionIntent.ConfirmCheckIn -> addCheckIn(intent.placeId, CheckInMethod.GPS_CONFIRMED)
         is RoamingSessionIntent.ManualCheckIn -> addCheckIn(intent.placeId, CheckInMethod.MANUAL)
+        RoamingSessionIntent.SaveAsRoute -> saveAsRoute()
     }
 
     private fun load() {
@@ -156,12 +167,36 @@ class RoamingSessionStore(
         if (mutable.value.session?.status != RoamingStatus.ACTIVE || mutable.value.sampling) return
         mutations.trySend(RoamingSessionMutation.SamplingStarted)
         location.getCurrentLocation { result -> when (result) {
-            is LocationResult.Success -> { val nearby=mutable.value.routePlaces.filter{it.geoPoint!=null}.map{it to GeoDistance.meters(result.point,requireNotNull(it.geoPoint))}.filter{it.second<=150.0}.minByOrNull{it.second}; mutations.trySend(RoamingSessionMutation.Nearby(nearby?.first?.id)); tracks.append(TrackPoint(result.point.latitude, result.point.longitude, result.accuracyMeters, com.tencent.kuikly.core.datetime.DateTime.currentTimestamp())) { track -> if (track is StorageResult.Success) mutations.trySend(RoamingSessionMutation.TrackUpdated(track.value)) else interrupt("轨迹文件写入失败") } }
+            is LocationResult.Success -> {
+                val nearby = mutable.value.availablePlaces.mapNotNull { place ->
+                    place.geoPoint?.let { NearbyRoamingPlace(place, GeoDistance.meters(result.point, it)) }
+                }.filter { it.distanceMeters <= NEARBY_RADIUS_METERS }.sortedBy(NearbyRoamingPlace::distanceMeters)
+                mutations.trySend(RoamingSessionMutation.Nearby(nearby))
+                tracks.append(TrackPoint(result.point.latitude, result.point.longitude, result.accuracyMeters, com.tencent.kuikly.core.datetime.DateTime.currentTimestamp())) { track -> if (track is StorageResult.Success) mutations.trySend(RoamingSessionMutation.TrackUpdated(track.value)) else interrupt("轨迹文件写入失败") }
+            }
             else -> interrupt(when (result) { LocationResult.PermissionDenied, LocationResult.PermissionPermanentlyDenied -> "定位权限不可用"; LocationResult.ServiceDisabled -> "定位服务已关闭"; LocationResult.Unavailable -> "设备定位不可用"; is LocationResult.Failure -> result.message; else -> "定位暂时中断" })
         } }
     }
     private fun interrupt(reason: String) { tracks.interrupt(reason) { track -> if (track is StorageResult.Success) mutations.trySend(RoamingSessionMutation.TrackUpdated(track.value)) else mutations.trySend(RoamingSessionMutation.Failed(reason)) } }
-    private fun addCheckIn(placeId:String,method:CheckInMethod){val s=mutable.value.session?:return;if(method==CheckInMethod.GPS_CONFIRMED&&mutable.value.nearbyPlaceId!=placeId)return;checkIns.add(s.startedAtEpochMs,placeId,method,null){r->if(r is StorageResult.Success)mutations.trySend(RoamingSessionMutation.CheckInsLoaded(r.value.checkIns))}}
+    private fun addCheckIn(placeId:String,method:CheckInMethod){
+        val s=mutable.value.session?:return
+        val distance = mutable.value.nearbyPlaces.firstOrNull { it.place.id == placeId }?.distanceMeters
+        if(method==CheckInMethod.GPS_CONFIRMED && (distance == null || distance > ARRIVAL_RADIUS_METERS)) return
+        checkIns.add(s.startedAtEpochMs,placeId,method,distance){r->if(r is StorageResult.Success)mutations.trySend(RoamingSessionMutation.CheckInsLoaded(r.value.checkIns))}
+    }
+
+    private fun saveAsRoute() {
+        val ids = mutable.value.checkIns.map(CheckIn::placeId).distinct()
+        if (ids.isEmpty()) {
+            mutations.trySend(RoamingSessionMutation.Failed("至少打卡一个地点后才能保存路线。"))
+            return
+        }
+        mutations.trySend(RoamingSessionMutation.OperationStarted)
+        routes.create(LocalRouteDraft("自由漫游路线", ids)) { result ->
+            if (result is StorageResult.Success) mutations.trySend(RoamingSessionMutation.Notice("已按打卡顺序保存为路线。"))
+            else mutations.trySend(RoamingSessionMutation.Failed("路线保存失败，请重试。"))
+        }
+    }
     private fun loadSummary(session: RoamingSession?) {
         if (session == null) return
         places.getCatalog { placeResult ->
@@ -169,14 +204,13 @@ class RoamingSessionStore(
             routes.getCatalog { routeResult ->
                 val ids = (routeResult as? StorageResult.Success)?.value?.routes
                     ?.firstOrNull { it.id == session.routeId }?.orderedPlaceIds.orEmpty()
-                mutable.value = mutable.value.copy(routePlaces = allPlaces.filter { it.id in ids })
+                mutations.trySend(RoamingSessionMutation.PlacesLoaded(allPlaces.filter { it.id in ids }, allPlaces))
                 checkIns.prepare(session.startedAtEpochMs) { result ->
                     if (result is StorageResult.Success) mutations.trySend(RoamingSessionMutation.CheckInsLoaded(result.value.checkIns))
                 }
                 capsules.getPublished { capsuleResult ->
-                    val values = (capsuleResult as? StorageResult.Success)?.value.orEmpty().filter {
-                        it.createdAtEpochMs >= session.startedAtEpochMs && (session.endedAtEpochMs == null || it.createdAtEpochMs <= session.endedAtEpochMs)
-                    }
+                    val sessionId = session.startedAtEpochMs.toString()
+                    val values = (capsuleResult as? StorageResult.Success)?.value.orEmpty().filter { it.roamingSessionId == sessionId }
                     tracks.get { trackResult ->
                         val meta = (trackResult as? StorageResult.Success)?.value
                         if (meta == null) {
@@ -192,5 +226,10 @@ class RoamingSessionStore(
                 }
             }
         }
+    }
+
+    private companion object {
+        const val NEARBY_RADIUS_METERS = 500.0
+        const val ARRIVAL_RADIUS_METERS = 200.0
     }
 }

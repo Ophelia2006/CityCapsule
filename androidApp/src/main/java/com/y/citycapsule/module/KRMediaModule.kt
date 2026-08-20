@@ -41,6 +41,13 @@ class KRMediaModule : KuiklyRenderBaseModule() {
                 host.captureImage(callback)
             }
             METHOD_DELETE_IMAGES -> deleteImages(params, callback)
+            METHOD_PREPARE_AVATAR -> maintain(params, callback) { store, json ->
+                response(STATUS_SUCCESS, path = store.prepareAvatar(json.optString(FIELD_PATH)))
+            }
+            METHOD_DELETE_AVATAR -> maintain(params, callback) { store, json ->
+                store.deleteAvatar(json.optString(FIELD_PATH))
+                response(STATUS_SUCCESS)
+            }
             METHOD_ENSURE_THUMBNAIL -> maintain(params, callback) { store, json ->
                 val path = store.ensureThumbnail(json.optString(FIELD_PATH))
                 response(STATUS_SUCCESS, path = path)
@@ -100,6 +107,8 @@ class KRMediaModule : KuiklyRenderBaseModule() {
         private const val METHOD_PICK_IMAGES = "pickImages"
         private const val METHOD_CAPTURE_IMAGE = "captureImage"
         private const val METHOD_DELETE_IMAGES = "deleteImages"
+        private const val METHOD_PREPARE_AVATAR = "prepareAvatar"
+        private const val METHOD_DELETE_AVATAR = "deleteAvatar"
         private const val METHOD_ENSURE_THUMBNAIL = "ensureThumbnail"
         private const val METHOD_MEDIA_STATISTICS = "mediaStatistics"
         private const val METHOD_CLEAR_THUMBNAILS = "clearThumbnails"
@@ -139,6 +148,7 @@ internal data class ManagedImageDeleteResult(
 internal class ManagedImageFileStore(filesDir: File) {
     private val managedDirectory = File(filesDir, "images/original").canonicalFile
     private val thumbnailDirectory = File(filesDir, "images/thumbnail").canonicalFile
+    private val avatarDirectory = File(filesDir, "images/avatar").canonicalFile
 
     fun delete(paths: List<String>): ManagedImageDeleteResult {
         val resolved = paths.map { path -> path to resolveManagedFile(path) }
@@ -181,6 +191,45 @@ internal class ManagedImageFileStore(filesDir: File) {
         return "file://${target.absolutePath}"
     }
 
+    fun prepareAvatar(path: String): String {
+        val source = requireNotNull(resolveManagedFile(path))
+        require(source.isFile)
+        avatarDirectory.mkdirs()
+        val decoded = requireNotNull(BitmapFactory.decodeFile(source.path))
+        val edge = minOf(decoded.width, decoded.height)
+        require(edge > 0)
+        val square = Bitmap.createBitmap(
+            decoded,
+            (decoded.width - edge) / 2,
+            (decoded.height - edge) / 2,
+            edge,
+            edge
+        )
+        val scaled = if (edge == AVATAR_EDGE) square else {
+            Bitmap.createScaledBitmap(square, AVATAR_EDGE, AVATAR_EDGE, true)
+        }
+        val target = File(avatarDirectory, "avatar_${System.currentTimeMillis()}.jpg")
+        val temp = File(avatarDirectory, target.name + ".tmp")
+        try {
+            temp.outputStream().use { require(scaled.compress(Bitmap.CompressFormat.JPEG, 88, it)) }
+            require(temp.renameTo(target) || run {
+                temp.copyTo(target, overwrite = true)
+                temp.delete()
+            })
+            return "file://${target.absolutePath}"
+        } finally {
+            if (scaled !== square) scaled.recycle()
+            if (square !== decoded) square.recycle()
+            decoded.recycle()
+            temp.delete()
+        }
+    }
+
+    fun deleteAvatar(path: String) {
+        val file = requireNotNull(resolveAvatarFile(path))
+        if (file.exists()) require(file.delete())
+    }
+
     fun statistics(): String = KRMediaModule.response(KRMediaModule.STATUS_SUCCESS) {
         put("originalBytes", files(managedDirectory).sumOf(File::length).toString())
         put("originalCount", files(managedDirectory).size.toString())
@@ -216,8 +265,17 @@ internal class ManagedImageFileStore(filesDir: File) {
         return candidate.takeIf { it.parentFile == managedDirectory }
     }
 
+    private fun resolveAvatarFile(path: String): File? {
+        val uri = runCatching { URI(path) }.getOrNull() ?: return null
+        if (uri.scheme != FILE_SCHEME) return null
+        val decodedPath = uri.path ?: return null
+        val candidate = runCatching { File(decodedPath).canonicalFile }.getOrNull() ?: return null
+        return candidate.takeIf { it.parentFile == avatarDirectory }
+    }
+
     private companion object {
         const val FILE_SCHEME = "file"
         const val THUMBNAIL_EDGE = 512
+        const val AVATAR_EDGE = 256
     }
 }

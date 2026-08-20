@@ -159,6 +159,10 @@ private fun CapsuleDetailScreen(
                             Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
                             CapsuleTagRows(capsule.tags)
                         }
+                        if (capsule.roamingSessionId != null) {
+                            Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+                            AppSecondaryText("来自一次自由漫游")
+                        }
                         Spacer(Modifier.height(AppTheme.dimensions.spacingXl))
                         DetailDivider()
                         Spacer(Modifier.height(AppTheme.dimensions.spacingXs))

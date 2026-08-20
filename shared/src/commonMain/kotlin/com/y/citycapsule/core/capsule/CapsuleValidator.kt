@@ -7,6 +7,7 @@ object CapsuleValidator {
         if (content.isEmpty() || content.length > CapsuleContract.CONTENT_MAX_LENGTH) return null
         val placeId = value.placeId?.trim()?.takeIf(String::isNotEmpty) ?: return null
         val capsuleId = value.capsuleId?.trim()?.takeIf(String::isNotEmpty)
+        val roamingSessionId = value.roamingSessionId?.trim()?.takeIf(String::isNotEmpty)
         val tags = value.tags.map(String::trim).filter(String::isNotEmpty).distinct()
         if (tags.size > CapsuleContract.TAG_MAX_COUNT ||
             tags.any { it.length > CapsuleContract.TAG_MAX_LENGTH }
@@ -23,6 +24,7 @@ object CapsuleValidator {
             content = content,
             tags = tags,
             placeId = placeId,
+            roamingSessionId = roamingSessionId,
             imagePaths = imagePaths
         )
     }
@@ -35,6 +37,7 @@ object CapsuleValidator {
                 mood = value.mood,
                 tags = value.tags,
                 placeId = value.placeId,
+                roamingSessionId = value.roamingSessionId,
                 imagePaths = value.imagePaths,
                 updatedAtEpochMs = value.updatedAtEpochMs
             )
@@ -47,6 +50,7 @@ object CapsuleValidator {
             content = draft.content,
             tags = draft.tags,
             placeId = requireNotNull(draft.placeId),
+            roamingSessionId = draft.roamingSessionId,
             imagePaths = draft.imagePaths
         )
     }

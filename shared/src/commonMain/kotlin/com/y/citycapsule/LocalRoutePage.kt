@@ -5,17 +5,29 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import com.tencent.kuikly.compose.foundation.clickable
+import com.tencent.kuikly.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import com.tencent.kuikly.compose.foundation.gestures.scrollBy
 import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.Row
 import com.tencent.kuikly.compose.foundation.layout.Spacer
 import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.padding
+import com.tencent.kuikly.compose.foundation.layout.size
+import com.tencent.kuikly.compose.foundation.lazy.LazyListState
+import com.tencent.kuikly.compose.foundation.lazy.rememberLazyListState
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.input.pointer.pointerInput
+import com.tencent.kuikly.compose.ui.platform.LocalDensity
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.core.annotations.Page
@@ -37,7 +49,10 @@ import com.y.citycapsule.designsystem.component.AppCaptionText
 import com.y.citycapsule.designsystem.component.AppCard
 import com.y.citycapsule.designsystem.component.AppFixedHeaderScaffold
 import com.y.citycapsule.designsystem.component.AppIconButton
+import com.y.citycapsule.designsystem.component.AppIcon
 import com.y.citycapsule.designsystem.component.AppIconName
+import com.y.citycapsule.designsystem.component.AppMenuItem
+import com.y.citycapsule.designsystem.component.AppOverflowMenu
 import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppSectionTitle
 import com.y.citycapsule.designsystem.component.AppStatusMessage
@@ -51,6 +66,8 @@ import com.y.citycapsule.feature.route.LocalRouteIntent
 import com.y.citycapsule.feature.route.LocalRouteMode
 import com.y.citycapsule.feature.route.LocalRouteStore
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Page(AppRouteTable.PAGE_LOCAL_ROUTES, supportInLocal = true)
 internal class LocalRoutesPager : BasePager() { override fun willInit() { super.willInit(); install(LocalRouteMode.LIST, null) } }
@@ -66,6 +83,7 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
 @Composable private fun LocalRouteScreen(mode: LocalRouteMode, routeId: String?, navigator: AppNavigator, routes: DefaultLocalRouteRepository, places: LocalPlaceRepository) {
     val scope = rememberCoroutineScope(); val store = remember(routes, places, mode, routeId) { LocalRouteStore(routes, places, mode, routeId, scope) }
     val state by store.state.collectAsState(); val revision = LocalRouteFeatureRuntime.revision
+    val contentListState = rememberLazyListState()
     DisposableEffect(store) { onDispose(store::dispose) }
     LaunchedEffect(store, revision) { store.dispatch(LocalRouteIntent.Load) }
     LaunchedEffect(store) { store.effects.collect { when (it) {
@@ -73,12 +91,12 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
         is LocalRouteEffect.Roaming -> navigator.navigate(AppRoute.RoamingSession(it.routeId))
         LocalRouteEffect.Changed -> LocalRouteFeatureRuntime.invalidate()
     } } }
-    AppFixedHeaderScaffold(statusBarHeight = LocalActivity.current.pageData.statusBarHeight, header = {
+    AppFixedHeaderScaffold(statusBarHeight = LocalActivity.current.pageData.statusBarHeight, contentListState = contentListState, header = {
         AppActionTopBar(if (mode == LocalRouteMode.LIST) "我的路线" else if (routeId == null) "新建路线" else "编辑路线", { store.dispatch(LocalRouteIntent.Back) },
             actionLabel = if (mode == LocalRouteMode.LIST) "新建" else "保存", onActionClick = { store.dispatch(if (mode == LocalRouteMode.LIST) LocalRouteIntent.Create else LocalRouteIntent.Save) }, actionEnabled = mode == LocalRouteMode.LIST || state.canSave)
         Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
     }, content = {
-        if (state.loading) LoadingState("正在读取本地路线…") else if (mode == LocalRouteMode.LIST) RouteList(state, store::dispatch) else RouteEditor(state, store::dispatch)
+        if (state.loading) LoadingState("正在读取本地路线…") else if (mode == LocalRouteMode.LIST) RouteList(state, store::dispatch) else RouteEditor(state, contentListState, store::dispatch)
     })
 }
 
@@ -97,18 +115,38 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
     }
 }
 
-@Composable private fun RouteEditor(state: com.y.citycapsule.feature.route.LocalRouteUiState, dispatch: (LocalRouteIntent) -> Unit) {
+@Composable private fun RouteEditor(state: com.y.citycapsule.feature.route.LocalRouteUiState, listState: LazyListState, dispatch: (LocalRouteIntent) -> Unit) {
+    var menuIndex by remember { mutableStateOf<Int?>(null) }
+    var draggingPlaceId by remember { mutableStateOf<String?>(null) }
     state.message?.let { AppStatusMessage(it); Spacer(Modifier.height(AppTheme.dimensions.spacingSm)) }
     AppTextField(state.name, { dispatch(LocalRouteIntent.NameChanged(it)) }, "路线名称", placeholder = "例如：周六午后散步", maxLength = 40)
     Spacer(Modifier.height(AppTheme.dimensions.spacingLg)); AppSectionTitle("地点顺序"); Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
     if (state.orderedPlaceIds.isEmpty()) AppSecondaryText("至少选择一个地点。")
-    state.orderedPlaceIds.forEachIndexed { index, id -> val place = state.places.firstOrNull { it.id == id }
-        AppCard { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AppCaptionText("${index + 1}"); Spacer(Modifier.weight(0.15f)); Column(Modifier.weight(1f)) { AppBodyText(place?.name ?: "地点已不存在"); place?.let { AppSecondaryText(listOfNotNull(it.district, it.city).joinToString(" · ")) } }
-            AppIconButton(AppIconName.BACK, "上移", { dispatch(LocalRouteIntent.Move(id, -1)) }, enabled = index > 0)
-            AppIconButton(AppIconName.FORWARD, "下移", { dispatch(LocalRouteIntent.Move(id, 1)) }, enabled = index < state.orderedPlaceIds.lastIndex)
-            AppIconButton(AppIconName.CLOSE, "移除", { dispatch(LocalRouteIntent.RemovePlace(id)) })
-        } }; Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+    state.orderedPlaceIds.forEachIndexed { index, id ->
+        key(id) {
+            val place = state.places.firstOrNull { it.id == id }
+            val selected = draggingPlaceId == id
+            AppCard(containerColor = if (selected) AppTheme.colors.primaryContainer else AppTheme.colors.surface) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    RouteDragHandle(
+                        index = index,
+                        count = state.orderedPlaceIds.size,
+                        listState = listState,
+                        onDraggingChanged = { dragging -> draggingPlaceId = id.takeIf { dragging } },
+                        onReorder = { from, to -> dispatch(LocalRouteIntent.Reorder(from, to)) }
+                    )
+                    AppCaptionText("${index + 1}")
+                    Spacer(Modifier.weight(0.15f))
+                    Column(Modifier.weight(1f)) {
+                        AppBodyText(place?.name ?: "地点已不存在")
+                        place?.let { AppSecondaryText(listOfNotNull(it.district, it.city).joinToString(" · ")) }
+                    }
+                    AppIconButton(AppIconName.MORE, "调整 ${place?.name ?: "地点"} 的顺序", { menuIndex = index })
+                    AppIconButton(AppIconName.CLOSE, "移除", { dispatch(LocalRouteIntent.RemovePlace(id)) })
+                }
+            }
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+        }
     }
     Spacer(Modifier.height(AppTheme.dimensions.spacingLg)); AppSectionTitle("添加地点"); Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
     state.places.filterNot { it.id in state.orderedPlaceIds }.forEach { place ->
@@ -119,4 +157,99 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
     }
     if (state.editingId != null) { Spacer(Modifier.height(AppTheme.dimensions.spacingXl)); AppButton("删除路线", { dispatch(LocalRouteIntent.Delete) }, variant = AppButtonVariant.DANGER, loading = state.saving) }
     if (state.editingId != null) { Spacer(Modifier.height(AppTheme.dimensions.spacingSm)); AppButton("按此路线开始漫游", { dispatch(LocalRouteIntent.StartRoaming(state.editingId)) }, variant = AppButtonVariant.SECONDARY) }
+    val selected = menuIndex
+    AppOverflowMenu(
+        expanded = selected != null,
+        items = if (selected == null) emptyList() else listOf(
+            AppMenuItem("top", "移到顶部", enabled = selected > 0),
+            AppMenuItem("up", "上移", enabled = selected > 0),
+            AppMenuItem("down", "下移", enabled = selected < state.orderedPlaceIds.lastIndex),
+            AppMenuItem("bottom", "移到底部", enabled = selected < state.orderedPlaceIds.lastIndex)
+        ),
+        onSelected = { action ->
+            selected ?: return@AppOverflowMenu
+            val target = when (action) {
+                "top" -> 0
+                "up" -> selected - 1
+                "down" -> selected + 1
+                "bottom" -> state.orderedPlaceIds.lastIndex
+                else -> selected
+            }
+            dispatch(LocalRouteIntent.Reorder(selected, target))
+            menuIndex = null
+        },
+        onDismiss = { menuIndex = null }
+    )
+}
+
+@Composable
+private fun RouteDragHandle(
+    index: Int,
+    count: Int,
+    listState: LazyListState,
+    onDraggingChanged: (Boolean) -> Unit,
+    onReorder: (Int, Int) -> Unit
+) {
+    val threshold = with(LocalDensity.current) { 56f * density }
+    var dragging by remember { mutableStateOf(false) }
+    var accumulated by remember { mutableFloatStateOf(0f) }
+    var currentIndex by remember(index) { mutableIntStateOf(index) }
+    var edgeDirection by remember { mutableIntStateOf(0) }
+    LaunchedEffect(dragging, edgeDirection, count) {
+        while (dragging && edgeDirection != 0) {
+            val target = (currentIndex + edgeDirection).coerceIn(0, count - 1)
+            if (target != currentIndex) {
+                listState.scrollBy(edgeDirection * threshold * 0.7f)
+                onReorder(currentIndex, target)
+                currentIndex = target
+            }
+            delay(140)
+        }
+    }
+    AppIcon(
+        name = AppIconName.DRAG,
+        contentDescription = "长按拖动第 ${index + 1} 个地点",
+        tint = if (dragging) AppTheme.colors.primary else AppTheme.colors.textSecondary,
+        modifier = Modifier
+            .size(AppTheme.dimensions.minTouchTarget)
+            .pointerInput(index, count) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        dragging = true
+                        onDraggingChanged(true)
+                        currentIndex = index
+                        accumulated = 0f
+                    },
+                    onDragCancel = {
+                        dragging = false
+                        onDraggingChanged(false)
+                        edgeDirection = 0
+                        accumulated = 0f
+                    },
+                    onDragEnd = {
+                        dragging = false
+                        onDraggingChanged(false)
+                        edgeDirection = 0
+                        accumulated = 0f
+                    },
+                    onDrag = { change, dragAmount ->
+                        accumulated += dragAmount.y
+                        edgeDirection = when {
+                            change.position.y < -threshold -> -1
+                            change.position.y > threshold * 2f -> 1
+                            else -> 0
+                        }
+                        if (kotlin.math.abs(accumulated) >= threshold) {
+                            val target = (currentIndex + if (accumulated > 0) 1 else -1)
+                                .coerceIn(0, count - 1)
+                            if (target != currentIndex) {
+                                onReorder(currentIndex, target)
+                                currentIndex = target
+                            }
+                            accumulated = 0f
+                        }
+                    }
+                )
+            }
+    )
 }

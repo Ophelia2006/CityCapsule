@@ -96,6 +96,16 @@ class AppRouteTableTest {
     }
 
     @Test
+    fun capsuleEditorCarriesOptionalRoamingSessionIdentifier() {
+        val request = AppRouteTable.resolve(
+            AppRoute.CapsuleEditor(placeId = "place-1", roamingSessionId = "1700")
+        )
+
+        assertEquals("place-1", request.params[AppRouteTable.PARAM_PLACE_ID])
+        assertEquals("1700", request.params[AppRouteTable.PARAM_ROAMING_SESSION_ID])
+    }
+
+    @Test
     fun localRoutesUseSecondaryPagesAndOnlyPassRouteId() {
         val list = AppRouteTable.resolve(AppRoute.LocalRoutes)
         val create = AppRouteTable.resolve(AppRoute.LocalRouteEditor())

@@ -35,9 +35,10 @@ internal class CapsuleEditorPager : BasePager() {
         val capsuleRepository = LocalCapsuleRepository(storage)
         val capsuleId = pageData.params.optString("capsuleId").takeIf(String::isNotBlank)
         val placeId = pageData.params.optString(AppRouteTable.PARAM_PLACE_ID).takeIf(String::isNotBlank)
+        val roamingSessionId = pageData.params.optString(AppRouteTable.PARAM_ROAMING_SESSION_ID).takeIf(String::isNotBlank)
         setContent {
             CapsuleEditorScreen(
-                capsuleId, placeId, KuiklyAppNavigator(this),
+                capsuleId, placeId, roamingSessionId, KuiklyAppNavigator(this),
                 capsuleRepository, LocalPlaceRepository(storage),
                 KuiklyCameraCapability(this),
                 KuiklyPhotoPicker(this),
@@ -53,7 +54,7 @@ internal class CapsuleEditorPager : BasePager() {
 
 @Composable
 private fun CapsuleEditorScreen(
-    capsuleId: String?, placeId: String?, navigator: AppNavigator,
+    capsuleId: String?, placeId: String?, roamingSessionId: String?, navigator: AppNavigator,
     capsuleRepository: CapsuleRepository, placeRepository: LocalPlaceRepository,
     camera: CameraCapability,
     photoPicker: PhotoPickerCapability,
@@ -62,14 +63,16 @@ private fun CapsuleEditorScreen(
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
     var state by remember { mutableStateOf(CapsuleEditorState()) }
-    val holder = remember(capsuleId, placeId) {
+    val holder = remember(capsuleId, placeId, roamingSessionId) {
         CapsuleEditorStateHolder(
             capsuleId,
             placeId,
             capsuleRepository,
             placeRepository,
-            mediaCleanup
-        ) { state = it }
+            mediaCleanup,
+            onStateChanged = { state = it },
+            roamingSessionId = roamingSessionId
+        )
     }
     LaunchedEffect(holder) { holder.load() }
     RuntimeAppTheme(themeHost = themeHost) {

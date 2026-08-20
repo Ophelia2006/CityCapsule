@@ -89,7 +89,6 @@ export struct KuiklyHostPage {
     }
     .width('100%')
     .height('100%')
-    .expandSafeArea([SafeAreaType.KEYBOARD])
     .onVisibleAreaChange([0.0, 1.0], (isVisible: boolean, currentRatio: number) => {
       this.updatePageVisibility(isVisible && currentRatio > 0);
     })

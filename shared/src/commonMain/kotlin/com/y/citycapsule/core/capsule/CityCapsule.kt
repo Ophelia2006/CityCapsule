@@ -1,7 +1,8 @@
 package com.y.citycapsule.core.capsule
 
 object CapsuleContract {
-    const val SCHEMA_VERSION = 1
+    const val SCHEMA_VERSION = 2
+    const val LEGACY_SCHEMA_VERSION = 1
     const val MAX_CATALOG_SIZE = 500
     const val CONTENT_MAX_LENGTH = 2000
     const val TAG_MAX_COUNT = 8
@@ -31,6 +32,7 @@ data class CityCapsule(
     val mood: CapsuleMood? = null,
     val tags: List<String> = emptyList(),
     val placeId: String,
+    val roamingSessionId: String? = null,
     val imagePaths: List<String> = emptyList(),
     val createdAtEpochMs: Long,
     val updatedAtEpochMs: Long
@@ -43,6 +45,7 @@ data class CapsuleDraft(
     val mood: CapsuleMood? = null,
     val tags: List<String> = emptyList(),
     val placeId: String? = null,
+    val roamingSessionId: String? = null,
     val imagePaths: List<String> = emptyList(),
     val updatedAtEpochMs: Long = 0L
 ) {

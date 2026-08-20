@@ -178,7 +178,10 @@ private fun HomeProfileHeader(state: HomeUiState) {
             Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
             AppSectionTitle(state.selectedCity.displayName)
         }
-        AppProfileAvatar(state.profile.avatarPreset)
+        AppProfileAvatar(
+            preset = state.profile.avatarPreset,
+            managedPath = state.profile.avatarManagedPath
+        )
     }
 }
 

@@ -30,7 +30,7 @@ class LocalProfileCodecTest {
             decoded
         )
         val wireJson = JSONObject(encoded)
-        assertEquals(1, wireJson.optInt(LocalProfileContract.FIELD_SCHEMA_VERSION))
+        assertEquals(2, wireJson.optInt(LocalProfileContract.FIELD_SCHEMA_VERSION))
         assertEquals(
             "forest",
             wireJson.optString(LocalProfileContract.FIELD_AVATAR_PRESET)
@@ -60,7 +60,7 @@ class LocalProfileCodecTest {
     fun unsupportedSchemaUnknownAvatarAndInvalidNameAreRejected() {
         assertNull(
             LocalProfileCodec.decode(
-                """{"schemaVersion":2,"displayName":"A","avatarPreset":"sky"}"""
+                """{"schemaVersion":3,"displayName":"A","avatarPreset":"sky"}"""
             )
         )
         assertNull(
@@ -73,6 +73,22 @@ class LocalProfileCodecTest {
                 """{"schemaVersion":1,"displayName":"  ","avatarPreset":"sky"}"""
             )
         )
+    }
+
+    @Test
+    fun legacyPresetMigratesAndManagedAvatarRoundTrips() {
+        val legacy = LocalProfileCodec.decode(
+            """{"schemaVersion":1,"displayName":"A","avatarPreset":"sunset"}"""
+        )
+        assertEquals(LocalProfileContract.SCHEMA_VERSION, legacy?.schemaVersion)
+        assertNull(legacy?.avatarManagedPath)
+
+        val managed = LocalProfile(
+            displayName = "A",
+            avatarPreset = AvatarPreset.SUNSET,
+            avatarManagedPath = "file:///sandbox/images/avatar/avatar_1.jpg"
+        )
+        assertEquals(managed, LocalProfileCodec.decode(LocalProfileCodec.encode(managed)))
     }
 
     @Test

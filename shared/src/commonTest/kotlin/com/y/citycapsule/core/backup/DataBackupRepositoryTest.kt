@@ -17,12 +17,12 @@ import kotlin.test.assertTrue
 
 class DataBackupRepositoryTest {
     @Test
-    fun currentBackupRequiresV8ReaderSoLegacyReadersRejectIt() {
+    fun currentBackupRequiresV9ReaderSoLegacyReadersRejectIt() {
         val payload = JSONObject(awaitSnapshot(DataBackupRepository(InMemoryKeyValueStore())).payload)
 
-        assertEquals(8, payload.optInt("backupVersion"))
-        assertEquals(8, payload.optInt("schemaVersion"))
-        assertEquals(8, payload.optInt("minReaderVersion"))
+        assertEquals(9, payload.optInt("backupVersion"))
+        assertEquals(9, payload.optInt("schemaVersion"))
+        assertEquals(9, payload.optInt("minReaderVersion"))
         assertTrue(payload.optInt("backupVersion") != 1)
     }
 
@@ -73,7 +73,7 @@ class DataBackupRepositoryTest {
     fun previewRejectsBackupThatRequiresANewerReader() {
         val repository = DataBackupRepository(InMemoryKeyValueStore())
         val payload = JSONObject(awaitSnapshot(repository).payload).apply {
-            put("minReaderVersion", 9)
+            put("minReaderVersion", 10)
         }.toString()
 
         val result = awaitPreviewResult(

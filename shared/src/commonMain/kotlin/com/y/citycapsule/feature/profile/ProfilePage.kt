@@ -33,6 +33,10 @@ import com.y.citycapsule.base.BasePager
 import com.y.citycapsule.core.capsule.CapsuleRepository
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.favorite.FavoriteRepository
+import com.y.citycapsule.core.media.AvatarImageCapability
+import com.y.citycapsule.core.media.KuiklyAvatarImages
+import com.y.citycapsule.core.media.KuiklyPhotoPicker
+import com.y.citycapsule.core.media.PhotoPickerCapability
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteTable
@@ -45,6 +49,8 @@ import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.designsystem.component.AppActionTopBar
 import com.y.citycapsule.designsystem.component.AppAvatarPicker
 import com.y.citycapsule.designsystem.component.AppBodyText
+import com.y.citycapsule.designsystem.component.AppButton
+import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppCaptionText
 import com.y.citycapsule.designsystem.component.AppConfirmDialog
 import com.y.citycapsule.designsystem.component.AppDivider
@@ -214,6 +220,7 @@ private fun ProfileIdentity(state: ProfileOverviewUiState) {
     ) {
         AppProfileAvatar(
             preset = state.profile.avatarPreset,
+            managedPath = state.profile.avatarManagedPath,
             size = AppTheme.dimensions.profileAvatarSize
         )
         Column(
@@ -428,6 +435,8 @@ internal class ProfileEditPager : BasePager() {
             ProfileEditScreen(
                 navigator = navigator,
                 profileRepository = LocalProfileRepository(storage),
+                photoPicker = KuiklyPhotoPicker(this),
+                avatarImages = KuiklyAvatarImages(this),
                 themeHost = KuiklyAppThemeHost(this)
             )
         }
@@ -438,12 +447,14 @@ internal class ProfileEditPager : BasePager() {
 private fun ProfileEditScreen(
     navigator: AppNavigator,
     profileRepository: LocalProfileRepository,
+    photoPicker: PhotoPickerCapability,
+    avatarImages: AvatarImageCapability,
     themeHost: AppThemeHost
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
     val storeScope = rememberCoroutineScope()
     val store = remember(profileRepository) {
-        ProfileEditorStore(profileRepository, storeScope)
+        ProfileEditorStore(profileRepository, photoPicker, avatarImages, storeScope)
     }
     val uiState by store.state.collectAsState()
 
@@ -525,6 +536,29 @@ private fun ProfileEditForm(
         maxLength = LocalProfileValidator.DISPLAY_NAME_MAX_LENGTH,
         enabled = !state.isBusy
     )
+    Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AppProfileAvatar(
+            preset = state.profile.avatarPreset,
+            managedPath = state.profile.avatarManagedPath,
+            size = AppTheme.dimensions.profileAvatarSize
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = AppTheme.dimensions.spacingMd)
+        ) {
+            AppButton(
+                text = "从相册选择",
+                onClick = { dispatch(ProfileEditorIntent.PickAvatarPhoto) },
+                variant = AppButtonVariant.SECONDARY,
+                enabled = !state.isBusy
+            )
+        }
+    }
     Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
     AppAvatarPicker(
         selected = state.profile.avatarPreset,

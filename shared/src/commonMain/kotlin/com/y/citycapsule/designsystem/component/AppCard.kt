@@ -11,19 +11,21 @@ import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.padding
 import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.draw.clip
 import com.y.citycapsule.designsystem.theme.AppTheme
 
 @Composable
 fun AppCard(
     modifier: Modifier = Modifier,
+    containerColor: Color = AppTheme.colors.surface,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(AppTheme.dimensions.radiusXl))
-            .background(AppTheme.colors.surface)
+            .background(containerColor)
             .padding(AppTheme.dimensions.spacingMd),
         content = content
     )

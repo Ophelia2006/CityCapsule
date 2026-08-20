@@ -38,7 +38,8 @@ class CapsuleEditorStateHolder(
     private val capsuleRepository: CapsuleRepository,
     private val placeRepository: PlaceRepository,
     private val mediaCleanup: CapsuleMediaCleanup = CapsuleMediaCleanup.NO_OP,
-    private val onStateChanged: (CapsuleEditorState) -> Unit = {}
+    private val onStateChanged: (CapsuleEditorState) -> Unit = {},
+    private val roamingSessionId: String? = null
 ) {
     var state = CapsuleEditorState()
         private set
@@ -62,6 +63,7 @@ class CapsuleEditorStateHolder(
                                     mood = result.value.mood,
                                     tags = result.value.tags,
                                     placeId = result.value.placeId,
+                                    roamingSessionId = result.value.roamingSessionId,
                                     imagePaths = result.value.imagePaths
                                 )
                             )
@@ -76,7 +78,7 @@ class CapsuleEditorStateHolder(
                     it.capsuleId == null && it.placeId == placeId
                 }
                 val draft = if (saved != null) saved
-                    else CapsuleDraft(placeId = placeId)
+                    else CapsuleDraft(placeId = placeId, roamingSessionId = roamingSessionId)
                 loadPlace(draft)
             }
         }

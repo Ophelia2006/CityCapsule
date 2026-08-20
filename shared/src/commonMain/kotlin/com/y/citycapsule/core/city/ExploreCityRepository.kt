@@ -13,6 +13,7 @@ import com.y.citycapsule.core.storage.StorageResult
 interface ExploreCityRepository {
     fun get(callback: StorageCallback<ExploreCitySelection>)
     fun select(cityId: String, callback: StorageCallback<ExploreCitySelection>)
+    fun select(city: CityDefinition, callback: StorageCallback<ExploreCitySelection>)
 }
 
 class LocalExploreCityRepository(private val storage: KeyValueStore) : ExploreCityRepository {
@@ -40,14 +41,20 @@ class LocalExploreCityRepository(private val storage: KeyValueStore) : ExploreCi
     override fun select(cityId: String, callback: StorageCallback<ExploreCitySelection>) {
         val city = CityRegistry.byId(cityId)
         if (city == null) return callback(failure("Explore city is unknown."))
+        select(city, callback)
+    }
+
+    override fun select(city: CityDefinition, callback: StorageCallback<ExploreCitySelection>) {
         get { result ->
             if (result !is StorageResult.Success) return@get callback(
                 if (result is StorageResult.Failure) result else failure("Explore city is unavailable.")
             )
             val updated = result.value.copy(
                 selectedCityId = city.id,
+                selectedCityOverride = city.takeIf { CityRegistry.byId(it.id) == null },
                 recentCityIds = (listOf(city.id) + result.value.recentCityIds)
                     .distinct()
+                    .filter { CityRegistry.byId(it) != null }
                     .take(ExploreCitySelection.MAX_RECENT_CITIES)
             )
             storage.put(AppStorageKeys.Explore.CITY_SELECTION, updated) { write ->

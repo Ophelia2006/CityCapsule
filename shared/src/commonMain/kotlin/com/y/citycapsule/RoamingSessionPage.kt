@@ -95,15 +95,17 @@ internal class RoamingSessionPager : BasePager() {
                 AppSecondaryText("前台轨迹点：${track.pointCount} · 分片：${track.chunkPaths.size}")
                 if (track.status == TrackStatus.INTERRUPTED) AppStatusMessage("轨迹已中断：${track.interruptionReason.orEmpty()}。漫游会话仍保持进行中，可重试采样。")
             }
-            if (session?.status == RoamingStatus.ACTIVE && state.routePlaces.isNotEmpty()) {
+            if (session?.status == RoamingStatus.ACTIVE && (state.routePlaces.isNotEmpty() || state.nearbyPlaces.isNotEmpty())) {
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-                AppSectionTitle("路线打卡")
-                state.routePlaces.forEach { place ->
+                AppSectionTitle(if (state.requestedRouteId == null) "附近地点（500 米内）" else "路线打卡")
+                val visiblePlaces = if (state.requestedRouteId == null) state.nearbyPlaces.map { it.place } else state.routePlaces
+                visiblePlaces.forEach { place ->
                     val checked = state.checkIns.firstOrNull { it.placeId == place.id }
-                    AppSecondaryText("${if (checked != null) "✓" else "○"} ${place.name}${checked?.let { if (it.method == CheckInMethod.MANUAL) " · 手动记录" else " · GPS 确认" }.orEmpty()}")
-                    if (checked == null && state.nearbyPlaceId == place.id) AppButton("确认到达 ${place.name}", { store.dispatch(RoamingSessionIntent.ConfirmCheckIn(place.id)) }, variant = AppButtonVariant.SECONDARY)
+                    val distance = state.nearbyPlaces.firstOrNull { it.place.id == place.id }?.distanceMeters
+                    AppSecondaryText("${if (checked != null) "✓" else "○"} ${place.name}${distance?.let { " · ${com.y.citycapsule.core.location.GeoDistance.label(it)}" }.orEmpty()}${checked?.let { if (it.method == CheckInMethod.MANUAL) " · 手动记录" else " · GPS 确认" }.orEmpty()}")
+                    if (checked == null && distance != null && distance <= 200.0) AppButton("确认到达 ${place.name}", { store.dispatch(RoamingSessionIntent.ConfirmCheckIn(place.id)) }, variant = AppButtonVariant.SECONDARY)
                     if (checked == null && state.track?.status == TrackStatus.INTERRUPTED) AppButton("手动记录 ${place.name}", { store.dispatch(RoamingSessionIntent.ManualCheckIn(place.id)) }, variant = AppButtonVariant.TEXT)
-                    if (checked != null) AppButton("在这里留下城市碎片", { navigator.navigate(com.y.citycapsule.core.navigation.AppRoute.CapsuleEditor(placeId = place.id)) }, variant = AppButtonVariant.TEXT)
+                    if (checked != null) AppButton("在这里留下城市碎片", { navigator.navigate(com.y.citycapsule.core.navigation.AppRoute.CapsuleEditor(placeId = place.id, roamingSessionId = session.startedAtEpochMs.toString())) }, variant = AppButtonVariant.TEXT)
                 }
             }
             Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
@@ -127,6 +129,10 @@ internal class RoamingSessionPager : BasePager() {
                 AppSecondaryText("开始：${session.startedAtEpochMs} · 结束：${session.endedAtEpochMs ?: 0L}")
                 AppSecondaryText("轨迹距离：${state.distanceMeters?.let { com.y.citycapsule.core.location.GeoDistance.label(it) } ?: "无法计算"}")
                 AppSecondaryText("关联城市碎片：${state.relatedCapsules.size}")
+                if (state.requestedRouteId == null && state.checkIns.isNotEmpty()) {
+                    Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+                    AppButton("按打卡顺序保存为路线", { store.dispatch(RoamingSessionIntent.SaveAsRoute) }, variant = AppButtonVariant.SECONDARY, loading = state.busy)
+                }
             }
         }
     })

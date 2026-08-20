@@ -45,7 +45,7 @@ class LocalProfileRepository(
                 StorageResult.Failure(
                     StorageError(
                         StorageErrorCode.INVALID_REQUEST,
-                        "Local profile does not satisfy schema v1 validation."
+                        "Local profile does not satisfy schema v2 validation."
                     )
                 )
             )

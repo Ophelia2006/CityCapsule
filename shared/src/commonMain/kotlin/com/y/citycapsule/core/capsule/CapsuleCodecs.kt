@@ -24,7 +24,8 @@ object CapsuleCatalogCodec : StorageCodec<CapsuleCatalog> {
     override fun decode(encoded: String): CapsuleCatalog? {
         return try {
             val json = JSONObject(encoded)
-            if (json.optInt("schemaVersion", -1) != CapsuleContract.SCHEMA_VERSION) return null
+            val schemaVersion = json.optInt("schemaVersion", -1)
+            if (schemaVersion !in setOf(CapsuleContract.LEGACY_SCHEMA_VERSION, CapsuleContract.SCHEMA_VERSION)) return null
             val array = json.optJSONArray("capsules") ?: return null
             if (array.length() > CapsuleContract.MAX_CATALOG_SIZE) return null
             val capsules = buildList {
@@ -33,7 +34,7 @@ object CapsuleCatalogCodec : StorageCodec<CapsuleCatalog> {
                 }
             }
             if (capsules.map(CityCapsule::id).distinct().size != capsules.size) return null
-            CapsuleCatalog(capsules = capsules)
+            CapsuleCatalog(capsules = capsules.map { it.copy(schemaVersion = CapsuleContract.SCHEMA_VERSION) })
         } catch (_: Throwable) {
             null
         }
@@ -50,6 +51,7 @@ object CapsuleDraftCodec : StorageCodec<CapsuleDraft> {
         value.mood?.let { put("mood", it.wireValue) }
         put("tags", JSONArray().also { array -> value.tags.forEach(array::put) })
         value.placeId?.let { put("placeId", it) }
+        value.roamingSessionId?.let { put("roamingSessionId", it) }
         put("imagePaths", JSONArray().also { array -> value.imagePaths.forEach(array::put) })
         put("updatedAtEpochMs", value.updatedAtEpochMs.toString())
     }.toString()
@@ -57,7 +59,8 @@ object CapsuleDraftCodec : StorageCodec<CapsuleDraft> {
     override fun decode(encoded: String): CapsuleDraft? {
         return try {
             val json = JSONObject(encoded)
-            if (json.optInt("schemaVersion", -1) != CapsuleContract.SCHEMA_VERSION) return null
+            val schemaVersion = json.optInt("schemaVersion", -1)
+            if (schemaVersion !in setOf(CapsuleContract.LEGACY_SCHEMA_VERSION, CapsuleContract.SCHEMA_VERSION)) return null
             val tagsJson = json.optJSONArray("tags") ?: return null
             val tags = buildList {
                 for (index in 0 until tagsJson.length()) add(tagsJson.optString(index) ?: return null)
@@ -74,6 +77,7 @@ object CapsuleDraftCodec : StorageCodec<CapsuleDraft> {
                 mood = mood,
                 tags = tags,
                 placeId = json.optString("placeId").takeIf(String::isNotBlank),
+                roamingSessionId = json.optString("roamingSessionId").takeIf(String::isNotBlank),
                 imagePaths = images,
                 updatedAtEpochMs = json.optString("updatedAtEpochMs").toLongOrNull() ?: return null
             )
@@ -96,13 +100,15 @@ private fun CityCapsule.toJson(): JSONObject = JSONObject().apply {
     mood?.let { put("mood", it.wireValue) }
     put("tags", JSONArray().also { array -> tags.forEach(array::put) })
     put("placeId", placeId)
+    roamingSessionId?.let { put("roamingSessionId", it) }
     put("imagePaths", JSONArray().also { array -> imagePaths.forEach(array::put) })
     put("createdAtEpochMs", createdAtEpochMs.toString())
     put("updatedAtEpochMs", updatedAtEpochMs.toString())
 }
 
 private fun JSONObject.toCapsule(): CityCapsule? {
-    if (optInt("schemaVersion", -1) != CapsuleContract.SCHEMA_VERSION) return null
+    val schemaVersion = optInt("schemaVersion", -1)
+    if (schemaVersion !in setOf(CapsuleContract.LEGACY_SCHEMA_VERSION, CapsuleContract.SCHEMA_VERSION)) return null
     val tagsJson = optJSONArray("tags") ?: return null
     val tags = buildList {
         for (index in 0 until tagsJson.length()) add(tagsJson.optString(index) ?: return null)
@@ -120,6 +126,7 @@ private fun JSONObject.toCapsule(): CityCapsule? {
             mood = mood,
             tags = tags,
             placeId = optString("placeId"),
+            roamingSessionId = optString("roamingSessionId").takeIf(String::isNotBlank),
             imagePaths = images,
             createdAtEpochMs = optString("createdAtEpochMs").toLongOrNull() ?: return null,
             updatedAtEpochMs = optString("updatedAtEpochMs").toLongOrNull() ?: return null

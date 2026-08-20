@@ -1,5 +1,7 @@
 # CityCapsule 当前架构
 
+> 2026-08-20 增量：Profile v2 可引用 `images/avatar` 托管方形头像；Capsule v2 增加可选 `roamingSessionId`，由 typed `CapsuleEditor` route 传入并持久化。自由漫游以 500 米生成附近候选、200 米确认 GPS 到达，打卡顺序可转换为本地路线；这些平台相关能力在双端真机验收前仍为 PARTIAL。
+
 > 2026-08-17 增量：一次性定位成功结果只进入 `CurrentLocationRuntime` 进程内状态，供 Explore、地图相机与 Home 距离排序复用，不新增持久化 Key；用户地点显式坐标仍随 Place V3 持久化。地点托管封面删除必须先经 `RepositoryPlaceMediaCleanup` 读取 Place catalog、已发布 Capsule 与草稿的全部引用，任一读取失败即停止删除。
 
 > 2026-08-17 在线地点增量：`Explore UI → PlaceList Intent → PlaceListStore → PlaceRemoteDataSource/ReverseGeocodeCapability → CCPlaceNetworkModule → 高德 Web API`。Android/HarmonyOS 网络模块持有各自本机注入的 Web Key，共享层只收发请求参数和响应，不读取 Key。在线 POI 只有经用户明确选择后才转换为 `PlaceDraft(source=IMPORTED)` 写入 `LocalPlaceRepository`。

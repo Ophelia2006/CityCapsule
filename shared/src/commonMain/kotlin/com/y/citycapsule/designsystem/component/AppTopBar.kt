@@ -43,6 +43,7 @@ fun AppActionTopBar(
     actionIcon: AppIconName? = null,
     actionDescription: String = actionLabel.orEmpty(),
     actionEnabled: Boolean = true,
+    onTitleClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -59,7 +60,18 @@ fun AppActionTopBar(
                 .weight(1f)
                 .padding(horizontal = AppTheme.dimensions.spacingXs)
         ) {
-            AppSectionTitle(title)
+            if (onTitleClick == null) {
+                AppSectionTitle(title)
+            } else {
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = AppTheme.dimensions.minTouchTarget)
+                        .clickable(onClick = onTitleClick),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    AppSectionTitle(title)
+                }
+            }
             if (!subtitle.isNullOrBlank()) {
                 Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
                 AppCaptionText(subtitle)

@@ -22,4 +22,6 @@ set_target_properties(kuikly_shared
     IMPORTED_LOCATION ${NATIVERENDER_ROOT_PATH}/../../../libs/${OHOS_ARCH}/libshared.so)
 
 add_library(entry SHARED napi_init.cpp)
+set_target_properties(entry PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/outputs)
 target_link_libraries(entry PUBLIC libace_napi.z.so libhilog_ndk.z.so kuikly_shared kuikly_render)

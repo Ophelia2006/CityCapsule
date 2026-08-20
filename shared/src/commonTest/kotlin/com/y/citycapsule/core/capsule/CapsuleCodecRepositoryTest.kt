@@ -13,10 +13,25 @@ class CapsuleCodecRepositoryTest {
     @Test
     fun catalogRoundTripPreservesImagesMoodTagsAndTimestamps() {
         val value = CapsuleCatalog(
-            capsules = listOf(capsule(id = "capsule_a", images = listOf("file:///a.jpg")))
+            capsules = listOf(capsule(id = "capsule_a", images = listOf("file:///a.jpg")).copy(roamingSessionId = "1000"))
         )
 
         assertEquals(value, CapsuleCatalogCodec.decode(CapsuleCatalogCodec.encode(value)))
+    }
+
+    @Test
+    fun publishPreservesExplicitRoamingSessionAssociation() {
+        val repository = LocalCapsuleRepository(
+            InMemoryKeyValueStore(),
+            MutableCapsuleClock(1_000L),
+            CapsuleIdGenerator { "capsule_roam" }
+        )
+
+        val created = repository.publishNow(
+            CapsuleDraft(content = "漫游中的一刻", placeId = "place_a", roamingSessionId = "900")
+        ).successValue()
+
+        assertEquals("900", created.roamingSessionId)
     }
 
     @Test

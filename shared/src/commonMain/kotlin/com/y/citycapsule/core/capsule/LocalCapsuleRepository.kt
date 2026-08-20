@@ -93,6 +93,7 @@ class LocalCapsuleRepository(
                         mood = normalized.mood,
                         tags = normalized.tags,
                         placeId = requireNotNull(normalized.placeId),
+                        roamingSessionId = normalized.roamingSessionId ?: existing?.roamingSessionId,
                         imagePaths = normalized.imagePaths,
                         createdAtEpochMs = existing?.createdAtEpochMs ?: now,
                         updatedAtEpochMs = maxOf(now, existing?.createdAtEpochMs ?: now)
@@ -160,6 +161,7 @@ class LocalCapsuleRepository(
                 .distinct()
                 .take(CapsuleContract.TAG_MAX_COUNT),
             placeId = draft.placeId?.trim()?.takeIf(String::isNotEmpty),
+            roamingSessionId = draft.roamingSessionId?.trim()?.takeIf(String::isNotEmpty),
             imagePaths = draft.imagePaths
                 .map(String::trim)
                 .filter { it.isNotEmpty() && it.length <= CapsuleContract.IMAGE_PATH_MAX_LENGTH }

@@ -5,6 +5,10 @@ import com.y.citycapsule.core.capsule.CityCapsule
 import com.y.citycapsule.core.favorite.FavoritePlaceIds
 import com.y.citycapsule.core.favorite.FavoriteRepository
 import com.y.citycapsule.core.mvi.MviStore
+import com.y.citycapsule.core.media.AvatarImageCapability
+import com.y.citycapsule.core.media.AvatarImageResult
+import com.y.citycapsule.core.media.PhotoPickerCapability
+import com.y.citycapsule.core.media.PhotoPickerResult
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCatalogSnapshot
 import com.y.citycapsule.core.place.PlaceCatalogSource
@@ -381,10 +385,11 @@ data class ProfileEditorUiState(
     val savedProfile: LocalProfile = LocalProfile.DEFAULT,
     val validationMessage: String? = null,
     val notice: ProfileNotice? = null,
-    val showDiscardConfirmation: Boolean = false
+    val showDiscardConfirmation: Boolean = false,
+    val avatarBusy: Boolean = false
 ) {
     val isBusy: Boolean
-        get() = status != ProfileEditorStatus.READY
+        get() = status != ProfileEditorStatus.READY || avatarBusy
 
     val isDirty: Boolean
         get() = profile != savedProfile
@@ -394,6 +399,7 @@ sealed interface ProfileEditorIntent {
     data object Load : ProfileEditorIntent
     data class DisplayNameChanged(val value: String) : ProfileEditorIntent
     data class AvatarChanged(val value: AvatarPreset) : ProfileEditorIntent
+    data object PickAvatarPhoto : ProfileEditorIntent
     data class HomeCityChanged(val value: String) : ProfileEditorIntent
     data class BioChanged(val value: String) : ProfileEditorIntent
     data object SaveClicked : ProfileEditorIntent
@@ -412,6 +418,9 @@ internal sealed interface ProfileEditorMutation {
     data class Loaded(val snapshot: LocalProfileSnapshot) : ProfileEditorMutation
     data class DisplayNameChanged(val value: String) : ProfileEditorMutation
     data class AvatarChanged(val value: AvatarPreset) : ProfileEditorMutation
+    data object AvatarWorkStarted : ProfileEditorMutation
+    data class ManagedAvatarReady(val path: String) : ProfileEditorMutation
+    data class AvatarWorkFailed(val message: String?) : ProfileEditorMutation
     data class HomeCityChanged(val value: String) : ProfileEditorMutation
     data class BioChanged(val value: String) : ProfileEditorMutation
     data object ValidationFailed : ProfileEditorMutation
@@ -449,8 +458,21 @@ internal object ProfileEditorReducer {
             copy(displayName = mutation.value)
         }
         is ProfileEditorMutation.AvatarChanged -> updateProfile(state) {
-            copy(avatarPreset = mutation.value)
+            copy(avatarPreset = mutation.value, avatarManagedPath = null)
         }
+        ProfileEditorMutation.AvatarWorkStarted -> state.copy(
+            avatarBusy = true,
+            notice = ProfileNotice("正在准备头像…", ProfileNoticeTone.NEUTRAL)
+        )
+        is ProfileEditorMutation.ManagedAvatarReady -> state.copy(
+            avatarBusy = false,
+            profile = state.profile.copy(avatarManagedPath = mutation.path),
+            notice = null
+        )
+        is ProfileEditorMutation.AvatarWorkFailed -> state.copy(
+            avatarBusy = false,
+            notice = mutation.message?.let { ProfileNotice(it, ProfileNoticeTone.ERROR) }
+        )
         is ProfileEditorMutation.HomeCityChanged -> updateProfile(state) {
             copy(homeCity = mutation.value)
         }
@@ -498,11 +520,34 @@ internal object ProfileEditorReducer {
 
 class ProfileEditorStore(
     private val profileRepository: LocalProfileRepository,
+    private val photoPicker: PhotoPickerCapability,
+    private val avatarImages: AvatarImageCapability,
     parentScope: CoroutineScope
 ) : MviStore<ProfileEditorIntent, ProfileEditorUiState, ProfileEditorEffect> {
+    constructor(
+        profileRepository: LocalProfileRepository,
+        parentScope: CoroutineScope
+    ) : this(
+        profileRepository = profileRepository,
+        photoPicker = PhotoPickerCapability { _, callback -> callback(PhotoPickerResult.Unsupported) },
+        avatarImages = object : AvatarImageCapability {
+            override fun prepareAvatar(sourcePath: String, callback: (AvatarImageResult) -> Unit) {
+                callback(AvatarImageResult.Unsupported)
+            }
+
+            override fun deleteAvatar(
+                path: String,
+                callback: (com.y.citycapsule.core.media.ManagedMediaDeleteResult) -> Unit
+            ) {
+                callback(com.y.citycapsule.core.media.ManagedMediaDeleteResult.Unsupported)
+            }
+        },
+        parentScope = parentScope
+    )
     private sealed interface Event {
         data class Intent(val value: ProfileEditorIntent) : Event
         data class Loaded(val snapshot: LocalProfileSnapshot) : Event
+        data class Mutation(val value: ProfileEditorMutation) : Event
         data class Saved(
             val normalized: LocalProfile,
             val result: StorageResult<Unit>
@@ -525,6 +570,7 @@ class ProfileEditorStore(
                 when (event) {
                     is Event.Intent -> handleIntent(event.value)
                     is Event.Loaded -> reduce(ProfileEditorMutation.Loaded(event.snapshot))
+                    is Event.Mutation -> reduce(event.value)
                     is Event.Saved -> handleSaved(event)
                 }
             }
@@ -537,6 +583,7 @@ class ProfileEditorStore(
 
     override fun dispose() {
         if (disposed) return
+        cleanupUnsavedAvatar()
         disposed = true
         events.close()
         effectChannel.close()
@@ -554,9 +601,11 @@ class ProfileEditorStore(
             is ProfileEditorIntent.DisplayNameChanged -> reduce(
                 ProfileEditorMutation.DisplayNameChanged(intent.value)
             )
-            is ProfileEditorIntent.AvatarChanged -> reduce(
-                ProfileEditorMutation.AvatarChanged(intent.value)
-            )
+            is ProfileEditorIntent.AvatarChanged -> {
+                cleanupUnsavedAvatar()
+                reduce(ProfileEditorMutation.AvatarChanged(intent.value))
+            }
+            ProfileEditorIntent.PickAvatarPhoto -> pickAvatar()
             is ProfileEditorIntent.HomeCityChanged -> reduce(
                 ProfileEditorMutation.HomeCityChanged(intent.value)
             )
@@ -574,6 +623,7 @@ class ProfileEditorStore(
             ProfileEditorIntent.DismissDiscard -> reduce(ProfileEditorMutation.HideDiscard)
             ProfileEditorIntent.DiscardConfirmed -> {
                 reduce(ProfileEditorMutation.HideDiscard)
+                cleanupUnsavedAvatar()
                 effectChannel.send(ProfileEditorEffect.NavigateBack)
             }
         }
@@ -593,10 +643,53 @@ class ProfileEditorStore(
         }
     }
 
+    private fun pickAvatar() {
+        if (mutableState.value.isBusy) return
+        reduce(ProfileEditorMutation.AvatarWorkStarted)
+        photoPicker.pickImages(1) { result ->
+            when (result) {
+                is PhotoPickerResult.Success -> prepareAvatar(result.paths.first())
+                PhotoPickerResult.Cancelled -> reduceAsync(ProfileEditorMutation.AvatarWorkFailed(null))
+                PhotoPickerResult.Unsupported -> reduceAsync(ProfileEditorMutation.AvatarWorkFailed("当前设备不支持选择头像照片。"))
+                is PhotoPickerResult.Failure -> reduceAsync(ProfileEditorMutation.AvatarWorkFailed(result.message))
+            }
+        }
+    }
+
+    private fun prepareAvatar(sourcePath: String) {
+        avatarImages.prepareAvatar(sourcePath) { result ->
+            when (result) {
+                is AvatarImageResult.Success -> {
+                    val previous = mutableState.value.profile.avatarManagedPath
+                    if (previous != null && previous != mutableState.value.savedProfile.avatarManagedPath) {
+                        avatarImages.deleteAvatar(previous) { }
+                    }
+                    reduceAsync(ProfileEditorMutation.ManagedAvatarReady(result.path))
+                }
+                AvatarImageResult.Unsupported -> reduceAsync(ProfileEditorMutation.AvatarWorkFailed("当前设备不支持头像裁剪。"))
+                is AvatarImageResult.Failure -> reduceAsync(ProfileEditorMutation.AvatarWorkFailed(result.message))
+            }
+        }
+    }
+
+    private fun cleanupUnsavedAvatar() {
+        val current = mutableState.value.profile.avatarManagedPath
+        val saved = mutableState.value.savedProfile.avatarManagedPath
+        if (current != null && current != saved) avatarImages.deleteAvatar(current) { }
+    }
+
+    private fun reduceAsync(mutation: ProfileEditorMutation) {
+        if (!disposed) events.trySend(Event.Mutation(mutation))
+    }
+
     private suspend fun handleSaved(event: Event.Saved) {
         when (event.result) {
             is StorageResult.Success -> {
+                val oldAvatar = mutableState.value.savedProfile.avatarManagedPath
                 reduce(ProfileEditorMutation.SaveSucceeded(event.normalized))
+                if (oldAvatar != null && oldAvatar != event.normalized.avatarManagedPath) {
+                    avatarImages.deleteAvatar(oldAvatar) { }
+                }
                 effectChannel.send(ProfileEditorEffect.SavedAndNavigateBack)
             }
             StorageResult.Missing,
