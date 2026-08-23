@@ -81,5 +81,9 @@ class ExploreCityRepositoryTest {
         var elsewhere: ReverseGeocodeResult? = null
         SupportedCityReverseGeocoder.resolve(GeoPoint(39.9042, 116.4074)) { elsewhere = it }
         assertIs<ReverseGeocodeResult.UnsupportedCity>(elsewhere)
+
+        var xian: ReverseGeocodeResult? = null
+        SupportedCityReverseGeocoder.resolve(GeoPoint(34.3416, 108.9398)) { xian = it }
+        assertEquals("cn-xian", assertIs<ReverseGeocodeResult.UnsupportedCity>(xian).city?.id)
     }
 }

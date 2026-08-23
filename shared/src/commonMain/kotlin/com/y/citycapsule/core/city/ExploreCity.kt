@@ -34,6 +34,13 @@ object CityRegistry {
             centerPoint = GeoPoint(39.9042, 116.4074),
             supported = false,
             contentPackVersion = 0
+        ),
+        CityDefinition(
+            id = "cn-xian",
+            displayName = "西安",
+            centerPoint = GeoPoint(34.3416, 108.9398),
+            supported = false,
+            contentPackVersion = 0
         )
     )
 

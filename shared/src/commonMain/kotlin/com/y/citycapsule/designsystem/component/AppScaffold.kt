@@ -13,6 +13,8 @@ import com.tencent.kuikly.compose.foundation.layout.widthIn
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.layout.onGloballyPositioned
+import com.tencent.kuikly.compose.ui.layout.positionInRoot
 import com.tencent.kuikly.compose.ui.unit.Dp
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.y.citycapsule.designsystem.theme.AppTheme
@@ -72,6 +74,7 @@ fun AppFixedHeaderScaffold(
     bottomBar: (@Composable () -> Unit)? = null,
     contentListState: com.tencent.kuikly.compose.foundation.lazy.LazyListState =
         com.tencent.kuikly.compose.foundation.lazy.rememberLazyListState(),
+    onContentBoundsChanged: ((topPx: Float, bottomPx: Float) -> Unit)? = null,
     header: @Composable ColumnScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -98,7 +101,13 @@ fun AppFixedHeaderScaffold(
                 content = header
             )
             LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .onGloballyPositioned { coordinates ->
+                        val top = coordinates.positionInRoot().y
+                        onContentBoundsChanged?.invoke(top, top + coordinates.size.height)
+                    },
                 state = contentListState,
                 contentPadding = PaddingValues(
                     start = dimensions.screenHorizontalPadding,

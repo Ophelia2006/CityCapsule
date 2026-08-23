@@ -24,11 +24,15 @@ import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
+import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.unit.dp
+import com.tencent.kuikly.compose.material3.Text
 import com.y.citycapsule.core.capsule.CapsuleDateFormatter
 import com.y.citycapsule.core.capsule.CapsuleRepository
 import com.y.citycapsule.core.city.ExploreCityRepository
 import com.y.citycapsule.core.city.ExploreCityRuntime
+import com.y.citycapsule.core.city.CityDefinition
+import com.y.citycapsule.core.city.CityRegistry
 import com.y.citycapsule.core.favorite.FavoriteRepository
 import com.y.citycapsule.core.navigation.AppNavigator
 import com.y.citycapsule.core.location.CurrentLocationRuntime
@@ -38,6 +42,8 @@ import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.PlacePhotoCacheRepository
 import com.y.citycapsule.core.place.PlaceRemoteDataSource
+import com.y.citycapsule.core.media.ImageLoadPriority
+import com.y.citycapsule.core.media.PlaceImageLoadRuntime
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.designsystem.component.AppBodyText
 import com.y.citycapsule.designsystem.component.AppBottomSheet
@@ -52,6 +58,7 @@ import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppSectionTitle
 import com.y.citycapsule.designsystem.component.AppStatusMessage
 import com.y.citycapsule.designsystem.component.AppStatusTone
+import com.y.citycapsule.designsystem.component.AppTextField
 import com.y.citycapsule.designsystem.component.CapsuleCard
 import com.y.citycapsule.designsystem.component.CapsuleCardModel
 import com.y.citycapsule.designsystem.component.CapsuleCardVariant
@@ -68,9 +75,12 @@ import com.y.citycapsule.feature.capsule.CapsulePhoto
 import com.y.citycapsule.feature.home.HomeStateHolder
 import com.y.citycapsule.feature.home.HomeUiState
 import com.y.citycapsule.feature.home.HomeUiStatus
+import com.y.citycapsule.feature.home.HomeOnlineStatus
+import com.y.citycapsule.feature.home.HomeCityLookupStatus
 import com.y.citycapsule.feature.place.PlaceFeatureRuntime
 import com.y.citycapsule.feature.place.displayName
 import com.y.citycapsule.feature.place.PlaceMedia
+import com.y.citycapsule.feature.place.RemotePlaceSummaryCard
 
 /** Explore root content hosted inside the single AppShellPage. */
 @Composable
@@ -90,6 +100,7 @@ internal fun HomeRootContent(
 ) {
     var uiState by remember { mutableStateOf(HomeUiState()) }
     var showPlacePicker by remember { mutableStateOf(false) }
+    var showCityPicker by remember { mutableStateOf(false) }
     val holder = remember(profileRepository, cityRepository, placeRepository, favoriteRepository, capsuleRepository, photoCacheRepository, remoteDataSource, dateFormatter) {
         HomeStateHolder(
             profileRepository,
@@ -127,7 +138,7 @@ internal fun HomeRootContent(
     ) {
         item {
             Column(Modifier.fillMaxWidth()) {
-                HomeProfileHeader(uiState)
+                HomeProfileHeader(uiState, onCityClick = { showCityPicker = true })
                 Spacer(Modifier.height(dimensions.spacingLg))
                 AppSectionTitle("你好，${uiState.profile.displayName}")
                 Spacer(Modifier.height(dimensions.spacingXxs))
@@ -168,15 +179,24 @@ internal fun HomeRootContent(
             navigator.navigate(AppRoute.PlaceEditor())
         }
     )
+    HomeCityPicker(
+        visible = showCityPicker,
+        state = uiState,
+        onDismiss = { showCityPicker = false },
+        onSelect = { city ->
+            showCityPicker = false
+            holder.selectCity(city)
+        },
+        onSearch = holder::searchAndSelectCity
+    )
 }
 
 @Composable
-private fun HomeProfileHeader(state: HomeUiState) {
+private fun HomeProfileHeader(state: HomeUiState, onCityClick: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            AppCaptionText("当前探索城市")
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
-            AppSectionTitle(state.selectedCity.displayName)
+        Column(Modifier.weight(1f).clickable(onClick = onCityClick)) {
+            AppSectionTitle("${state.selectedCity.displayName}  ⌔")
+            AppCaptionText("点击切换探索城市")
         }
         AppProfileAvatar(
             preset = state.profile.avatarPreset,
@@ -219,6 +239,21 @@ private fun HomeContent(
             "地点数据暂时无法安全读取，当前不会执行新建、想去或记录操作。",
             onRetry = onRetry
         )
+    } else if (state.featuredPlaceWithMedia == null && state.onlineStatus == HomeOnlineStatus.LOADING) {
+            LoadingState("正在发现${state.selectedCity.displayName}的地点…")
+    } else if (state.featuredPlaceWithMedia == null && state.onlineRecommendations.isNotEmpty()) {
+            AppSecondaryText("以下来自高德地点服务，只作在线候选，不会自动保存。")
+            Spacer(Modifier.height(dimensions.spacingSm))
+            state.onlineRecommendations.forEachIndexed { index, place ->
+                RemotePlaceSummaryCard(
+                    place = place,
+                    imagePriority = if (index < PlaceImageLoadRuntime.INITIAL_VISIBLE_LIMIT) ImageLoadPriority.VISIBLE else ImageLoadPriority.PREFETCH,
+                    variant = if (index == 0) PlaceCardVariant.HERO else PlaceCardVariant.COMPACT,
+                    onOpen = { navigator.navigate(AppRoute.PlaceList()) }
+                )
+                Spacer(Modifier.height(dimensions.spacingXs))
+            }
+            AppButton("在探索中查看并保存", { navigator.navigate(AppRoute.PlaceList()) }, variant = AppButtonVariant.TEXT)
     } else if (featured == null) {
         if (!state.selectedCity.supported) {
             EmptyState(
@@ -333,6 +368,57 @@ private fun HomeContent(
         AppBodyText("先选择所在地点，再写下照片、心情和文字。")
         Spacer(Modifier.height(dimensions.spacingSm))
         AppButton("选择地点并快速记录", onQuickRecord, variant = AppButtonVariant.SECONDARY)
+    }
+}
+
+@Composable
+private fun HomeCityPicker(
+    visible: Boolean,
+    state: HomeUiState,
+    onDismiss: () -> Unit,
+    onSelect: (CityDefinition) -> Unit,
+    onSearch: (String) -> Unit
+) {
+    var cityQuery by remember { mutableStateOf("") }
+    AppBottomSheet(visible, "选择探索城市", onDismiss) {
+        AppTextField(
+            value = cityQuery,
+            onValueChange = { cityQuery = it },
+            label = "查找其他城市",
+            placeholder = "例如：成都、广州、南京",
+            supportingText = "根据真实在线地点确认城市，不会创建虚构地点。",
+            errorMessage = state.cityLookupMessage,
+            maxLength = 20,
+            enabled = state.cityLookupStatus != HomeCityLookupStatus.LOADING
+        )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+        AppButton(
+            text = if (state.cityLookupStatus == HomeCityLookupStatus.LOADING) "正在查找…" else "切换到该城市",
+            onClick = { onSearch(cityQuery) },
+            variant = AppButtonVariant.SECONDARY,
+            enabled = cityQuery.trim().length >= 2 && state.cityLookupStatus != HomeCityLookupStatus.LOADING,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+        (listOf(state.selectedCity) + CityRegistry.cities).distinctBy(CityDefinition::id).forEach { city ->
+            val selected = city.id == state.selectedCity.id
+            Row(
+                Modifier.fillMaxWidth()
+                    .clickable { onSelect(city) }
+                    .padding(vertical = AppTheme.dimensions.spacingMd),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (selected) "✓ ${city.displayName}" else city.displayName,
+                    color = if (selected) AppTheme.colors.primary else AppTheme.colors.textPrimary,
+                    style = AppTheme.typography.body.copy(
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                if (!city.supported) AppCaptionText("在线获取")
+            }
+        }
     }
 }
 

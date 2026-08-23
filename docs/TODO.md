@@ -9,6 +9,7 @@
 - `[Code Scan][DONE code+shared automation/PARTIAL device]` 自由漫游：500 米附近地点、200 米 GPS 到达、手动降级、typed `roamingSessionId`、显式总结关联和按打卡顺序保存路线已完成；待双端移动、定位异常、杀进程和文件失败验收。通过前继续隐藏一级入口。
 - `[Code Scan][P1]` 若要从 Timeline 的历史 Capsule 打开对应漫游总结，先把单一 `RoamingSession` 存储升级为有上限的会话历史 catalog，并迁移轨迹/打卡索引；当前只显示来源标记，不用时间范围猜测或把 session ID 冒充 route ID。
 - `[Code Scan][DONE code+automation/PARTIAL device]` 真实搜索/分类/附近及在线单项导入已复核存在；待无 Key、断网、弱网、重复导入和距离真机验收。
+- `[Code Scan][UI/UX Redesign][P1]` 在线地点当前仍是最多 12 个的单批候选。后续为 `PlaceRemoteDataSource` 和双端网络 bridge 增加明确 page/offset 协议，在列表接近底部时加载下一页；切换城市、搜索词或探索主题时重置游标，按 provider ID 去重，并设置单次会话 60～100 个上限。在线结果不得批量写入 MMKV。
 - 统一验收步骤见 `docs/P1_PRODUCT_CAPABILITIES_ACCEPTANCE.md`。
 
 ## 2026-08-17 当前 P0 检查点
@@ -23,7 +24,7 @@
 - `[Code Scan][DONE code+automation/PARTIAL device]` 地点封面替换、移除、放弃和删除已使用 Place/Capsule/草稿引用保护清理；需补双端文件缺失、删除失败与导入恢复真机验收。
 - `[Code Scan][DONE code+automation/PARTIAL device]` 已知未支持城市可被选择并持久化，Home/Explore 显示诚实空态且不串入其他城市地点；当前北京仅用于验证此状态，不代表已有北京内容包。
 - `[Initial Plan][DONE code+automation/PARTIAL device]` 高德在线 POI 搜索、照片预览、单个选择性导入和在线逆地理编码已接入双端网络桥；Web Key 只存在本机忽略配置，断网/空结果/服务错误降级到本地点。仍需双端真机验证弱网、图片加载失败、重复导入和请求生命周期。
-- `[Initial Plan][P1]` 把探索城市目录从编译期 `CityRegistry` 扩展为可持久化的全国城市定义/行政区编码；当前在线搜索只覆盖已登记并可选择的城市，不能宣称全国城市选择已完成。
+- `[Initial Plan][PARTIAL code+automation/PARTIAL device 2026-08-24]` Home 已支持输入任意城市名，并用真实 POI 响应确认城市名称和中心坐标后保存动态城市；定位也可产生动态城市。仍缺正式全国城市/行政区编码目录、城市联想与重名城市消歧，因此不能宣称完整全国城市选择已完成。
 - `[Code Scan][DONE code+automation/PARTIAL device]` Home、Explore 与地点详情已统一按“本地托管封面 → 高德 POI 有效缓存 → 类别 fallback”展示；详情按需查询，列表不批量联网。URL 只进入 `cc_cache/places.photo_cache`（100 条/30 天），不写入地点模型或备份，加载失败删除。仍需双端真机验证成功、慢加载、失败、离线和页面反复进入退出。
 - `[Code Scan][DONE code+automation/PARTIAL profiling 2026-08-19]` 地点图片已增加首批 6 张优先、最大并发 3、URL 去重、lease 释放和进程内调度指标。下一步在 Android/HarmonyOS 真机记录首图/首屏时间、缓存命中、峰值内存和滚动丢帧；地点规模扩大前将 Explore 单一 lazy item 改为 viewport 驱动的独立 lazy items。
 - `[Code Scan][DONE code+Android log verification]` `CCPlaceNetworkModule` 已在 `BasePager` 的 shared proxy 模块表统一注册，并增加架构守卫；地点详情因漏注册导致的 Android `acquireModule` 闪退已定位并修复，HarmonyOS 仍需真机复验同一路径。
@@ -52,6 +53,10 @@
 
 - `[Code Scan][DONE code+automation/PARTIAL device 2026-08-20]` 路线拖拽修正：稳定 `placeId` 身份、把手随卡片移动、整卡选中色、取消反向页面滚动、持续边界自动滚动已实现；在双端使用超过一屏的路线验收向上/向下拖动、长名称不换行回归、边界滚动及保存后顺序。
 - `[Code Scan][DONE code+automation/PARTIAL device 2026-08-20]` 探索城市修正：动态定位城市可确认、持久化并迁移，Explore 左上标题区打开选择器，选中项使用勾选/品牌色/加粗。在双端验收西安确认后标题即时更新、重启恢复，以及“暂无内容”降级。
+- `[Code Scan][DONE code+automation/PARTIAL device 2026-08-20]` Home 与 Explore 共享动态城市上下文；Home 左上可切换城市，无本地内容时两页按需请求高德 POI 在线候选。双端验收西安切换、Home 不再回退上海、弱网/无 Key 降级、Explore 确认导入及重启后本地显示。
+- `[Code Scan][DONE code+automation/PARTIAL device 2026-08-20]` Home 最多 4 个、Explore 主列表最多 12 个在线候选已接入受控真实图片加载；验收两端 HTTPS 图片、无图 fallback、快速滚动、重复 URL 去重、失败恢复与导入后从在线候选移除。
+- `[Code Scan][DONE code+automation/PARTIAL device 2026-08-24]` 无本地 catalog 时，Home 第一个真实在线候选使用 Hero 卡，修复西安首页缺少主推荐卡；验收有图、无图、图片失败以及在线空结果四种状态。
+- `[Code Scan][DONE code+automation/PARTIAL device 2026-08-24]` Home 城市弹窗支持按名称查找其他城市并持久化动态城市；验收成都/广州等有效城市、错别字、同名行政区、断网、无 Key、切换后 Home/Explore/Map 同步及重启恢复。
 - `[Code Scan][DONE code/PARTIAL device 2026-08-20]` 头像编辑只保留相册选择；双端验收选择、取消、文件缺失回退和更换时旧文件清理。
 
 - `[UI/UX Redesign][DONE code 2026-07-30]` 固定关键操作层：Explore 顶栏/搜索/chips、Record 标题/视图切换、Capsule Editor 关闭/完成、Place/Capsule Detail 返回/更多；Bottom Sheet 固定头尾并让中部滚动；SearchField 图标与文字对齐。仍需 Android/HarmonyOS 小屏、横屏、大字体、键盘遮挡和滚动边界真机验收。

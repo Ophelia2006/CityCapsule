@@ -55,7 +55,7 @@ object PlaceSearchEngine {
             return false
         }
         if (filter.city != null &&
-            normalizeSearchText(place.city) != normalizeSearchText(filter.city)
+            normalizePlaceCityName(place.city) != normalizePlaceCityName(filter.city)
         ) {
             return false
         }
@@ -117,3 +117,11 @@ object PlaceSearchEngine {
     private const val RANK_MULTI_TERM = 5
     private const val RANK_EMPTY_QUERY = 6
 }
+
+/** Provider city fields commonly include the administrative suffix while product city labels do not. */
+internal fun normalizePlaceCityName(value: String): String = value.trim()
+    .removeSuffix("特别行政区")
+    .removeSuffix("自治州")
+    .removeSuffix("市")
+    .trim()
+    .lowercase()

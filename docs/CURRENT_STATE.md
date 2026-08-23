@@ -256,3 +256,13 @@ P0-3A 于 2026-07-29 取代 P0-2 的根 Tab replace：Home/Timeline/Profile type
 - `DONE code`：城市选择入口移到 Explore 顶栏左上标题区；当前选中城市用品牌色、加粗和勾选表示，不再显示“当前”字样。不支持内容的动态城市明确显示“暂无内容”，不伪造地点。
 - `DONE automation`：Android 共享编译、`:shared:testDebugUnitTest` 和 HarmonyOS `:shared:compileKotlinOhosArm64` 通过；新增动态西安持久化及 schema v1 迁移测试。
 - `PARTIAL device`：拖拽视觉、边界自动滚动速度、长地点名稳定布局、动态城市确认和头像选图仍需 Android/HarmonyOS 真机验收。
+- `FIXED code 2026-08-20`：首轮拖拽修正仍以可变 `index` 作为 `pointerInput` key，重排后会重启手势，导致强调色和自动滚动一起终止。现改为稳定 `placeId` key，并由 `AppFixedHeaderScaffold` 回传真实滚动视口边界，指针进入顶/底 72dp 区域时持续滚动与重排。
+- `FIXED code+automation 2026-08-20`：Home 原先把 `selectedCityId` 再从固定 Registry 反查，动态西安因查不到而回退上海。现直接消费 `ExploreCitySelection.selectedCity`；Home 左上城市标题可直接打开城市选择器。
+- `DONE code+automation/PARTIAL network+device 2026-08-20`：当所选城市没有本地 catalog 地点时，Home 与 Explore 使用已有高德 `PlaceRemoteDataSource` 按城市中心请求“景点”候选。Home 只展示最多 4 个在线候选；Explore 允许用户确认后保存到本地，不自动持久化整批 POI。新增动态西安上下文与在线推荐回归测试；真实结果仍取决于双端高德 Key、网络及 POI 服务响应。
+- `DONE code+automation/PARTIAL device 2026-08-20`：在线地点不再只存在于 Bottom Sheet；Explore 主列表直接显示最多 12 个在线候选及“保存到本地”操作。Home/Explore 在线候选共用真实 `photoUrl` 媒体组件，经 `PlaceImageLoadRuntime` 执行 URL 去重、首屏优先和最多 3 个冷请求并发；无图或加载失败保留类别 fallback。
+- `FIXED code+automation 2026-08-20`：高德返回的“西安市”与产品城市“西安”原本被精确比较，导入成功后立即被当前筛选隐藏。现在网络解析、新导入和 Home/Explore 城市匹配共用行政后缀规范化；已存储的“西安市”旧数据也可直接显示。导入成功后同时将该 POI 的真实图片 URL 写入有界照片缓存，当前列表立即复用。
+- `FIXED code+automation 2026-08-20`：单一“景点”查询在西安只返回 8 个可解析 POI，尽管双端原生请求 `offset=20`。城市推荐现按“景点 → 博物馆 → 公园 → 咖啡”顺序补充，以 provider ID 去重，Explore 达到 12 个、Home 达到 4 个后立即停止后续请求。服务端所有分类合计仍不足时诚实显示实际数量，不伪造补齐。
+- `FIXED code+automation 2026-08-20`：Explore 原先仅在当前城市地点数为 0 时请求在线候选，历史测试保存的 8 个地点会阻止自动加载。默认无搜索、无筛选的列表现在会在本地可见地点不足 12 个时请求在线推荐，排除已经按 provider ID 保存的 POI，并只补足剩余名额；例如 8 个本地点会补充最多 4 个在线候选。搜索和筛选结果不自动混入推荐。
+- `DONE code+automation/PARTIAL device 2026-08-21`：Explore 顶部粗分类 chips 已改为不进入持久化 schema 的探索主题：城市地标、咖啡、餐厅、博物馆、展览、公园、自然景点、商场街区。主题分别过滤本地名称/标签并触发对应在线关键词查询；高德类型解析优先识别公园、餐饮、文化和购物细类，避免被通用“风景名胜”提前归入城市地标。shared 单测与 HarmonyOS arm64 共享编译通过，双端真实 POI 命中质量与横向滚动仍待真机验收。
+- `FIXED code+automation/PARTIAL device 2026-08-24`：无本地地点的城市此前只有紧凑在线候选，导致西安 Home 缐少主推荐视觉。现在首个真实在线候选使用 Hero 地点卡，其余候选保持紧凑卡；不把在线候选伪装成本地已保存地点。
+- `DONE code+automation/PARTIAL device 2026-08-24`：Home 左上城市选择器支持输入任意城市名。系统通过现有 `PlaceRemoteDataSource` 查询真实 POI，只有返回城市与输入匹配时才以该 POI 坐标建立并持久化动态城市，随后统一刷新 Home/Explore/Map；无网络、无 Key 或无匹配结果时明确报错，不创建虚构城市。shared 单测和 HarmonyOS arm64 native 链接通过，待鸿蒙真机验证输入法、弹窗状态及真实服务响应。

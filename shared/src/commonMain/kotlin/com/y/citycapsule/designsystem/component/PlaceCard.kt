@@ -35,6 +35,7 @@ fun PlaceCard(
     modifier: Modifier = Modifier,
     variant: PlaceCardVariant = PlaceCardVariant.HERO,
     favoriteEnabled: Boolean = true,
+    showFavoriteAction: Boolean = true,
     media: (@Composable () -> Unit)? = null
 ) {
     if (variant == PlaceCardVariant.HERO) {
@@ -42,20 +43,20 @@ fun PlaceCard(
             Box(Modifier.fillMaxWidth().height(AppTheme.dimensions.placeHeroHeight)) {
                 if (media != null) media() else PlaceMediaFallback(model.fallbackKind)
             }
-            PlaceCardText(model, onToggleFavorite, favoriteEnabled, Modifier.padding(AppTheme.dimensions.spacingMd))
+            PlaceCardText(model, onToggleFavorite, favoriteEnabled, showFavoriteAction, Modifier.padding(AppTheme.dimensions.spacingMd))
         }
     } else {
         Row(modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = AppTheme.dimensions.spacingXs), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(AppTheme.dimensions.placeCompactMediaSize).clip(RoundedCornerShape(AppTheme.dimensions.radiusMd))) {
                 if (media != null) media() else PlaceMediaFallback(model.fallbackKind)
             }
-            PlaceCardText(model, onToggleFavorite, favoriteEnabled, Modifier.weight(1f).padding(start = AppTheme.dimensions.spacingSm))
+            PlaceCardText(model, onToggleFavorite, favoriteEnabled, showFavoriteAction, Modifier.weight(1f).padding(start = AppTheme.dimensions.spacingSm))
         }
     }
 }
 
 @Composable
-private fun PlaceCardText(model: PlaceCardModel, onToggleFavorite: () -> Unit, favoriteEnabled: Boolean, modifier: Modifier) {
+private fun PlaceCardText(model: PlaceCardModel, onToggleFavorite: () -> Unit, favoriteEnabled: Boolean, showFavoriteAction: Boolean, modifier: Modifier) {
     Row(modifier = modifier, verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f)) {
             AppSectionTitle(model.name)
@@ -66,12 +67,14 @@ private fun PlaceCardText(model: PlaceCardModel, onToggleFavorite: () -> Unit, f
                 AppCaptionText(model.supportingText)
             }
         }
-        AppIconButton(
-            icon = if (model.favorite) AppIconName.FAVORITE_FILLED else AppIconName.FAVORITE,
-            contentDescription = if (model.favorite) "移出想去" else "加入想去",
-            onClick = onToggleFavorite,
-            selected = model.favorite,
-            enabled = favoriteEnabled
-        )
+        if (showFavoriteAction) {
+            AppIconButton(
+                icon = if (model.favorite) AppIconName.FAVORITE_FILLED else AppIconName.FAVORITE,
+                contentDescription = if (model.favorite) "移出想去" else "加入想去",
+                onClick = onToggleFavorite,
+                selected = model.favorite,
+                enabled = favoriteEnabled
+            )
+        }
     }
 }

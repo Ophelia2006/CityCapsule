@@ -1,6 +1,9 @@
 package com.y.citycapsule.feature.place
 
 import com.y.citycapsule.core.city.LocalExploreCityRepository
+import com.y.citycapsule.core.city.CityDefinition
+import com.y.citycapsule.core.city.ReverseGeocodeCapability
+import com.y.citycapsule.core.city.ReverseGeocodeResult
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.location.LocationCapability
 import com.y.citycapsule.core.location.LocationResult
@@ -10,7 +13,10 @@ import com.y.citycapsule.core.place.GeoPoint
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
+import com.y.citycapsule.core.place.PlaceFilter
 import com.y.citycapsule.core.place.PlaceSeedData
+import com.y.citycapsule.core.place.RemotePlace
+import com.y.citycapsule.core.place.RemotePlaceResult
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
 import kotlinx.coroutines.async
@@ -26,6 +32,107 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlaceListStoreTest {
+    @Test
+    fun refinedTopicsSeparateCoffeeFromRestaurantsAndParksFromNaturalScenery() {
+        val places = listOf(
+            Place(id = "coffee", name = "街角咖啡", city = "西安", category = PlaceCategory.FOOD, tags = listOf("咖啡店"), createdAtEpochMs = 1L, updatedAtEpochMs = 1L),
+            Place(id = "restaurant", name = "长安餐厅", city = "西安", category = PlaceCategory.FOOD, tags = listOf("餐饮"), createdAtEpochMs = 1L, updatedAtEpochMs = 1L),
+            Place(id = "park", name = "城市公园", city = "西安", category = PlaceCategory.NATURE, tags = listOf("公园"), createdAtEpochMs = 1L, updatedAtEpochMs = 1L),
+            Place(id = "mountain", name = "翠华山", city = "西安", category = PlaceCategory.NATURE, tags = listOf("自然风景"), createdAtEpochMs = 1L, updatedAtEpochMs = 1L)
+        )
+        val initial = PlaceListUiState(
+            status = PlaceListUiStatus.READY,
+            catalogPlaces = places,
+            visiblePlaces = places
+        )
+
+        val coffee = PlaceListReducer.reduce(initial, PlaceListMutation.TopicSelected(ExplorePlaceTopic.COFFEE))
+        val restaurant = PlaceListReducer.reduce(initial, PlaceListMutation.TopicSelected(ExplorePlaceTopic.RESTAURANT))
+        val park = PlaceListReducer.reduce(initial, PlaceListMutation.TopicSelected(ExplorePlaceTopic.PARK))
+        val natural = PlaceListReducer.reduce(initial, PlaceListMutation.TopicSelected(ExplorePlaceTopic.NATURAL_SCENERY))
+
+        assertEquals(listOf("coffee"), coffee.visiblePlaces.map(Place::id))
+        assertEquals(listOf("restaurant"), restaurant.visiblePlaces.map(Place::id))
+        assertEquals(listOf("park"), park.visiblePlaces.map(Place::id))
+        assertEquals(listOf("mountain"), natural.visiblePlaces.map(Place::id))
+    }
+
+    @Test
+    fun onlineTopicResultsExcludeUnrelatedPlaces() {
+        val state = PlaceListReducer.reduce(
+            PlaceListUiState(selectedTopic = ExplorePlaceTopic.COFFEE),
+            PlaceListMutation.OnlineSearchFinished(RemotePlaceResult.Success(listOf(
+                RemotePlace("coffee", "街角咖啡", "西安", null, null, PlaceCategory.FOOD, listOf("咖啡店"), GeoPoint(34.3, 108.9), null),
+                RemotePlace("restaurant", "长安餐厅", "西安", null, null, PlaceCategory.FOOD, listOf("餐饮"), GeoPoint(34.3, 108.9), null)
+            )))
+        )
+
+        assertEquals(listOf("coffee"), state.onlinePlaces.map(RemotePlace::providerId))
+    }
+
+    @Test
+    fun onlineResultsAreBoundedBeforeTheyReachTheExploreList() {
+        val places = (0 until ONLINE_PLACE_RESULT_LIMIT + 5).map { index ->
+            RemotePlace("poi-$index", "地点$index", "西安", null, null, PlaceCategory.OTHER, emptyList(), GeoPoint(34.3, 108.9), null)
+        }
+
+        val state = PlaceListReducer.reduce(
+            PlaceListUiState(),
+            PlaceListMutation.OnlineSearchFinished(RemotePlaceResult.Success(places))
+        )
+
+        assertEquals(ONLINE_PLACE_RESULT_LIMIT, state.onlinePlaces.size)
+    }
+
+    @Test
+    fun importedProviderCityWithAdministrativeSuffixRemainsVisibleInSelectedCity() {
+        val imported = Place(
+            id = "imported-xian-wall",
+            name = "西安城墙",
+            city = "西安市",
+            category = PlaceCategory.LANDMARK,
+            contentSource = "高德地图 POI · poi-xian-wall",
+            createdAtEpochMs = 1L,
+            updatedAtEpochMs = 1L
+        )
+        val initial = PlaceListUiState(
+            status = PlaceListUiStatus.READY,
+            filter = PlaceFilter(city = "西安")
+        )
+
+        val state = PlaceListReducer.reduce(initial, PlaceListMutation.RemoteImportFinished(imported))
+
+        assertEquals(listOf(imported.id), state.visiblePlaces.map(Place::id))
+    }
+
+    @Test
+    fun existingLocalImportsAreExcludedAndOnlineCandidatesFillRemainingSlots() {
+        val local = (0 until 8).map { index ->
+            Place(
+                id = "local-$index", name = "本地$index", city = "西安",
+                category = PlaceCategory.OTHER,
+                contentSource = "高德地图 POI · poi-$index",
+                createdAtEpochMs = 1L, updatedAtEpochMs = 1L
+            )
+        }
+        val remote = (0 until 12).map { index ->
+            RemotePlace("poi-$index", "在线$index", "西安", null, null, PlaceCategory.OTHER, emptyList(), GeoPoint(34.3, 108.9), null)
+        }
+        val initial = PlaceListUiState(
+            status = PlaceListUiStatus.READY,
+            catalogPlaces = local,
+            visiblePlaces = local
+        )
+
+        val state = PlaceListReducer.reduce(
+            initial,
+            PlaceListMutation.OnlineSearchFinished(RemotePlaceResult.Success(remote))
+        )
+
+        assertEquals(listOf("poi-8", "poi-9", "poi-10", "poi-11"), state.onlinePlaces.map(RemotePlace::providerId))
+        assertEquals(ONLINE_PLACE_RESULT_LIMIT, state.visiblePlaces.size + state.onlinePlaces.size)
+    }
+
     @Test
     fun initialCategoryFromTypedEntryFiltersFirstLoad() = runTest {
         val fixture = fixture()
@@ -230,6 +337,29 @@ class PlaceListStoreTest {
     }
 
     @Test
+    fun explicitCurrentLocationAutomaticallySwitchesToResolvedDynamicCity() = runTest {
+        val fixture = fixture()
+        val xian = CityDefinition("remote-xian", "西安", GeoPoint(34.3416, 108.9398), false, 0)
+        val store = fixture.store(
+            locationCapability = LocationCapability {
+                it(LocationResult.Success(xian.centerPoint, 10.0))
+            },
+            reverseGeocodeCapability = ReverseGeocodeCapability { _, callback ->
+                callback(ReverseGeocodeResult.UnsupportedCity(xian))
+            }
+        )
+
+        store.dispatch(PlaceListIntent.Load)
+        advanceUntilIdle()
+        store.dispatch(PlaceListIntent.CurrentLocationRequested)
+        advanceUntilIdle()
+
+        assertEquals("西安", store.state.value.selectedCity.displayName)
+        assertEquals(null, store.state.value.detectedCity)
+        store.dispose()
+    }
+
+    @Test
     fun lateLocationCallbackCannotWriteDisposedStore() = runTest {
         val fixture = fixture()
         var callback: ((LocationResult) -> Unit)? = null
@@ -267,6 +397,9 @@ private data class StoreFixture(
         locationCapability: LocationCapability = LocationCapability {
             it(LocationResult.Unavailable)
         },
+        reverseGeocodeCapability: ReverseGeocodeCapability = ReverseGeocodeCapability { _, callback ->
+            callback(ReverseGeocodeResult.UnsupportedCity())
+        },
         mode: PlaceListMode = PlaceListMode.ALL,
         initialCategory: PlaceCategory? = null
     ) = PlaceListStore(
@@ -274,6 +407,7 @@ private data class StoreFixture(
         placeRepository = placeRepository,
         favoriteRepository = favoriteRepository,
         locationCapability = locationCapability,
+        reverseGeocodeCapability = reverseGeocodeCapability,
         parentScope = scope,
         mode = mode,
         initialCategory = initialCategory

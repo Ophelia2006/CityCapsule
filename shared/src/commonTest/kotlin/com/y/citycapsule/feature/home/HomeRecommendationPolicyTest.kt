@@ -6,14 +6,19 @@ import com.y.citycapsule.core.capsule.CapsuleIdGenerator
 import com.y.citycapsule.core.capsule.LocalCapsuleRepository
 import com.y.citycapsule.core.capsule.UtcCapsuleDateFormatter
 import com.y.citycapsule.core.city.LocalExploreCityRepository
+import com.y.citycapsule.core.city.CityDefinition
 import com.y.citycapsule.core.favorite.LocalFavoriteRepository
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.Place
+import com.y.citycapsule.core.place.PlaceDraft
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.GeoPoint
 import com.y.citycapsule.core.place.PlaceVisualRef
 import com.y.citycapsule.core.place.PlaceVisualType
 import com.y.citycapsule.core.place.PlacePhotoCacheEntry
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
+import com.y.citycapsule.core.place.RemotePlace
+import com.y.citycapsule.core.place.RemotePlaceResult
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
@@ -187,6 +192,93 @@ class HomeRecommendationPolicyTest {
         assertEquals(supportingIds, holder.state.supportingPlaceIds)
         assertEquals(supportingTitle, holder.state.supportingTitle)
         assertEquals(null, holder.state.notice)
+    }
+
+    @Test
+    fun dynamicExploreCityIsKeptAndLoadsOnlineRecommendationsWhenLocalCatalogIsEmpty() {
+        val storage = InMemoryKeyValueStore()
+        val cities = LocalExploreCityRepository(storage)
+        val xian = CityDefinition("remote-xian", "西安", GeoPoint(34.3416, 108.9398), false, 0)
+        cities.select(xian) { }
+        var requestedCity: String? = null
+        val requestedQueries = mutableListOf<String>()
+        val remote = object : PlaceRemoteDataSource {
+            override fun search(query: String, city: String, near: GeoPoint?, callback: (RemotePlaceResult) -> Unit) {
+                requestedCity = city
+                requestedQueries += query
+                callback(RemotePlaceResult.Success(listOf(
+                    RemotePlace("poi-xian", "西安城墙", "西安", "碑林区", "南大街", PlaceCategory.LANDMARK, emptyList(), xian.centerPoint, null)
+                )))
+            }
+        }
+        val places = LocalPlaceRepository(storage)
+        val holder = HomeStateHolder(
+            LocalProfileRepository(storage), cities, places,
+            LocalFavoriteRepository(storage, places), LocalCapsuleRepository(storage),
+            UtcCapsuleDateFormatter, remoteDataSource = remote
+        )
+
+        holder.load()
+
+        assertEquals("西安", holder.state.selectedCity.displayName)
+        assertEquals("西安", requestedCity)
+        assertEquals("景点", requestedQueries.first())
+        assertEquals(listOf("西安城墙"), holder.state.onlineRecommendations.map(RemotePlace::name))
+    }
+
+    @Test
+    fun cityWithLocalPlacesButNoUsableHeroLoadsOnlineHeroCandidate() {
+        val storage = InMemoryKeyValueStore()
+        val cities = LocalExploreCityRepository(storage)
+        val xian = CityDefinition("remote-xian", "西安", GeoPoint(34.3416, 108.9398), false, 0)
+        cities.select(xian) { }
+        val places = LocalPlaceRepository(storage)
+        places.createPlace(PlaceDraft("本地西安地点", "西安", category = PlaceCategory.LANDMARK)) { }
+        val remote = object : PlaceRemoteDataSource {
+            override fun search(query: String, city: String, near: GeoPoint?, callback: (RemotePlaceResult) -> Unit) {
+                callback(RemotePlaceResult.Success(listOf(
+                    RemotePlace("online-xian", "西安城墙", "西安", "碑林区", "南大街", PlaceCategory.LANDMARK, emptyList(), xian.centerPoint, "https://example.com/xian.jpg")
+                )))
+            }
+        }
+        val holder = HomeStateHolder(
+            LocalProfileRepository(storage), cities, places,
+            LocalFavoriteRepository(storage, places), LocalCapsuleRepository(storage),
+            UtcCapsuleDateFormatter, remoteDataSource = remote
+        )
+
+        holder.load()
+
+        assertEquals("本地西安地点", holder.state.rankedPlaces.single().name)
+        assertEquals(listOf("online-xian"), holder.state.onlineRecommendations.map(RemotePlace::providerId))
+    }
+
+    @Test
+    fun cityNameSearchPersistsResolvedDynamicCityAndReloadsHome() {
+        val storage = InMemoryKeyValueStore()
+        val cities = LocalExploreCityRepository(storage)
+        val center = GeoPoint(30.5728, 104.0668)
+        val remote = object : PlaceRemoteDataSource {
+            override fun search(query: String, city: String, near: GeoPoint?, callback: (RemotePlaceResult) -> Unit) {
+                callback(RemotePlaceResult.Success(listOf(
+                    RemotePlace("chengdu-poi", "成都博物馆", "成都", "青羊区", "小河街", PlaceCategory.CULTURE, listOf("博物馆"), center, null)
+                )))
+            }
+        }
+        val places = LocalPlaceRepository(storage)
+        val holder = HomeStateHolder(
+            LocalProfileRepository(storage), cities, places,
+            LocalFavoriteRepository(storage, places), LocalCapsuleRepository(storage),
+            UtcCapsuleDateFormatter, remoteDataSource = remote
+        )
+
+        holder.searchAndSelectCity("成都市")
+
+        assertEquals("成都", holder.state.selectedCity.displayName)
+        assertEquals(center, holder.state.selectedCity.centerPoint)
+        var restored: CityDefinition? = null
+        cities.get { restored = (it as? com.y.citycapsule.core.storage.StorageResult.Success)?.value?.selectedCity }
+        assertEquals("成都", restored?.displayName)
     }
 
     private fun place(id: String, city: String, category: PlaceCategory) = Place(

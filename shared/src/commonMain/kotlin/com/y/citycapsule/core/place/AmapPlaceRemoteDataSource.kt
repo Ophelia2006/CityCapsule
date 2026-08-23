@@ -23,9 +23,9 @@ data class RemotePlace(
     val geoPoint: GeoPoint,
     val photoUrl: String?
 ) {
-    fun toImportedDraft(): PlaceDraft = PlaceDraft(
+    fun toImportedDraft(cityOverride: String? = null): PlaceDraft = PlaceDraft(
         name = name,
-        city = city,
+        city = cityOverride?.trim()?.takeIf(String::isNotEmpty) ?: normalizePlaceCityName(city),
         district = district,
         category = category,
         address = address,
@@ -51,6 +51,42 @@ interface PlaceRemoteDataSource {
         callback: (RemotePlaceResult) -> Unit
     )
 }
+
+/** Sequential category fallback used to fill a small, diverse city recommendation set. */
+fun loadCityPlaceRecommendations(
+    remote: PlaceRemoteDataSource,
+    city: String,
+    near: GeoPoint,
+    limit: Int,
+    callback: (RemotePlaceResult) -> Unit
+) {
+    val collected = linkedMapOf<String, RemotePlace>()
+    var queryIndex = 0
+    var lastFailure: RemotePlaceResult? = null
+    fun requestNext() {
+        if (collected.size >= limit || queryIndex >= CITY_RECOMMENDATION_QUERIES.size) {
+            callback(
+                if (collected.isNotEmpty()) RemotePlaceResult.Success(collected.values.take(limit))
+                else lastFailure ?: RemotePlaceResult.Success(emptyList())
+            )
+            return
+        }
+        val query = CITY_RECOMMENDATION_QUERIES[queryIndex++]
+        remote.search(query, city, near) { result ->
+            when (result) {
+                is RemotePlaceResult.Success -> result.places.forEach { place ->
+                    if (place.providerId !in collected) collected[place.providerId] = place
+                }
+                is RemotePlaceResult.Failure -> lastFailure = result
+                RemotePlaceResult.Unavailable -> lastFailure = result
+            }
+            requestNext()
+        }
+    }
+    requestNext()
+}
+
+private val CITY_RECOMMENDATION_QUERIES = listOf("景点", "博物馆", "公园", "咖啡")
 
 class AmapPlaceRemoteDataSource(pager: Pager) : PlaceRemoteDataSource {
     private val transport: PlaceNetworkTransport = PagerPlaceNetworkTransport(pager)
@@ -115,7 +151,9 @@ class AmapPlaceRemoteDataSource(pager: Pager) : PlaceRemoteDataSource {
             return RemotePlace(
                 providerId = providerId,
                 name = name,
-                city = poi.optString("cityname").trim().ifBlank { poi.optString("pname").trim() },
+                city = normalizePlaceCityName(
+                    poi.optString("cityname").trim().ifBlank { poi.optString("pname").trim() }
+                ),
                 district = poi.optString("adname").trim().takeIf(String::isNotEmpty),
                 address = poi.optString("address").trim().takeIf(String::isNotEmpty),
                 category = mapCategory(type),
@@ -126,11 +164,11 @@ class AmapPlaceRemoteDataSource(pager: Pager) : PlaceRemoteDataSource {
         }
 
         private fun mapCategory(type: String): PlaceCategory = when {
-            listOf("风景名胜", "地名地址", "交通设施").any(type::contains) -> PlaceCategory.LANDMARK
-            listOf("科教文化", "博物馆", "展览馆", "体育休闲").any(type::contains) -> PlaceCategory.CULTURE
             listOf("餐饮", "咖啡", "甜品").any(type::contains) -> PlaceCategory.FOOD
             listOf("公园", "自然地物").any(type::contains) -> PlaceCategory.NATURE
+            listOf("科教文化", "博物馆", "展览馆", "体育休闲").any(type::contains) -> PlaceCategory.CULTURE
             listOf("购物", "商场").any(type::contains) -> PlaceCategory.SHOPPING
+            listOf("风景名胜", "地名地址", "交通设施").any(type::contains) -> PlaceCategory.LANDMARK
             else -> PlaceCategory.OTHER
         }
     }

@@ -27,6 +27,8 @@ import com.tencent.kuikly.compose.foundation.lazy.rememberLazyListState
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.input.pointer.pointerInput
+import com.tencent.kuikly.compose.ui.layout.onGloballyPositioned
+import com.tencent.kuikly.compose.ui.layout.positionInRoot
 import com.tencent.kuikly.compose.ui.platform.LocalDensity
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.compose.setContent
@@ -84,6 +86,8 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
     val scope = rememberCoroutineScope(); val store = remember(routes, places, mode, routeId) { LocalRouteStore(routes, places, mode, routeId, scope) }
     val state by store.state.collectAsState(); val revision = LocalRouteFeatureRuntime.revision
     val contentListState = rememberLazyListState()
+    var contentTopPx by remember { mutableFloatStateOf(0f) }
+    var contentBottomPx by remember { mutableFloatStateOf(Float.MAX_VALUE) }
     DisposableEffect(store) { onDispose(store::dispose) }
     LaunchedEffect(store, revision) { store.dispatch(LocalRouteIntent.Load) }
     LaunchedEffect(store) { store.effects.collect { when (it) {
@@ -91,12 +95,18 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
         is LocalRouteEffect.Roaming -> navigator.navigate(AppRoute.RoamingSession(it.routeId))
         LocalRouteEffect.Changed -> LocalRouteFeatureRuntime.invalidate()
     } } }
-    AppFixedHeaderScaffold(statusBarHeight = LocalActivity.current.pageData.statusBarHeight, contentListState = contentListState, header = {
+    AppFixedHeaderScaffold(
+        statusBarHeight = LocalActivity.current.pageData.statusBarHeight,
+        contentListState = contentListState,
+        onContentBoundsChanged = { top, bottom -> contentTopPx = top; contentBottomPx = bottom },
+        header = {
         AppActionTopBar(if (mode == LocalRouteMode.LIST) "我的路线" else if (routeId == null) "新建路线" else "编辑路线", { store.dispatch(LocalRouteIntent.Back) },
             actionLabel = if (mode == LocalRouteMode.LIST) "新建" else "保存", onActionClick = { store.dispatch(if (mode == LocalRouteMode.LIST) LocalRouteIntent.Create else LocalRouteIntent.Save) }, actionEnabled = mode == LocalRouteMode.LIST || state.canSave)
         Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
     }, content = {
-        if (state.loading) LoadingState("正在读取本地路线…") else if (mode == LocalRouteMode.LIST) RouteList(state, store::dispatch) else RouteEditor(state, contentListState, store::dispatch)
+        if (state.loading) LoadingState("正在读取本地路线…") else if (mode == LocalRouteMode.LIST) RouteList(state, store::dispatch) else RouteEditor(
+            state, contentListState, contentTopPx, contentBottomPx, store::dispatch
+        )
     })
 }
 
@@ -115,7 +125,13 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
     }
 }
 
-@Composable private fun RouteEditor(state: com.y.citycapsule.feature.route.LocalRouteUiState, listState: LazyListState, dispatch: (LocalRouteIntent) -> Unit) {
+@Composable private fun RouteEditor(
+    state: com.y.citycapsule.feature.route.LocalRouteUiState,
+    listState: LazyListState,
+    contentTopPx: Float,
+    contentBottomPx: Float,
+    dispatch: (LocalRouteIntent) -> Unit
+) {
     var menuIndex by remember { mutableStateOf<Int?>(null) }
     var draggingPlaceId by remember { mutableStateOf<String?>(null) }
     state.message?.let { AppStatusMessage(it); Spacer(Modifier.height(AppTheme.dimensions.spacingSm)) }
@@ -129,9 +145,12 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
             AppCard(containerColor = if (selected) AppTheme.colors.primaryContainer else AppTheme.colors.surface) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     RouteDragHandle(
+                        placeId = id,
                         index = index,
                         count = state.orderedPlaceIds.size,
                         listState = listState,
+                        contentTopPx = contentTopPx,
+                        contentBottomPx = contentBottomPx,
                         onDraggingChanged = { dragging -> draggingPlaceId = id.takeIf { dragging } },
                         onReorder = { from, to -> dispatch(LocalRouteIntent.Reorder(from, to)) }
                     )
@@ -184,17 +203,22 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
 
 @Composable
 private fun RouteDragHandle(
+    placeId: String,
     index: Int,
     count: Int,
     listState: LazyListState,
+    contentTopPx: Float,
+    contentBottomPx: Float,
     onDraggingChanged: (Boolean) -> Unit,
     onReorder: (Int, Int) -> Unit
 ) {
     val threshold = with(LocalDensity.current) { 56f * density }
     var dragging by remember { mutableStateOf(false) }
     var accumulated by remember { mutableFloatStateOf(0f) }
-    var currentIndex by remember(index) { mutableIntStateOf(index) }
+    var currentIndex by remember(placeId) { mutableIntStateOf(index) }
     var edgeDirection by remember { mutableIntStateOf(0) }
+    var handleTopInRoot by remember { mutableFloatStateOf(0f) }
+    val edgeThreshold = with(LocalDensity.current) { 72f * density }
     LaunchedEffect(dragging, edgeDirection, count) {
         while (dragging && edgeDirection != 0) {
             val target = (currentIndex + edgeDirection).coerceIn(0, count - 1)
@@ -212,7 +236,8 @@ private fun RouteDragHandle(
         tint = if (dragging) AppTheme.colors.primary else AppTheme.colors.textSecondary,
         modifier = Modifier
             .size(AppTheme.dimensions.minTouchTarget)
-            .pointerInput(index, count) {
+            .onGloballyPositioned { handleTopInRoot = it.positionInRoot().y }
+            .pointerInput(placeId, count) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = {
                         dragging = true
@@ -234,9 +259,10 @@ private fun RouteDragHandle(
                     },
                     onDrag = { change, dragAmount ->
                         accumulated += dragAmount.y
+                        val pointerYInRoot = handleTopInRoot + change.position.y
                         edgeDirection = when {
-                            change.position.y < -threshold -> -1
-                            change.position.y > threshold * 2f -> 1
+                            pointerYInRoot <= contentTopPx + edgeThreshold -> -1
+                            pointerYInRoot >= contentBottomPx - edgeThreshold -> 1
                             else -> 0
                         }
                         if (kotlin.math.abs(accumulated) >= threshold) {

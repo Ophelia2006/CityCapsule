@@ -18,6 +18,7 @@ import com.tencent.kuikly.compose.ui.layout.ContentScale
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlacePhotoCacheEntry
+import com.y.citycapsule.core.place.RemotePlace
 import com.y.citycapsule.core.place.normalizeRemoteImageUrl
 import com.y.citycapsule.core.media.ImageLoadPriority
 import com.y.citycapsule.core.media.PlaceImageLoadRuntime
@@ -61,6 +62,62 @@ internal fun PlaceSummaryCard(
             )
         }
     )
+}
+
+@Composable
+internal fun RemotePlaceSummaryCard(
+    place: RemotePlace,
+    imagePriority: ImageLoadPriority = ImageLoadPriority.PREFETCH,
+    variant: PlaceCardVariant = PlaceCardVariant.COMPACT,
+    onOpen: () -> Unit
+) {
+    PlaceCard(
+        model = PlaceCardModel(
+            name = place.name,
+            metadata = listOfNotNull(place.city, place.district, place.category.displayName()).joinToString(" · "),
+            supportingText = place.address,
+            favorite = false,
+            fallbackKind = place.category.toFallbackKind()
+        ),
+        onOpen = onOpen,
+        onToggleFavorite = {},
+        variant = variant,
+        favoriteEnabled = false,
+        showFavoriteAction = false,
+        media = { RemotePlaceMedia(place, imagePriority) }
+    )
+}
+
+@Composable
+internal fun RemotePlaceMedia(
+    place: RemotePlace,
+    imagePriority: ImageLoadPriority = ImageLoadPriority.VISIBLE
+) {
+    val url = place.photoUrl?.let(::normalizeRemoteImageUrl)
+    var loadAllowed by remember(url) { mutableStateOf(false) }
+    DisposableEffect(url, imagePriority) {
+        val lease = url?.let { coordinatedUrl ->
+            PlaceImageLoadRuntime.coordinator.acquire(coordinatedUrl, imagePriority) { loadAllowed = it }
+        }
+        onDispose { lease?.release() }
+    }
+    Box(Modifier.fillMaxSize()) {
+        com.y.citycapsule.designsystem.component.PlaceMediaFallback(place.category.toFallbackKind())
+        url?.takeIf { loadAllowed }?.let { coordinatedUrl ->
+            val painter = rememberAsyncImagePainter(
+                coordinatedUrl,
+                onSuccess = { PlaceImageLoadRuntime.coordinator.complete(coordinatedUrl, true) },
+                onError = { PlaceImageLoadRuntime.coordinator.complete(coordinatedUrl, false) }
+            )
+            painter.prefetch()
+            Image(
+                painter = painter,
+                contentDescription = "${place.name}地点照片",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
 }
 
 @Composable

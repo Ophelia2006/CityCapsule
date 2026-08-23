@@ -10,6 +10,26 @@ import kotlin.test.assertTrue
 
 class AmapPlaceRemoteDataSourceTest {
     @Test
+    fun cityRecommendationsFillAcrossCategoriesAndStopAtLimit() {
+        val queries = mutableListOf<String>()
+        val remote = object : PlaceRemoteDataSource {
+            override fun search(query: String, city: String, near: GeoPoint?, callback: (RemotePlaceResult) -> Unit) {
+                queries += query
+                val start = if (query == "景点") 0 else 8
+                callback(RemotePlaceResult.Success((start until start + 8).map { index ->
+                    RemotePlace("poi-$index", "地点$index", city, null, null, PlaceCategory.OTHER, emptyList(), near ?: GeoPoint(0.0, 0.0), null)
+                }))
+            }
+        }
+        var result: RemotePlaceResult? = null
+
+        loadCityPlaceRecommendations(remote, "西安", GeoPoint(34.3, 108.9), 12) { result = it }
+
+        assertEquals(listOf("景点", "博物馆"), queries)
+        assertEquals(12, assertIs<RemotePlaceResult.Success>(result).places.size)
+    }
+
+    @Test
     fun normalizesClearTextPhotoUrlForHarmonyImageTransport() {
         assertEquals(
             "https://store.is.autonavi.com/showpic/example.jpg",
@@ -47,6 +67,20 @@ class AmapPlaceRemoteDataSourceTest {
         val draft = place.toImportedDraft()
         assertEquals(PlaceSource.IMPORTED, draft.source)
         assertTrue(draft.contentSource?.contains("B001") == true)
+    }
+
+    @Test
+    fun specificParkTypeIsNotSwallowedByGenericScenicCategory() {
+        val response = JSONObject().apply {
+            put("status", "success")
+            put("body", """{"status":"1","pois":[{"id":"PARK-1","name":"测试公园","type":"风景名胜;公园广场;公园","location":"108.900000,34.300000","cityname":"西安市"}]}""")
+        }
+
+        val result = assertIs<RemotePlaceResult.Success>(
+            AmapPlaceRemoteDataSource.parseSearchResponse(response)
+        )
+
+        assertEquals(PlaceCategory.NATURE, result.places.single().category)
     }
 
     @Test

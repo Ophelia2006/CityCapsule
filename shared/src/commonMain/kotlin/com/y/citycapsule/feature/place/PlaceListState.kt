@@ -33,6 +33,8 @@ import com.y.citycapsule.core.place.PlacePhotoHydrator
 import com.y.citycapsule.core.place.RemotePlace
 import com.y.citycapsule.core.place.RemotePlaceResult
 import com.y.citycapsule.core.place.PlaceSearchEngine
+import com.y.citycapsule.core.place.SystemPlaceClock
+import com.y.citycapsule.core.place.loadCityPlaceRecommendations
 import com.y.citycapsule.core.storage.StorageResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -73,6 +75,48 @@ enum class PlaceLocationStatus {
 enum class PlaceDirectoryViewMode { LIST, MAP }
 enum class OnlinePlaceStatus { IDLE, LOADING, RESULTS, EMPTY, ERROR, UNAVAILABLE }
 
+enum class ExplorePlaceTopic(
+    val label: String,
+    val remoteQuery: String,
+    val category: PlaceCategory,
+    private val keywords: List<String>
+) {
+    LANDMARK("城市地标", "城市地标", PlaceCategory.LANDMARK, listOf("地标", "古迹", "建筑", "景区", "风景名胜")),
+    COFFEE("咖啡", "咖啡", PlaceCategory.FOOD, listOf("咖啡", "coffee")),
+    RESTAURANT("餐厅", "餐厅", PlaceCategory.FOOD, listOf("餐厅", "餐馆", "餐饮", "美食", "饭店")),
+    MUSEUM("博物馆", "博物馆", PlaceCategory.CULTURE, listOf("博物馆", "纪念馆")),
+    EXHIBITION("展览", "展览馆", PlaceCategory.CULTURE, listOf("展览", "美术馆", "画廊", "艺术中心")),
+    PARK("公园", "公园", PlaceCategory.NATURE, listOf("公园", "园林", "植物园")),
+    NATURAL_SCENERY("自然景点", "自然景点", PlaceCategory.NATURE, listOf("自然", "山", "湖", "湿地", "森林", "海滩")),
+    SHOPPING("商场街区", "商场", PlaceCategory.SHOPPING, listOf("商场", "购物", "商业街", "市集"));
+
+    fun matches(place: Place): Boolean {
+        if (place.category != category) return false
+        if (this == LANDMARK || this == SHOPPING) return true
+        return matchesText(buildList {
+            add(place.name)
+            addAll(place.tags)
+            place.description?.let(::add)
+            place.address?.let(::add)
+        })
+    }
+
+    fun matches(place: RemotePlace): Boolean {
+        if (place.category != category) return false
+        if (this == LANDMARK || this == SHOPPING) return true
+        return matchesText(buildList {
+            add(place.name)
+            addAll(place.tags)
+            place.address?.let(::add)
+        })
+    }
+
+    private fun matchesText(values: List<String>): Boolean {
+        val searchable = values.joinToString(" ").lowercase()
+        return keywords.any { it.lowercase() in searchable }
+    }
+}
+
 data class PlaceListUiState(
     val status: PlaceListUiStatus = PlaceListUiStatus.LOADING,
     val mode: PlaceListMode = PlaceListMode.ALL,
@@ -86,6 +130,7 @@ data class PlaceListUiState(
     val photoByPlaceId: Map<String, PlacePhotoCacheEntry> = emptyMap(),
     val query: String = "",
     val filter: PlaceFilter = PlaceFilter(),
+    val selectedTopic: ExplorePlaceTopic? = null,
     val catalogSource: PlaceCatalogSource? = null,
     val readOnly: Boolean = false,
     val busyFavoriteId: String? = null,
@@ -104,7 +149,7 @@ data class PlaceListUiState(
     val importingProviderId: String? = null
 ) {
     val hasActiveFilters: Boolean
-        get() = filter.categories.isNotEmpty() || activeAdvancedFilterCount > 0
+        get() = selectedTopic != null || filter.categories.isNotEmpty() || activeAdvancedFilterCount > 0
 
     val activeAdvancedFilterCount: Int
         get() = listOf(
@@ -156,6 +201,7 @@ sealed interface PlaceListIntent {
     data class QueryChanged(val query: String) : PlaceListIntent
     data class CategoryToggled(val category: PlaceCategory) : PlaceListIntent
     data object CategoriesCleared : PlaceListIntent
+    data class TopicSelected(val topic: ExplorePlaceTopic?) : PlaceListIntent
     data class CityChanged(val city: String) : PlaceListIntent
     data class DistrictChanged(val district: String) : PlaceListIntent
     data object FavoritesOnlyToggled : PlaceListIntent
@@ -209,6 +255,7 @@ internal sealed interface PlaceListMutation {
     data class QueryChanged(val query: String) : PlaceListMutation
     data class CategoryToggled(val category: PlaceCategory) : PlaceListMutation
     data object CategoriesCleared : PlaceListMutation
+    data class TopicSelected(val topic: ExplorePlaceTopic?) : PlaceListMutation
     data class CityChanged(val city: String) : PlaceListMutation
     data class DistrictChanged(val district: String) : PlaceListMutation
     data object FavoritesOnlyToggled : PlaceListMutation
@@ -324,6 +371,14 @@ internal object PlaceListReducer {
         PlaceListMutation.CategoriesCleared -> ifReady(state) {
             copy(filter = filter.copy(categories = emptySet())).withSearchResults()
         }
+        is PlaceListMutation.TopicSelected -> ifReady(state) {
+            copy(
+                selectedTopic = mutation.topic,
+                filter = filter.copy(categories = emptySet()),
+                onlineStatus = OnlinePlaceStatus.IDLE,
+                onlinePlaces = emptyList()
+            ).withSearchResults()
+        }
         is PlaceListMutation.CityChanged -> updateFilter(state) {
             copy(city = mutation.city)
         }
@@ -346,7 +401,7 @@ internal object PlaceListReducer {
         PlaceListMutation.ClearAllFilters -> ifReady(state) {
             copy(filter = forcedFilter(mode).copy(
                 city = selectedCity.displayName.takeIf { mode == PlaceListMode.ALL }
-            ), browseAllCities = false).withSearchResults()
+            ), selectedTopic = null, browseAllCities = false).withSearchResults()
         }
         is PlaceListMutation.FavoriteToggleStarted -> state.copy(
             busyFavoriteId = mutation.placeId
@@ -445,10 +500,20 @@ internal object PlaceListReducer {
             notice = null
         )
         is PlaceListMutation.OnlineSearchFinished -> when (val result = mutation.result) {
-            is RemotePlaceResult.Success -> state.copy(
-                onlineStatus = if (result.places.isEmpty()) OnlinePlaceStatus.EMPTY else OnlinePlaceStatus.RESULTS,
-                onlinePlaces = result.places
-            )
+            is RemotePlaceResult.Success -> {
+                val savedProviderIds = state.catalogPlaces.mapNotNull { place ->
+                    place.contentSource?.substringAfterLast('·')?.trim()?.takeIf(String::isNotEmpty)
+                }.toSet()
+                val candidates = result.places
+                    .filterNot { it.providerId in savedProviderIds }
+                    .filter { state.selectedTopic?.matches(it) != false }
+                    .distinctBy(RemotePlace::providerId)
+                    .take((ONLINE_PLACE_RESULT_LIMIT - state.visiblePlaces.size).coerceAtLeast(0))
+                state.copy(
+                    onlineStatus = if (candidates.isEmpty()) OnlinePlaceStatus.EMPTY else OnlinePlaceStatus.RESULTS,
+                    onlinePlaces = candidates
+                )
+            }
             is RemotePlaceResult.Failure -> state.copy(
                 onlineStatus = OnlinePlaceStatus.ERROR,
                 notice = PlaceFeatureNotice(result.message, PlaceNoticeTone.WARNING)
@@ -551,6 +616,7 @@ class PlaceListStore(
     private var favoriteOperation = 0L
     private var locationOperation = 0L
     private var disposed = false
+    private var pendingImportedRemote: RemotePlace? = null
     private val photoHydrator = remoteDataSource?.let {
         PlacePhotoHydrator(it, photoCacheRepository)
     }
@@ -604,6 +670,11 @@ class PlaceListStore(
             PlaceListIntent.CategoriesCleared -> reduce(
                 PlaceListMutation.CategoriesCleared
             )
+            is PlaceListIntent.TopicSelected -> {
+                reduce(PlaceListMutation.TopicSelected(intent.topic))
+                if (intent.topic == null) startOnlineSearch(recommendations = true)
+                else startOnlineSearch(queryOverride = intent.topic.remoteQuery)
+            }
             is PlaceListIntent.CityChanged -> reduce(
                 PlaceListMutation.CityChanged(intent.city)
             )
@@ -676,7 +747,10 @@ class PlaceListStore(
         }
     }
 
-    private fun startOnlineSearch() {
+    private fun startOnlineSearch(
+        recommendations: Boolean = false,
+        queryOverride: String? = null
+    ) {
         val remote = remoteDataSource ?: run {
             reduce(PlaceListMutation.OnlineSearchFinished(RemotePlaceResult.Unavailable))
             return
@@ -684,11 +758,25 @@ class PlaceListStore(
         val current = mutableState.value
         if (current.onlineStatus == OnlinePlaceStatus.LOADING) return
         reduce(PlaceListMutation.OnlineSearchStarted)
-        remote.search(
-            query = current.query,
-            city = current.selectedCity.displayName,
-            near = current.currentLocation.takeIf { current.query.isBlank() }
-        ) { result -> if (!disposed) events.trySend(Event.OnlineResultEvent(result)) }
+        val callback: (RemotePlaceResult) -> Unit = { result ->
+            if (!disposed) events.trySend(Event.OnlineResultEvent(result))
+        }
+        if (recommendations && current.query.isBlank() && queryOverride == null) {
+            loadCityPlaceRecommendations(
+                remote,
+                current.selectedCity.displayName,
+                current.currentLocation ?: current.selectedCity.centerPoint,
+                ONLINE_PLACE_RESULT_LIMIT,
+                callback
+            )
+        } else {
+            remote.search(
+                query = queryOverride ?: current.query,
+                city = current.selectedCity.displayName,
+                near = current.currentLocation.takeIf { current.query.isBlank() },
+                callback = callback
+            )
+        }
     }
 
     private fun startRemoteImport(providerId: String) {
@@ -704,14 +792,24 @@ class PlaceListStore(
             return
         }
         reduce(PlaceListMutation.RemoteImportStarted(providerId))
-        placeRepository.createPlace(remote.toImportedDraft()) { result ->
+        pendingImportedRemote = remote
+        placeRepository.createPlace(remote.toImportedDraft(current.selectedCity.displayName)) { result ->
             if (!disposed) events.trySend(Event.ImportResultEvent(result))
         }
     }
 
     private fun handleImportResult(result: StorageResult<Place>) {
+        val remote = pendingImportedRemote
+        pendingImportedRemote = null
         reduce(PlaceListMutation.RemoteImportFinished((result as? StorageResult.Success)?.value))
-        if (result is StorageResult.Success) PlaceFeatureRuntime.invalidate()
+        if (result is StorageResult.Success) {
+            remote?.photoUrl?.let { url ->
+                val entry = PlacePhotoCacheEntry(result.value.id, url, "amap-poi", SystemPlaceClock.nowEpochMs())
+                reduce(PlaceListMutation.CachedPhotoAdded(entry))
+                photoCacheRepository.put(result.value.id, url, "amap-poi") { }
+            }
+            PlaceFeatureRuntime.invalidate()
+        }
     }
 
     private fun startLoad() {
@@ -758,6 +856,15 @@ class PlaceListStore(
                 ) { entry ->
                     if (!disposed) events.trySend(Event.PhotoResolvedEvent(generation, entry))
                 }
+                if (
+                    current.mode == PlaceListMode.ALL &&
+                    current.visiblePlaces.size < ONLINE_PLACE_RESULT_LIMIT &&
+                    current.query.isBlank() &&
+                    current.filter.categories.isEmpty() &&
+                    current.filter.district.isNullOrBlank() &&
+                    !current.filter.favoritesOnly &&
+                    current.onlineStatus == OnlinePlaceStatus.IDLE
+                ) startOnlineSearch(recommendations = true)
             }
             else -> Unit
         }
@@ -833,21 +940,35 @@ class PlaceListStore(
         if (result is StorageResult.Success) {
             reduce(PlaceListMutation.CityContextLoaded(result.value))
             ExploreCityRuntime.invalidate()
+            if (
+                mutableState.value.mode == PlaceListMode.ALL &&
+                mutableState.value.visiblePlaces.size < ONLINE_PLACE_RESULT_LIMIT &&
+                mutableState.value.query.isBlank() &&
+                mutableState.value.filter.categories.isEmpty() &&
+                mutableState.value.filter.district.isNullOrBlank() &&
+                !mutableState.value.filter.favoritesOnly
+            ) {
+                val topic = mutableState.value.selectedTopic
+                if (topic == null) startOnlineSearch(recommendations = true)
+                else startOnlineSearch(queryOverride = topic.remoteQuery)
+            }
         } else {
             reduce(PlaceListMutation.CityContextFailed("城市切换失败，请重试。"))
         }
     }
 
     private fun handleReverseGeocodeResult(result: ReverseGeocodeResult) {
-        reduce(
-            PlaceListMutation.DetectedCity(
-                when (result) {
-                    is ReverseGeocodeResult.SupportedCity -> result.city
-                    is ReverseGeocodeResult.UnsupportedCity -> result.city
-                    is ReverseGeocodeResult.Failure -> null
-                }
+        when (result) {
+            is ReverseGeocodeResult.SupportedCity -> selectCity(result.city)
+            is ReverseGeocodeResult.UnsupportedCity -> {
+                val city = result.city
+                if (city == null) reduce(PlaceListMutation.DetectedCity(null))
+                else selectCity(city)
+            }
+            is ReverseGeocodeResult.Failure -> reduce(
+                PlaceListMutation.CityContextFailed(result.message)
             )
-        )
+        }
     }
 
     private fun enqueue(generation: Long, mutation: PlaceListMutation) {
@@ -881,7 +1002,8 @@ internal fun PlaceListUiState.withSearchResults(): PlaceListUiState {
         query = query,
         filter = filter
     )
-    return copy(visiblePlaces = result.places, filter = result.appliedFilter)
+    val topicPlaces = selectedTopic?.let { topic -> result.places.filter(topic::matches) } ?: result.places
+    return copy(visiblePlaces = topicPlaces, filter = result.appliedFilter)
 }
 
 private fun sourceNotice(source: PlaceCatalogSource): PlaceFeatureNotice? = when (source) {
@@ -901,6 +1023,7 @@ private fun sourceNotice(source: PlaceCatalogSource): PlaceFeatureNotice? = when
 }
 
 private const val FAVORITE_FAILURE_NOTICE = "想去操作失败，页面状态已保持不变。"
+internal const val ONLINE_PLACE_RESULT_LIMIT = 12
 
 private fun PlaceListUiState.locationFailure(
     status: PlaceLocationStatus,

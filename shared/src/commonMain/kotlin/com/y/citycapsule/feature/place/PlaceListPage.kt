@@ -10,7 +10,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.tencent.kuikly.compose.foundation.clickable
-import com.tencent.kuikly.compose.foundation.Image
 import com.tencent.kuikly.compose.foundation.layout.Box
 import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.Row
@@ -26,8 +25,6 @@ import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
-import com.tencent.kuikly.compose.ui.layout.ContentScale
-import com.tencent.kuikly.compose.coil3.rememberAsyncImagePainter
 import com.tencent.kuikly.compose.ui.platform.LocalActivity
 import com.tencent.kuikly.compose.ui.platform.LocalConfiguration
 import com.tencent.kuikly.compose.ui.text.font.FontWeight
@@ -317,6 +314,12 @@ private fun PlaceListScreen(
                         else store.dispatch(PlaceListIntent.PlaceClicked(id))
                     }
                 )
+                if (mode == PlaceListMode.ALL && uiState.onlineStatus != OnlinePlaceStatus.IDLE) {
+                    Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+                    AppSectionTitle("在线发现 · 最多 $ONLINE_PLACE_RESULT_LIMIT 个")
+                    Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+                    OnlinePlaceResults(uiState, store::dispatch)
+                }
             }
         }
 
@@ -362,15 +365,6 @@ private fun PlaceListScreen(
                     store.dispatch(PlaceListIntent.CurrentLocationRequested)
                 }
             )
-        }
-
-        AppBottomSheet(
-            visible = uiState.onlineStatus != OnlinePlaceStatus.IDLE,
-            title = "在线地点",
-            onDismiss = { store.dispatch(PlaceListIntent.OnlineResultsDismissed) },
-            dismissLabel = "完成"
-        ) {
-            OnlinePlaceResults(uiState, store::dispatch)
         }
 
         uiState.detectedCity?.let { city ->
@@ -421,28 +415,19 @@ private fun OnlinePlaceResults(
             message = "本地点目录仍可离线浏览。",
             onRetry = { dispatch(PlaceListIntent.OnlineSearchRequested) }
         )
-        OnlinePlaceStatus.RESULTS -> state.onlinePlaces.forEach { place ->
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = AppTheme.dimensions.spacingSm)) {
-                place.photoUrl?.let { url ->
-                    Image(
-                        painter = rememberAsyncImagePainter(url),
-                        contentDescription = "${place.name}地点照片",
-                        modifier = Modifier.fillMaxWidth().height(AppTheme.dimensions.placeHeroHeight),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-                }
-                AppSectionTitle(place.name)
-                AppSecondaryText(listOfNotNull(place.district, place.address).joinToString(" · "))
-                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-                AppButton(
-                    text = if (state.importingProviderId == place.providerId) "保存中…" else "保存到本地",
-                    onClick = { dispatch(PlaceListIntent.RemotePlaceImportRequested(place.providerId)) },
-                    variant = AppButtonVariant.SECONDARY,
-                    enabled = state.importingProviderId == null && !state.readOnly
-                )
-                AppDivider(Modifier.padding(top = AppTheme.dimensions.spacingSm))
-            }
+        OnlinePlaceStatus.RESULTS -> state.onlinePlaces.forEachIndexed { index, place ->
+            RemotePlaceSummaryCard(
+                place = place,
+                imagePriority = if (index < PlaceImageLoadRuntime.INITIAL_VISIBLE_LIMIT) ImageLoadPriority.VISIBLE else ImageLoadPriority.PREFETCH,
+                onOpen = { dispatch(PlaceListIntent.RemotePlaceImportRequested(place.providerId)) }
+            )
+            AppButton(
+                text = if (state.importingProviderId == place.providerId) "保存中…" else "保存到本地",
+                onClick = { dispatch(PlaceListIntent.RemotePlaceImportRequested(place.providerId)) },
+                variant = AppButtonVariant.TEXT,
+                enabled = state.importingProviderId == null && !state.readOnly
+            )
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
         }
         OnlinePlaceStatus.IDLE -> Unit
     }
@@ -479,7 +464,7 @@ private fun CityPickerContent(
             )
             if (!city.supported) {
                 Text(
-                    text = "暂无内容",
+                    text = "在线地点",
                     color = AppTheme.colors.textSecondary,
                     style = AppTheme.typography.caption
                 )
@@ -605,19 +590,19 @@ private fun CategoryChips(
         item {
             AppFilterChip(
                 text = "全部",
-                selected = state.filter.categories.isEmpty(),
-                onClick = { dispatch(PlaceListIntent.CategoriesCleared) },
+                selected = state.selectedTopic == null && state.filter.categories.isEmpty(),
+                onClick = { dispatch(PlaceListIntent.TopicSelected(null)) },
                 enabled = state.status == PlaceListUiStatus.READY
             )
         }
-        PlaceCategory.entries.forEach { category ->
+        ExplorePlaceTopic.entries.forEach { topic ->
             item {
                 Spacer(Modifier.width(AppTheme.dimensions.spacingXs))
                 AppFilterChip(
-                    text = category.displayName(),
-                    selected = category in state.filter.categories,
+                    text = topic.label,
+                    selected = topic == state.selectedTopic,
                     onClick = {
-                        dispatch(PlaceListIntent.CategoryToggled(category))
+                        dispatch(PlaceListIntent.TopicSelected(topic.takeUnless { it == state.selectedTopic }))
                     },
                     enabled = state.status == PlaceListUiStatus.READY
                 )
