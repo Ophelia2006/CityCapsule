@@ -88,7 +88,7 @@ internal fun RecordRootContent(
                     end = dimensions.screenHorizontalPadding
                 )
         ) {
-            RecordHeader(selectedView, onViewSelected)
+            RecordHeader(selectedView, onViewSelected) { navigator.navigate(AppRoute.RoamingHistory()) }
         }
         AdaptivePane(
             primaryTitle = if (selectedView == RecordRootView.TIMELINE) "时间轴" else "城市相册",
@@ -154,7 +154,8 @@ internal fun RecordRootContent(
 @Composable
 private fun RecordHeader(
     selectedView: RecordRootView,
-    onViewSelected: (RecordRootView) -> Unit
+    onViewSelected: (RecordRootView) -> Unit,
+    onRoamingHistory: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         AppTopBar("我的城市记忆", "按时间或照片，回到那些值得留下的片刻。")
@@ -168,6 +169,8 @@ private fun RecordHeader(
                 )
             }
         )
+        Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+        AppButton("漫游回顾", onRoamingHistory, variant = AppButtonVariant.TEXT)
         Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
     }
 }

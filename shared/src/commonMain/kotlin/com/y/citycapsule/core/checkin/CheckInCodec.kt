@@ -7,6 +7,45 @@ import com.y.citycapsule.core.storage.StorageValueType
 
 object CheckInCodec : StorageCodec<CheckInCatalog> {
     override val valueType = StorageValueType.JSON_OBJECT
-    override fun encode(v: CheckInCatalog) = JSONObject().apply { put("schemaVersion",1); put("sessionStartedAtEpochMs",v.sessionStartedAtEpochMs); put("checkIns",JSONArray().apply { v.checkIns.forEach { c -> put(JSONObject().apply { put("placeId",c.placeId); put("checkedInAtEpochMs",c.checkedInAtEpochMs); put("method",c.method.wireValue); c.distanceMeters?.let { put("distanceMeters",it) } }) } }) }.toString()
-    override fun decode(e: String): CheckInCatalog? { return try { val j=JSONObject(e); if(j.optInt("schemaVersion",-1)!=1)return null; val a=j.optJSONArray("checkIns")?:return null; val list=mutableListOf<CheckIn>(); for(i in 0 until a.length()){val c=a.optJSONObject(i)?:return null; list+=CheckIn(c.optString("placeId").takeIf(String::isNotBlank)?:return null,c.optString("checkedInAtEpochMs").toLongOrNull()?:return null,CheckInMethod.fromWireValue(c.optString("method"))?:return null,if(c.has("distanceMeters"))c.optDouble("distanceMeters") else null)}; CheckInCatalog(sessionStartedAtEpochMs=j.optString("sessionStartedAtEpochMs").toLongOrNull()?:return null,checkIns=list) }catch(_:Throwable){null} }
+
+    override fun encode(value: CheckInCatalog): String {
+        require(value.schemaVersion == 2)
+        return JSONObject().apply {
+            put("schemaVersion", 2)
+            put("sessionStartedAtEpochMs", value.sessionStartedAtEpochMs)
+            put("checkIns", JSONArray().apply {
+                value.checkIns.forEach { checkIn -> put(JSONObject().apply {
+                    put("placeId", checkIn.placeId)
+                    put("checkedInAtEpochMs", checkIn.checkedInAtEpochMs)
+                    put("method", checkIn.method.wireValue)
+                    checkIn.distanceMeters?.let { put("distanceMeters", it) }
+                    checkIn.wasWantTo?.let { put("wasWantTo", it) }
+                }) }
+            })
+        }.toString()
+    }
+
+    override fun decode(encoded: String): CheckInCatalog? { return try {
+        val root = JSONObject(encoded)
+        val schema = root.optInt("schemaVersion", -1)
+        if (schema !in 1..2) return null
+        val array = root.optJSONArray("checkIns") ?: return null
+        val values = buildList {
+            for (index in 0 until array.length()) {
+                val json = array.optJSONObject(index) ?: return null
+                add(CheckIn(
+                    placeId = json.optString("placeId").takeIf(String::isNotBlank) ?: return null,
+                    checkedInAtEpochMs = json.optString("checkedInAtEpochMs").toLongOrNull() ?: return null,
+                    method = CheckInMethod.fromWireValue(json.optString("method")) ?: return null,
+                    distanceMeters = if (json.has("distanceMeters")) json.optDouble("distanceMeters") else null,
+                    wasWantTo = if (schema >= 2 && json.has("wasWantTo")) json.optBoolean("wasWantTo") else null
+                ))
+            }
+        }
+        CheckInCatalog(
+            schemaVersion = 2,
+            sessionStartedAtEpochMs = root.optString("sessionStartedAtEpochMs").toLongOrNull() ?: return null,
+            checkIns = values
+        )
+    } catch (_: Throwable) { null } }
 }

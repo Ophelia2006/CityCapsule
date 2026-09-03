@@ -32,7 +32,9 @@ export struct KuiklyHostPage {
 
   aboutToAppear(): void {
     AppStorage.setOrCreate<UIContext>('context', this.getUIContext());
-    this.routeEntryId = HarmonyRouteStackCoordinator.shared.register(this.routeKey);
+    if (this.routeEntryId < 0) {
+      this.routeEntryId = HarmonyRouteStackCoordinator.shared.register(this.routeKey);
+    }
     HarmonyThemeHost.shared.removeListener(this.themeListenerId);
     this.themeListenerId = HarmonyThemeHost.shared.addListener((isDark: boolean): void => {
       const eventData: KRRecord = {};
@@ -43,8 +45,15 @@ export struct KuiklyHostPage {
 
   aboutToDisappear(): void {
     this.updatePageVisibility(false);
-    HarmonyRouteStackCoordinator.shared.unregister(this.routeEntryId);
     HarmonyThemeHost.shared.removeListener(this.themeListenerId);
+    this.themeListenerId = -1;
+  }
+
+  aboutToBeDeleted(): void {
+    HarmonyRouteStackCoordinator.shared.unregister(this.routeEntryId);
+    this.routeEntryId = -1;
+    HarmonyThemeHost.shared.removeListener(this.themeListenerId);
+    this.themeListenerId = -1;
   }
 
   private updatePageVisibility(visible: boolean): void {

@@ -1,8 +1,57 @@
 # CityCapsule 当前开发状态
 
+## 权威快照（2026-09-03）
+
+> 本节是当前结论；后续按日期保留的段落是开发历史。历史中的“三个根 Tab”“地图/定位/相机未实现”“缩略图未实现”等描述已被当前代码取代，不再代表现状。
+
+- `DONE（代码与自动化）`：Android/HarmonyOS 产品能力表均包含 Storage、Theme、Media、Locale、Archive、Location、External Navigation、Place Network、Track 与 Share；shared、Android、HarmonyOS 的模块名注册由 Android JVM 架构守卫共同检查，地图 Native View 也纳入双端注册门禁。
+- `DONE（代码与 Android 验证）`：AppShell 的“探索 / 记录 / 漫游 / 我的”四个根内容常驻，切换使用即时 `scrollToPage`、禁止根手势、重复点击 no-op；陈旧的动画断言已修正。2026-09-03 `:androidApp:testDebugUnitTest :androidApp:assembleDebug` 通过。
+- `DONE（P1 工程收敛）`：移除不存在的 H5/小程序 Gradle include、未使用 Picasso 和 HarmonyOS 示例 `KRMyModule/KRMyView` 注册；Android 增加正式应用名与矢量启动图标，HarmonyOS 清理 KuiklyDemo/example 占位名称。iOS/JS target 仍只属于 Kuikly 工程骨架，不在 Android/HarmonyOS 验收声明内。
+- `DONE（业务代码）/ PARTIAL（设备验收）`：真实地点、统一城市上下文、地图/定位/外部导航、相册/相机、头像、路线拖拽、路线规划、自由/按路线漫游、轨迹、打卡、城市碎片、漫游历史、分享、缩略图和备份均已有真实代码链路；其中依赖系统权限、真实 Key、真实移动与文件选择器的异常矩阵仍需双端真机留证。
+- `BLOCKED（本机 HarmonyOS 构建）`：2026-09-03 调用仓库 Hvigor wrapper 时进入配置阶段后报 SDK component missing。本轮不能据此宣称 HarmonyOS 构建通过；最近一次由当前功能源码通过的 HarmonyOS entry test 与 signed Debug HAP 证据为 2026-08-31。需补齐 DevEco SDK 组件后重跑。
+- `PARTIAL（维护性）`：Kuikly/KSP 插件仍输出 multiplatform `ksp` deprecated 与 Gradle 9 compatibility 警告；本项目已明确关闭不适用的默认 hierarchy template、忽略 Windows 上禁用的 iOS target 提示，但插件升级风险需单独验证，不能在稳定化任务中强行升级。
+
+当前可诚实描述为：**Android 代码、自动化和 Debug 包闭环完成；HarmonyOS 代码链路与历史构建闭环完成，但当前机器复建及双端真机异常矩阵尚未关闭。**
+
+> 2026-09-02 HarmonyOS Explore 增量列表抖动修复：原实现虽然为在线地点增加了 `providerId` Compose key，但 `AppFixedHeaderScaffold` 把全部地点包在 LazyColumn 的单一 item/普通 Column 中，导致末尾节点不依赖真实视口即可组合、连续触发分页，并在追加时重新测量整段内容。现已新增真正接收 `LazyListScope` 的固定 Header Scaffold；手机本地地点和在线地点均是带命名空间稳定 key 的独立 Lazy item，分页只在真实最后可见项进入末 3 个在线地点时触发，Loading/失败/末页使用固定高度独立 Footer。Store 新增请求代次、同页幂等和分页失败显式重试；旧查询回调不能覆盖新查询，Append 保持旧前缀且按 provider ID 去重。shared 272 项测试与 Android shared 编译通过；HarmonyOS HAP 工具链当前终端不可定位，FPS、卡顿率与锚点位移仍需真机量化，因此状态为 `DONE code+shared automation/PARTIAL HarmonyOS performance acceptance`。
+
+> 2026-08-31 照片比例修复：共享图片容器继续统一使用 `ContentScale.Crop`，即保持原比例填满容器并居中裁剪；HarmonyOS 缩略图从“强制解码为 512×512”改为“最长边不超过 512、等比缩放”。缩略图文件升为 v2，旧的可能已拉伸缓存不再复用，且在重建或删除原图时清理。HarmonyOS `entry@default test` 与 signed debug HAP 已由当前源码构建通过；待真机对竖图、横图、方图分别在时间轴方形位和漫游记忆宽封面验证中心裁剪。
+
+> 2026-08-31 在线搜索与漫游真实性增量：Home、Explore/Favorites 与地点详情使用共享进程内地点查询 LRU（32 页、10 分钟 TTL，约百米位置网格，只缓存成功响应）；漫游根页最近记忆卡按同一 `roamingSessionId` 展示最新带图城市碎片的真实沙箱照片。路线编辑器没有真实道路 API 折线时只显示地点 Marker，不再绘制景点间直线；“按此路线开始漫游”自动规划失败时停留在编辑页并提示重试，不再把地点顺序降级伪装为可行道路。shared Android 编译与全量单测、HarmonyOS arm64 链接、Hvigor entry test 及 signed debug HAP 构建通过；三项双端真机交互仍待验收。
+
+> 2026-08-31 鸿蒙稳定性与路线降级修复：Explore 在线搜索增量结果以高德 `providerId` 建立 Compose 稳定身份，避免追加分页时已有原生图片节点按位置复用或重建。路线编辑器不再把地图预览及“按此路线开始漫游”绑定到道路规划成功或既有 `editingId`：新路线在名称、地点有效时即可开始；道路 API 配额/网络失败会保留真实错误并将地点顺序保存为本地路线后进入漫游。没有道路规划结果时地图只展示明确标注的地点顺序连线，不冒充真实道路。Android shared 编译与 shared 单测通过；HarmonyOS 真机滚动、地图 SDK 配额错误和降级进入漫游仍待复验。
+
+> 2026-08-30 漫游一级页自动推荐修复：此前“下一站推送”只存在于正在进行的漫游会话页，截图所示的一级“漫游”Tab 没有读取路线、想去或漫游历史，因此只会展示固定入口。现在一级页激活时读取真实路线、想去地点、地点目录和漫游历史：优先推荐包含最多“想去”地点的可用路线（同分取最新路线），展示最多 3 个站点与已保存的真实道路距离/时长；没有路线时给出基于真实想去数量的下一步；同时展示最近一次真实漫游并直达其回顾。未创建路线或未产生历史时不伪造推荐。Android 编译与 shared 单测通过，双端界面仍待真机验收。
+
+> 2026-08-30 下一站推送修复：上一版只是把“下一站/往期记忆”放在大地图下方的普通内容区，必须滚动才可见，不符合自动推送语义。现在按路线会话进入 ACTIVE 后自动弹出 Bottom Sheet；每次打卡导致下一站变化时再弹一次，同一地点关闭后不重复打扰。弹层显示真实路线中的首个未打卡地点、剩余地点、附近距离，并最多展示该地点两条非当前会话的已发布城市记忆；地图隐私弹层优先，避免双弹层冲突。shared 262 项测试及 HarmonyOS signed debug HAP 构建通过。
+
+> 2026-08-30 按路线漫游收口：用户开始按路线漫游时，如果当前地点顺序没有有效的真实道路快照，`LocalRouteStore` 会自动调用步行 API、保存路线后直接进入会话，不再要求先手动规划或再次确认。实时漫游地图同时显示计划灰线和实际琥珀线；结束 ACTIVE 会话前补采一次真实位置，降低短时漫游只有一个轨迹点的情况。报告不足 2 个有效 GPS 点时明确说明无法绘制实际线，不用计划线冒充。漫游页新增“下一站”：按路线中首个未打卡地点自动推进，显示剩余地点、附近距离，并推送该地点过去真实发布的最多两条城市记忆。shared 262 项测试、Android Kotlin 编译、HarmonyOS signed debug HAP 构建通过；定位拒绝、定位失败和短时会话仍需双端真机验收。
+
+> 2026-08-29 规划线显示修复：根因有两项——路线编辑器生成道路规划后，“按此路线开始漫游”此前未先保存内存中的规划快照；且灰色计划线宽度小于上层实际轨迹，重合时会被完全遮住。现在开始新漫游会先保存路线与真实规划结果，成功后才导航；双端计划线改为 18px 底层对照带，报告相机同时覆盖计划与实际全部点。旧漫游没有原规划快照，继续诚实降级，无法事后补造。shared 262 项测试、Android Kotlin 编译和 HarmonyOS signed debug HAP 构建通过。
+
+> 2026-08-29 漫游回顾完成度：详情已改为沉浸式轨迹地图、本地开始/结束时间、总时长、GPS 真实距离和单一“沿途记忆”时间轴。地点到达、照片、心情、文字和标签按发生时间串联；封面优先使用本次最早一张真实碎片照片，无照片时以轨迹地图为视觉主体。新打卡固化“到达当时是否想去”，可统计完成想去与非路线发现；旧打卡显示“旧记录未采集”。路线与漫游历史升级为 v2，只有真实道路 API 成功结果才保存计划采样折线/距离/时长并在回顾中显示计划灰线、实际琥珀线、绕路与跳过地点；v1 只降级，不推算。双端系统文本分享只使用真实漫游摘要。shared 单测、Android Kotlin 编译及 HarmonyOS signed debug HAP 构建通过；双端真机仍待验收。
+
+> 2026-08-29 探索与根导航增量：地图 SDK 隐私同意已登记为应用级 `settings.map_privacy_accepted`，Home、Explore、路线规划、漫游实时地图与漫游回顾共用，成功同意后不再逐页重复提示（系统定位权限仍只在用户主动定位时由系统管理）。高德地点 bridge 支持 `page/pageSize`，Explore 每页 12 条并在距末尾 3 条时预取；跨页按 provider ID 去重、失败保留旧页。地标改用“景点”、古迹改用“名胜古迹”，二者不再被过严文本二次筛选，“全部”也不再因本地点已满 12 条而显示为空。AppShell 已扩展为“探索 / 记录 / 漫游 / 我的”，漫游根页连接活动会话、自由漫游、路线、想去及回顾；Profile 的档案/数据入口移至右上角 ⚙️ Sheet。shared 259 项测试、Android Kotlin 编译和 HarmonyOS signed debug HAP 构建通过；双端真机仍待验收。
+
+> 2026-08-29 路线编辑增量：添加地点候选现限定为 Home / Explore / Map 共用的当前探索城市，UI 与 `LocalRouteStore.AddPlace` 双层校验，并在城市切换后按 `ExploreCityRuntime` 刷新。旧路线中已有的跨城地点不会被静默删除，仍可显示并由用户手动移除。真实道路“按当前顺序生成 / 生成推荐顺序”及“开始 / 继续漫游”操作已移动到“添加地点”之前。shared 单测与 Android Kotlin 编译、HarmonyOS signed debug HAP 构建通过；双端城市切换与旧路线交互仍待真机验收，状态为 `PARTIAL（code+automation+dual build DONE / device pending）`。
+
+> 2026-08-25 道路规划运行时修复：首次实现错误地用新 `RouteNetworkModule` 类型获取已经以 `KuiklyPlaceNetworkModule` 注册的同名 bridge，导致模块获取异常被统一降级为 `Unavailable`，即使双端 Web Key 已配置也始终提示服务不可用。现已复用 BasePager 中真实注册的共享代理；共享测试、Android APK 与 HarmonyOS signed HAP 重新构建通过。
+
+> 2026-08-25 道路规划增量：路线编辑器已通过双端 `CCPlaceNetworkModule.walkingRoute` 接入高德步行路径 API。P0 可按用户手动顺序逐段取得真实道路折线、距离与时长并交给双端原生地图渲染；P1 对 2–8 个地点请求无向道路距离矩阵，固定首个地点，以最近邻 + 2-opt 生成“推荐顺序”，用户确认采用后才改变待保存顺序。无坐标、无 Key、断网、API 失败或折线缺失均停止并保留原顺序，不回退直线。共享自动化、Android Debug APK 与 HarmonyOS signed HAP 构建通过；真实 Key、实际道路、配额和双端交互仍待真机验收，因此状态为 `PARTIAL（code+build DONE / device+live API pending）`。
+
+> 2026-08-25 地点语义增量：`PlaceCategory` 新增地标、历史遗迹、博物馆、美术与展览、教堂、寺庙、咖啡、美食餐厅、甜品烘焙、公园、自然风景、湖泊滨水、购物、市集老街、街区漫步、演出娱乐等可选细分类及对应 Emoji。内置 seed 升至 v4 并按真实标签刷新精确 seed；高德 POI 导入按 type 映射细分类。旧 `culture/food/nature` wire 值继续可读但不再出现在新建地点选项中。Capsule 心情保留既有 wire 值并增加 Emoji，同时新增怀念与疲惫。
+
+> 2026-08-24 稳定性修复：恢复中的按路线漫游现以会话真实 `routeId` 为准并按路线顺序加载地点；漫游碎片选点已扩展为“路线/附近优先 + 全量地点”；地点详情可直接追加到已有漫游路线。Android crash buffer 确认反复打开地点/停留闪退为 Glide Bitmap 被回收后仍由 `KRImageView` 绘制，adapter 已复制 Bitmap 脱离 Glide 池。Harmony Kuikly host 路由项改为组件删除时注销，避免页面被覆盖时过早丢失返回栈记录。shared 测试与 Android APK 构建通过；Android 新包覆盖安装被设备端拒绝，Android/HarmonyOS 真机回归仍待执行。
+
+> 2026-08-25 路线与推荐纠偏：Home 推荐地图在同一页面最多展示 5 个类别 Emoji + 地点选择项，不再用图片缩略图；路线编辑器已移除直线距离“推荐顺序”、直线折线和一键采用，避免把可能穿越水面/建筑的几何连线误作可漫游路线。路线仍支持真实的手动拖拽排序；道路级步行路径计算尚未实现，状态为 `NOT_STARTED`。
+
 > 当前代码检查点（2026-08-17）：P2-7 已由 `486bc9a` 独立提交，Place V3/上海城市包/探索城市闭环已由 `8ba3147` 提交。其后本轮推荐、用户地点坐标、未支持城市空态和地点封面生命周期收口已通过 shared 测试、Android Debug APK、HarmonyOS Hvigor test/HAP 构建，尚待提交；正式一级导航仍只有“探索 / 记录 / 我的”。以下历史段落若与本检查点冲突，以本段及当前代码为准。
 
 > 2026-08-20 P1 增量：Profile schema v2 与托管照片头像、路线 `Reorder(fromIndex,toIndex)` 长按拖动、自由漫游 500 米附近地点/200 米 GPS 到达/显式 Capsule 漫游关联/按打卡顺序保存路线已落地；真实本地搜索、分类、距离及高德单项导入经代码复核已在此前实现。shared 全量单测、Android App 编译和 HarmonyOS debug HAP 构建通过，双端真机矩阵尚未完成，统一状态为 `PARTIAL（代码与构建完成 / 设备验收未完成）`。验收见 `P1_PRODUCT_CAPABILITIES_ACCEPTANCE.md`。
+
+> 2026-08-24 漫游闭环增量：想去地点在路线选点/自由漫游附近列表优先展示；确认到达后从想去移除并可撤销；打卡可精确创建关联 `placeId + roamingSessionId` 的城市碎片；结束会话幂等归档至 `roaming.history`，Record 根页可进入历史列表/详情并打开或补记对应碎片。同时阻止活动会话被新漫游覆盖，路线页改为“继续上次漫游”。备份结构化协议升至 v10 并包含漫游历史。共享层、Android Debug APK 与 HarmonyOS signed HAP 均已构建通过，双端真机验收待执行。状态：`PARTIAL（代码与双端构建完成 / 设备验收未完成）`。
+
+> 2026-08-24 实时漫游地图增量：漫游页会恢复已有轨迹点，每次 15 秒成功采样在沙箱落盘后同步暖橙色折线、当前位置和地图相机；地图最多显示 500 个保首尾抽样点，文件保留全量点。“留下城市碎片”新增选点 Sheet，默认选中当前最近景点，可改选附近/已到达/路线地点，再以 typed `placeId + roamingSessionId` 进入编辑器。shared 253 项单测、Android Debug APK、HarmonyOS ArkTS 编译及 signed HAP 均通过。双端真机还未验收；当前仍是 Page 驱动的前台采样，未实现 Android 前台服务/HarmonyOS 后台长时任务，锁屏或长时离开 App 的无缺口轨迹为 `NOT_STARTED`。
 
 > 2026-08-20 HarmonyOS 启动闪退修复：Pura 80 faultlogger 明确记录 `SIGABRT`，Kuikly `DefaultRenderNativeContextHandler::CallKotlinMethod` 断言“make sure initKuikly() has been called”。`EntryAbility` 现于 HMRouter 创建首个 Kuikly Host 前同步调用全局 `KuiklyNativeManager.internalDoLoad()`，失败时记录错误并停止加载 UI，避免进入必然 native abort。修复版 signed HAP 已构建并覆盖安装；设备当前锁屏导致 `aa start` 返回 10106102，解锁后的启动/反复冷启动验证待完成。
 
@@ -43,7 +92,7 @@
 | --- | --- | --- |
 | Android/HarmonyOS Kuikly 宿主 | DONE | 两端有启动、host、adapter 与平台工程；不代表所有业务双端手测完成 |
 | 强类型共享路由 | DONE | `AppRoute/AppNavigator/AppRouteTable` + 双端 dispatcher/stack tests |
-| 单一 AppShell / 正式一级导航 | DONE（代码）/PARTIAL（设备体验） | 一个 `AppShellPage`、一个 Bottom Navigation、三个常驻根内容；点击 Tab 直接 `scrollToPage`，避免非必要位移动画，根手势关闭，重复点击 no-op；仍待双端设备视觉、屏幕朗读与返回键走查 |
+| 单一 AppShell / 正式一级导航 | DONE（代码）/PARTIAL（设备体验） | 一个 `AppShellPage`、一个 Bottom Navigation、四个常驻根内容；点击 Tab 直接 `scrollToPage`，避免非必要位移动画，根手势关闭，重复点击 no-op；仍待双端设备视觉、屏幕朗读与返回键走查 |
 | MVI 表现层迁移 | PARTIAL | PlaceList/Explore、Profile Overview/Editor 与 Settings/Data Management 已迁为轻量 MVI Store，具备串行 Intent、StateFlow、Channel Effect 与 dispose；shared/Android 自动化已通过，HarmonyOS 与双端生命周期设备 Spike 尚待验收，其余 Feature 仍为 StateHolder |
 | Record 容器 | PARTIAL | Timeline/Gallery 已是同一 `RecordRootContent` 的状态视图并共享 catalog/底栏；点击切换和视图状态保留已实现，内部 HorizontalPager 与左右滑动尚未实现；独立 Gallery route 仅作兼容 |
 | MMKV bridge 与主题旧值迁移 | DONE | 双端 2.4.0、typed protocol、迁移状态和测试资产 |

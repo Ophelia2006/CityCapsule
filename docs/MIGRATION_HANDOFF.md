@@ -40,7 +40,7 @@ shared/.../feature/place/PlaceListPage.kt
 
 - Android/HarmonyOS Kuikly 宿主、typed navigation、双端 MMKV。
 - 本地档案、首次引导、主题设置。
-- 单一 AppShell：“探索 / 记录 / 我的”，三个根内容常驻。
+- 单一 AppShell：“探索 / 记录 / 漫游 / 我的”，四个根内容常驻。
 - Home 产品化：真实本地 Profile/Place/Favorite/Capsule 聚合和可解释排序。
 - 地点 CRUD、搜索、筛选、想去。
 - Place Detail 产品化与“在这里留下城市碎片”。

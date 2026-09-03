@@ -39,7 +39,7 @@ class DefaultLocalRouteRepository(
             var id = newId(timestamp)
             var suffix = 1
             while (catalog.routes.any { it.id == id }) id = "${newId(timestamp)}_${suffix++}"
-            val route = LocalRoute(id, normalized.name, normalized.orderedPlaceIds, timestamp)
+            val route = LocalRoute(id, normalized.name, normalized.orderedPlaceIds, timestamp, normalized.plannedRoute)
             persist(catalog.copy(routes = catalog.routes + route), StorageResult.Success(route), complete)
         }
     }

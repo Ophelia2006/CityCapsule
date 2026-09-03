@@ -294,7 +294,7 @@ private fun PlaceEditorForm(
     }
     Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
     AppSection(title = "地点分类") {
-        PlaceCategory.entries.forEach { category ->
+                PlaceCategory.entries.filter(PlaceCategory::selectable).forEach { category ->
             AppChoiceChip(
                 text = category.displayName(),
                 selected = state.draft.category == category,

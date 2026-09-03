@@ -3,10 +3,8 @@ import {
   KRRenderModuleExportCreator,
   KRRenderViewExportCreator
 } from '@kuikly-open/render';
-import { KRMyView } from './components/KRMyView';
 import { KRAmapView } from './components/KRAmapView';
 import { KRBridgeModule } from './modules/KRBridgeModule';
-import { KRMyModule } from './modules/KRMyModule';
 import { KRStorageModule } from './modules/KRStorageModule';
 import { KRThemeHostModule } from './modules/KRThemeHostModule';
 import { KRMediaModule } from './modules/KRMediaModule';
@@ -16,12 +14,12 @@ import { KRLocationModule } from './modules/KRLocationModule';
 import { KRExternalNavigationModule } from './modules/KRExternalNavigationModule';
 import { KRTrackModule } from './modules/KRTrackModule';
 import { KRPlaceNetworkModule } from './modules/KRPlaceNetworkModule';
+import { KRShareModule } from './modules/KRShareModule';
 import hilog from '@ohos.hilog';
 
 export class KuiklyViewDelegate extends IKuiklyViewDelegate {
   getCustomRenderViewCreatorRegisterMap(): Map<string, KRRenderViewExportCreator> {
     const map: Map<string, KRRenderViewExportCreator> = new Map();
-    map.set(KRMyView.VIEW_NAME, () => new KRMyView());
     map.set(KRAmapView.VIEW_NAME, () => {
       hilog.info(0x0000, 'CityCapsuleMap', '%{public}s', 'platform_view_creator_invoked');
       return new KRAmapView();
@@ -32,7 +30,6 @@ export class KuiklyViewDelegate extends IKuiklyViewDelegate {
   getCustomRenderModuleCreatorRegisterMap(): Map<string, KRRenderModuleExportCreator> {
     const map: Map<string, KRRenderModuleExportCreator> = new Map();
     map.set(KRBridgeModule.MODULE_NAME, () => new KRBridgeModule());
-    map.set(KRMyModule.MODULE_NAME, () => new KRMyModule())
     map.set(KRStorageModule.MODULE_NAME, () => new KRStorageModule())
     map.set(KRThemeHostModule.MODULE_NAME, () => new KRThemeHostModule())
     map.set(KRMediaModule.MODULE_NAME, () => new KRMediaModule())
@@ -42,6 +39,7 @@ export class KuiklyViewDelegate extends IKuiklyViewDelegate {
     map.set(KRExternalNavigationModule.MODULE_NAME, () => new KRExternalNavigationModule())
     map.set(KRTrackModule.MODULE_NAME, () => new KRTrackModule())
     map.set(KRPlaceNetworkModule.MODULE_NAME, () => new KRPlaceNetworkModule())
+    map.set(KRShareModule.MODULE_NAME, () => new KRShareModule())
     return map;
   }
 }

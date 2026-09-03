@@ -299,8 +299,11 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
         if (fileIo.accessSync(filePath)) {
           fileIo.unlinkSync(filePath);
         }
-        const thumbnail = this.thumbnailPath(directory, filePath.substring(directory.length + 1));
+        const fileName = filePath.substring(directory.length + 1);
+        const thumbnail = this.thumbnailPath(directory, fileName);
+        const legacyThumbnail = this.legacyThumbnailPath(directory, fileName);
         if (fileIo.accessSync(thumbnail)) fileIo.unlinkSync(thumbnail);
+        if (fileIo.accessSync(legacyThumbnail)) fileIo.unlinkSync(legacyThumbnail);
         deleted.push(path);
       });
       callback(JSON.stringify({ 'status': 'success', 'message': '', 'paths': deleted }));
@@ -327,14 +330,38 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
         return;
       }
       const source = image.createImageSource(original);
-      source.createPixelMap({ desiredSize: { width: 512, height: 512 } }).then((pixelMap: image.PixelMap): void => {
-        const packer = image.createImagePacker();
-        packer.packing(pixelMap, { format: 'image/jpeg', quality: 82 }).then((buffer: ArrayBuffer): void => {
-          const file = fileIo.openSync(target, fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE);
-          try { fileIo.writeSync(file.fd, buffer); } finally { fileIo.closeSync(file); pixelMap.release(); source.release(); }
-          callback(JSON.stringify({ 'status': 'success', 'path': `file://${target}` }));
-        }).catch((): void => callback(JSON.stringify({ 'status': 'failure', 'message': '缩略图生成失败。' })));
-      }).catch((): void => callback(JSON.stringify({ 'status': 'failure', 'message': '原图无法解码。' })));
+      source.getImageInfo().then((info: image.ImageInfo): void => {
+        const longestEdge = Math.max(info.size.width, info.size.height);
+        if (longestEdge <= 0) {
+          source.release();
+          callback(JSON.stringify({ 'status': 'failure', 'message': '原图尺寸无效。' }));
+          return;
+        }
+        const scale = Math.min(1, 512 / longestEdge);
+        const targetWidth = Math.max(1, Math.round(info.size.width * scale));
+        const targetHeight = Math.max(1, Math.round(info.size.height * scale));
+        source.createPixelMap({ desiredSize: { width: targetWidth, height: targetHeight } }).then((pixelMap: image.PixelMap): void => {
+          const packer = image.createImagePacker();
+          packer.packing(pixelMap, { format: 'image/jpeg', quality: 82 }).then((buffer: ArrayBuffer): void => {
+            const file = fileIo.openSync(target, fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE);
+            try { fileIo.writeSync(file.fd, buffer); } finally {
+              fileIo.closeSync(file); pixelMap.release(); source.release();
+            }
+            const legacyTarget = this.legacyThumbnailPath(originalDir, original.substring(originalDir.length + 1));
+            if (fileIo.accessSync(legacyTarget)) fileIo.unlinkSync(legacyTarget);
+            callback(JSON.stringify({ 'status': 'success', 'path': `file://${target}` }));
+          }).catch((): void => {
+            pixelMap.release(); source.release();
+            callback(JSON.stringify({ 'status': 'failure', 'message': '缩略图生成失败。' }));
+          });
+        }).catch((): void => {
+          source.release();
+          callback(JSON.stringify({ 'status': 'failure', 'message': '原图无法解码。' }));
+        });
+      }).catch((): void => {
+        source.release();
+        callback(JSON.stringify({ 'status': 'failure', 'message': '原图信息无法读取。' }));
+      });
     } catch (_) { callback(JSON.stringify({ 'status': 'failure', 'message': '缩略图生成失败。' })); }
   }
 
@@ -432,7 +459,12 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
         const stat = fileIo.statSync(path);
         const modifiedMillis = stat.mtime < 100000000000 ? stat.mtime * 1000 : stat.mtime;
         if (!referenced.has(path) && modifiedMillis <= cutoff) {
-          candidates.push(path, this.thumbnailPath(originalDir, path.substring(originalDir.length + 1)));
+          const fileName = path.substring(originalDir.length + 1);
+          candidates.push(
+            path,
+            this.thumbnailPath(originalDir, fileName),
+            this.legacyThumbnailPath(originalDir, fileName)
+          );
         }
       });
       callback(this.deleteFiles(candidates));
@@ -440,6 +472,10 @@ export class KRMediaModule extends KuiklyRenderBaseModule {
   }
 
   private thumbnailPath(originalDir: string, fileName: string): string {
+    return `${originalDir.substring(0, originalDir.length - '/original'.length)}/thumbnail/${fileName}.v2.jpg`;
+  }
+
+  private legacyThumbnailPath(originalDir: string, fileName: string): string {
     return `${originalDir.substring(0, originalDir.length - '/original'.length)}/thumbnail/${fileName}.jpg`;
   }
 

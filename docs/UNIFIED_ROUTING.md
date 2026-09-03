@@ -121,7 +121,7 @@ Onboarding 的 Welcome、Identity、Details、Review 是单页内部步骤，不
 ## 5. AppShell 与 Settings 当前语义
 
 - Bottom Navigation 只由 `AppShellPage` 创建一次，Home/Record/Profile 根内容常驻同一无手势 HorizontalPager。
-- 点击其他根 Tab 只调用 `animateScrollToPage`；重复点击当前 Tab 是 no-op，不发送 push、replace 或 back。
+- 点击其他根 Tab 只调用 `scrollToPage` 即时切换；重复点击当前 Tab 是 no-op，不发送 push、replace 或 back。
 - Place/Capsule Detail、Editor、Settings 位于 AppShell 外，不显示底栏；普通 `back()` 返回同一壳并保留原 Tab 状态。
 - 二级页需要定向回根时使用 `backToRoot(AppRootTab)`，不得直接 `backTo(HOME/TIMELINE/PROFILE)`。
 - Settings 只保留正式产品入口；`Replace Settings`、多实例栈按钮和路由验收文案已经移除。

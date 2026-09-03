@@ -231,6 +231,9 @@ class DataBackupRepository(private val storage: KeyValueStore) {
             if (backupVersion < 8 && normalizedEntries.none { it.key == AppStorageKeys.Explore.CITY_SELECTION }) {
                 normalizedEntries = normalizedEntries + BackupEntry(AppStorageKeys.Explore.CITY_SELECTION, false, null)
             }
+            if (backupVersion < 10 && normalizedEntries.none { it.key == AppStorageKeys.Roaming.HISTORY }) {
+                normalizedEntries = normalizedEntries + BackupEntry(AppStorageKeys.Roaming.HISTORY, false, null)
+            }
             if (normalizedEntries.map { it.key }.toSet() != PERSISTENT_KEYS.toSet()) {
                 return BackupDataResult.Failure("备份数据清单不完整。")
             }
@@ -317,7 +320,7 @@ class DataBackupRepository(private val storage: KeyValueStore) {
     private companion object {
         const val APP_ID = "CityCapsule"
         const val MIN_SUPPORTED_BACKUP_VERSION = 1
-        const val BACKUP_VERSION = 9
+        const val BACKUP_VERSION = 10
         val PERSISTENT_KEYS = listOf(
             AppStorageKeys.Settings.THEME_MODE,
             AppStorageKeys.Profile.LOCAL_PROFILE,
@@ -329,7 +332,8 @@ class DataBackupRepository(private val storage: KeyValueStore) {
             AppStorageKeys.Routes.CATALOG,
             AppStorageKeys.Roaming.SESSION,
             AppStorageKeys.Roaming.TRACK,
-            AppStorageKeys.Roaming.CHECK_INS
+            AppStorageKeys.Roaming.CHECK_INS,
+            AppStorageKeys.Roaming.HISTORY
         )
     }
 }

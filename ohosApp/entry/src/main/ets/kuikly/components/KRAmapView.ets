@@ -12,7 +12,8 @@ import {
   MapViewManager,
   MapsInitializer,
   Marker,
-  MarkerOptions
+  MarkerOptions,
+  PolylineOptions
 } from '@amap/amap_lbs_map3d';
 import {
   AMapPrivacyAgreeStatus,
@@ -31,6 +32,15 @@ interface MapMarkerPayload {
 interface MapStatePayload {
   markers: MapMarkerPayload[];
   camera?: MapCameraPayload;
+  currentLocation?: MapPointPayload;
+  showCurrentLocation?: boolean;
+  trackPoints?: MapPointPayload[];
+  plannedTrackPoints?: MapPointPayload[];
+}
+
+interface MapPointPayload {
+  latitude: number;
+  longitude: number;
 }
 
 interface MapCameraPayload {
@@ -182,6 +192,35 @@ export class KRAmapView extends KuiklyRenderBaseView {
         );
         if (marker) this.markerPlaces.set(marker.getId(), payload.placeId);
       });
+      const plannedTrackPoints = state.plannedTrackPoints ?? [];
+      if (plannedTrackPoints.length >= 2) {
+        const convertedPlan: LatLng[] = plannedTrackPoints.map((point: MapPointPayload) => { const converted = wgs84ToGcj02(point.latitude, point.longitude); return new LatLng(converted[0], converted[1]); });
+        this.aMap.addPolyline(new PolylineOptions().add(...convertedPlan).setWidth(18).setColor(0xFF9A9A9A));
+      }
+      const trackPoints = state.trackPoints ?? [];
+      if (trackPoints.length >= 2) {
+        const convertedTrack: LatLng[] = trackPoints.map((point: MapPointPayload) => {
+          const converted = wgs84ToGcj02(point.latitude, point.longitude);
+          return new LatLng(converted[0], converted[1]);
+        });
+        this.aMap.addPolyline(
+          new PolylineOptions()
+            .add(...convertedTrack)
+            .setWidth(12)
+            .setColor(0xFFFF9F1C)
+        );
+      }
+      if (state.showCurrentLocation && state.currentLocation) {
+        const current = wgs84ToGcj02(
+          state.currentLocation.latitude,
+          state.currentLocation.longitude
+        );
+        this.aMap.addMarker(
+          new MarkerOptions()
+            .setPosition(new LatLng(current[0], current[1]))
+            .setTitle('当前位置')
+        );
+      }
       if (state.camera) {
         const center = wgs84ToGcj02(state.camera.latitude, state.camera.longitude);
         this.aMap.moveCamera(CameraUpdateFactory.newLatLngZoom(

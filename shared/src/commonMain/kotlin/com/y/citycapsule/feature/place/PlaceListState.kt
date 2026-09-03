@@ -19,6 +19,7 @@ import com.y.citycapsule.core.map.MapAvailability
 import com.y.citycapsule.core.map.MapCameraModel
 import com.y.citycapsule.core.map.MapMarkerModel
 import com.y.citycapsule.core.map.MapViewEvent
+import com.y.citycapsule.core.map.MapPrivacyConsentRepository
 import com.y.citycapsule.core.place.GeoPoint
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCatalogSnapshot
@@ -79,20 +80,22 @@ enum class ExplorePlaceTopic(
     val label: String,
     val remoteQuery: String,
     val category: PlaceCategory,
-    private val keywords: List<String>
+    private val keywords: List<String>,
+    private val legacyCategory: PlaceCategory? = null
 ) {
-    LANDMARK("城市地标", "城市地标", PlaceCategory.LANDMARK, listOf("地标", "古迹", "建筑", "景区", "风景名胜")),
-    COFFEE("咖啡", "咖啡", PlaceCategory.FOOD, listOf("咖啡", "coffee")),
-    RESTAURANT("餐厅", "餐厅", PlaceCategory.FOOD, listOf("餐厅", "餐馆", "餐饮", "美食", "饭店")),
-    MUSEUM("博物馆", "博物馆", PlaceCategory.CULTURE, listOf("博物馆", "纪念馆")),
-    EXHIBITION("展览", "展览馆", PlaceCategory.CULTURE, listOf("展览", "美术馆", "画廊", "艺术中心")),
-    PARK("公园", "公园", PlaceCategory.NATURE, listOf("公园", "园林", "植物园")),
-    NATURAL_SCENERY("自然景点", "自然景点", PlaceCategory.NATURE, listOf("自然", "山", "湖", "湿地", "森林", "海滩")),
-    SHOPPING("商场街区", "商场", PlaceCategory.SHOPPING, listOf("商场", "购物", "商业街", "市集"));
+    LANDMARK("🏙️ 地标", "景点", PlaceCategory.LANDMARK, listOf("地标", "建筑", "景区", "风景名胜")),
+    HISTORIC_SITE("🏛️ 古迹", "名胜古迹", PlaceCategory.HISTORIC_SITE, listOf("古迹", "遗址", "历史")),
+    COFFEE("☕ 咖啡", "咖啡", PlaceCategory.COFFEE, listOf("咖啡", "coffee"), PlaceCategory.FOOD),
+    RESTAURANT("🍜 美食", "餐厅", PlaceCategory.RESTAURANT, listOf("餐厅", "餐馆", "餐饮", "美食", "饭店"), PlaceCategory.FOOD),
+    MUSEUM("🏺 博物馆", "博物馆", PlaceCategory.MUSEUM, listOf("博物馆", "纪念馆"), PlaceCategory.CULTURE),
+    EXHIBITION("🖼️ 展览", "展览馆", PlaceCategory.ART_SPACE, listOf("展览", "美术馆", "画廊", "艺术中心"), PlaceCategory.CULTURE),
+    PARK("🌳 公园", "公园", PlaceCategory.PARK, listOf("公园", "园林", "植物园"), PlaceCategory.NATURE),
+    NATURAL_SCENERY("🏞️ 自然", "自然景点", PlaceCategory.NATURAL_SCENERY, listOf("自然", "山", "湖", "湿地", "森林", "海滩"), PlaceCategory.NATURE),
+    SHOPPING("🛍️ 购物", "商场", PlaceCategory.SHOPPING, listOf("商场", "购物", "商业街", "市集"));
 
     fun matches(place: Place): Boolean {
-        if (place.category != category) return false
-        if (this == LANDMARK || this == SHOPPING) return true
+        if (place.category != category && place.category != legacyCategory) return false
+        if (this == LANDMARK || this == HISTORIC_SITE || this == SHOPPING) return true
         return matchesText(buildList {
             add(place.name)
             addAll(place.tags)
@@ -102,8 +105,8 @@ enum class ExplorePlaceTopic(
     }
 
     fun matches(place: RemotePlace): Boolean {
-        if (place.category != category) return false
-        if (this == LANDMARK || this == SHOPPING) return true
+        if (place.category != category && place.category != legacyCategory) return false
+        if (this == LANDMARK || this == HISTORIC_SITE || this == SHOPPING) return true
         return matchesText(buildList {
             add(place.name)
             addAll(place.tags)
@@ -146,6 +149,10 @@ data class PlaceListUiState(
     val mapCamera: MapCameraModel? = null,
     val onlineStatus: OnlinePlaceStatus = OnlinePlaceStatus.IDLE,
     val onlinePlaces: List<RemotePlace> = emptyList(),
+    val onlinePage: Int = 0,
+    val onlineHasMore: Boolean = true,
+    val onlineLoadingMore: Boolean = false,
+    val onlineLoadMoreFailed: Boolean = false,
     val importingProviderId: String? = null
 ) {
     val hasActiveFilters: Boolean
@@ -223,6 +230,7 @@ sealed interface PlaceListIntent {
     data object MapPrivacyDeclined : PlaceListIntent
     data class MapEventReceived(val event: MapViewEvent) : PlaceListIntent
     data object OnlineSearchRequested : PlaceListIntent
+    data object OnlineNextPageRequested : PlaceListIntent
     data object OnlineResultsDismissed : PlaceListIntent
     data class RemotePlaceImportRequested(val providerId: String) : PlaceListIntent
     data class CachedPhotoFailed(val placeId: String) : PlaceListIntent
@@ -273,12 +281,13 @@ internal sealed interface PlaceListMutation {
     data object MapViewSelected : PlaceListMutation
     data object MapPrivacyPrompted : PlaceListMutation
     data object MapPrivacyAccepted : PlaceListMutation
+    data class MapPrivacyLoaded(val accepted: Boolean) : PlaceListMutation
     data object MapPrivacyDeclined : PlaceListMutation
     data class MapMarkerSelected(val placeId: String) : PlaceListMutation
     data class MapCameraChanged(val camera: MapCameraModel) : PlaceListMutation
     data class MapUnavailable(val reason: MapAvailability) : PlaceListMutation
-    data object OnlineSearchStarted : PlaceListMutation
-    data class OnlineSearchFinished(val result: RemotePlaceResult) : PlaceListMutation
+    data class OnlineSearchStarted(val append: Boolean) : PlaceListMutation
+    data class OnlineSearchFinished(val result: RemotePlaceResult, val append: Boolean = false, val page: Int = 1) : PlaceListMutation
     data object OnlineResultsDismissed : PlaceListMutation
     data class RemoteImportStarted(val providerId: String) : PlaceListMutation
     data class RemoteImportFinished(val place: Place?) : PlaceListMutation
@@ -376,7 +385,8 @@ internal object PlaceListReducer {
                 selectedTopic = mutation.topic,
                 filter = filter.copy(categories = emptySet()),
                 onlineStatus = OnlinePlaceStatus.IDLE,
-                onlinePlaces = emptyList()
+                onlinePlaces = emptyList(), onlinePage = 0, onlineHasMore = true,
+                onlineLoadingMore = false, onlineLoadMoreFailed = false
             ).withSearchResults()
         }
         is PlaceListMutation.CityChanged -> updateFilter(state) {
@@ -472,6 +482,7 @@ internal object PlaceListReducer {
             showMapPrivacyPrompt = false,
             viewMode = PlaceDirectoryViewMode.MAP
         )
+        is PlaceListMutation.MapPrivacyLoaded -> state.copy(mapPrivacyAccepted = mutation.accepted)
         PlaceListMutation.MapPrivacyDeclined -> state.copy(
             showMapPrivacyPrompt = false,
             viewMode = PlaceDirectoryViewMode.LIST
@@ -494,9 +505,11 @@ internal object PlaceListReducer {
                 PlaceNoticeTone.WARNING
             )
         )
-        PlaceListMutation.OnlineSearchStarted -> state.copy(
-            onlineStatus = OnlinePlaceStatus.LOADING,
-            onlinePlaces = emptyList(),
+        is PlaceListMutation.OnlineSearchStarted -> state.copy(
+            onlineStatus = if (mutation.append) state.onlineStatus else OnlinePlaceStatus.LOADING,
+            onlinePlaces = if (mutation.append) state.onlinePlaces else emptyList(),
+            onlineLoadingMore = mutation.append,
+            onlineLoadMoreFailed = false,
             notice = null
         )
         is PlaceListMutation.OnlineSearchFinished -> when (val result = mutation.result) {
@@ -506,26 +519,46 @@ internal object PlaceListReducer {
                 }.toSet()
                 val candidates = result.places
                     .filterNot { it.providerId in savedProviderIds }
-                    .filter { state.selectedTopic?.matches(it) != false }
+                    .filter { place ->
+                        val topic = state.selectedTopic
+                        topic == null || topic == ExplorePlaceTopic.LANDMARK ||
+                            topic == ExplorePlaceTopic.HISTORIC_SITE || topic.matches(place)
+                    }
                     .distinctBy(RemotePlace::providerId)
-                    .take((ONLINE_PLACE_RESULT_LIMIT - state.visiblePlaces.size).coerceAtLeast(0))
+                    .take(ONLINE_PLACE_RESULT_LIMIT)
+                val combined = if (mutation.append) {
+                    (state.onlinePlaces + candidates).distinctBy(RemotePlace::providerId)
+                } else candidates
+                val bounded = combined.take(ONLINE_PLACE_SESSION_LIMIT)
                 state.copy(
-                    onlineStatus = if (candidates.isEmpty()) OnlinePlaceStatus.EMPTY else OnlinePlaceStatus.RESULTS,
-                    onlinePlaces = candidates
+                    onlineStatus = if (bounded.isEmpty()) OnlinePlaceStatus.EMPTY else OnlinePlaceStatus.RESULTS,
+                    onlinePlaces = bounded,
+                    onlinePage = mutation.page,
+                    onlineHasMore = bounded.size < ONLINE_PLACE_SESSION_LIMIT && result.places.size >= ONLINE_PLACE_RESULT_LIMIT && candidates.isNotEmpty(),
+                    onlineLoadingMore = false,
+                    onlineLoadMoreFailed = false
                 )
             }
             is RemotePlaceResult.Failure -> state.copy(
-                onlineStatus = OnlinePlaceStatus.ERROR,
+                onlineStatus = if (mutation.append && state.onlinePlaces.isNotEmpty()) OnlinePlaceStatus.RESULTS else OnlinePlaceStatus.ERROR,
+                onlineLoadingMore = false,
+                onlineLoadMoreFailed = mutation.append,
                 notice = PlaceFeatureNotice(result.message, PlaceNoticeTone.WARNING)
             )
             RemotePlaceResult.Unavailable -> state.copy(
-                onlineStatus = OnlinePlaceStatus.UNAVAILABLE,
+                onlineStatus = if (mutation.append && state.onlinePlaces.isNotEmpty()) OnlinePlaceStatus.RESULTS else OnlinePlaceStatus.UNAVAILABLE,
+                onlineLoadingMore = false,
+                onlineLoadMoreFailed = mutation.append,
                 notice = PlaceFeatureNotice("在线地点服务当前不可用，本地点仍可浏览。", PlaceNoticeTone.WARNING)
             )
         }
         PlaceListMutation.OnlineResultsDismissed -> state.copy(
             onlineStatus = OnlinePlaceStatus.IDLE,
             onlinePlaces = emptyList(),
+            onlinePage = 0,
+            onlineHasMore = true,
+            onlineLoadingMore = false,
+            onlineLoadMoreFailed = false,
             importingProviderId = null
         )
         is PlaceListMutation.RemoteImportStarted -> state.copy(importingProviderId = mutation.providerId)
@@ -578,6 +611,7 @@ class PlaceListStore(
         _, callback -> callback(ReverseGeocodeResult.UnsupportedCity())
     },
     private val remoteDataSource: PlaceRemoteDataSource? = null,
+    private val mapConsentRepository: MapPrivacyConsentRepository? = null,
     parentScope: CoroutineScope,
     mode: PlaceListMode = PlaceListMode.ALL,
     initialCategory: PlaceCategory? = null
@@ -599,7 +633,12 @@ class PlaceListStore(
         ) : Event
         data class CitySelectionResult(val result: StorageResult<ExploreCitySelection>) : Event
         data class ReverseGeocodeResultEvent(val result: ReverseGeocodeResult) : Event
-        data class OnlineResultEvent(val result: RemotePlaceResult) : Event
+        data class OnlineResultEvent(
+            val generation: Long,
+            val result: RemotePlaceResult,
+            val append: Boolean,
+            val page: Int
+        ) : Event
         data class ImportResultEvent(val result: StorageResult<Place>) : Event
         data class PhotoResolvedEvent(
             val generation: Long,
@@ -615,6 +654,8 @@ class PlaceListStore(
     private var loadGeneration = 0L
     private var favoriteOperation = 0L
     private var locationOperation = 0L
+    private var onlineGeneration = 0L
+    private val requestedOnlinePages = mutableSetOf<Int>()
     private var disposed = false
     private var pendingImportedRemote: RemotePlace? = null
     private val photoHydrator = remoteDataSource?.let {
@@ -634,7 +675,7 @@ class PlaceListStore(
                     is Event.LocationResultEvent -> handleLocationResult(event)
                     is Event.CitySelectionResult -> handleCitySelectionResult(event.result)
                     is Event.ReverseGeocodeResultEvent -> handleReverseGeocodeResult(event.result)
-                    is Event.OnlineResultEvent -> reduce(PlaceListMutation.OnlineSearchFinished(event.result))
+                    is Event.OnlineResultEvent -> handleOnlineResult(event)
                     is Event.ImportResultEvent -> handleImportResult(event.result)
                     is Event.PhotoResolvedEvent -> if (event.generation == loadGeneration) {
                         reduce(PlaceListMutation.CachedPhotoAdded(event.entry))
@@ -661,35 +702,43 @@ class PlaceListStore(
         when (intent) {
             PlaceListIntent.Load,
             PlaceListIntent.Retry -> startLoad()
-            is PlaceListIntent.QueryChanged -> reduce(
-                PlaceListMutation.QueryChanged(intent.query)
-            )
-            is PlaceListIntent.CategoryToggled -> reduce(
-                PlaceListMutation.CategoryToggled(intent.category)
-            )
-            PlaceListIntent.CategoriesCleared -> reduce(
-                PlaceListMutation.CategoriesCleared
-            )
+            is PlaceListIntent.QueryChanged -> {
+                invalidateOnlineSearch()
+                reduce(PlaceListMutation.QueryChanged(intent.query))
+            }
+            is PlaceListIntent.CategoryToggled -> {
+                invalidateOnlineSearch()
+                reduce(PlaceListMutation.CategoryToggled(intent.category))
+            }
+            PlaceListIntent.CategoriesCleared -> {
+                invalidateOnlineSearch()
+                reduce(PlaceListMutation.CategoriesCleared)
+            }
             is PlaceListIntent.TopicSelected -> {
+                invalidateOnlineSearch()
                 reduce(PlaceListMutation.TopicSelected(intent.topic))
                 if (intent.topic == null) startOnlineSearch(recommendations = true)
                 else startOnlineSearch(queryOverride = intent.topic.remoteQuery)
             }
-            is PlaceListIntent.CityChanged -> reduce(
-                PlaceListMutation.CityChanged(intent.city)
-            )
-            is PlaceListIntent.DistrictChanged -> reduce(
-                PlaceListMutation.DistrictChanged(intent.district)
-            )
+            is PlaceListIntent.CityChanged -> {
+                invalidateOnlineSearch()
+                reduce(PlaceListMutation.CityChanged(intent.city))
+            }
+            is PlaceListIntent.DistrictChanged -> {
+                invalidateOnlineSearch()
+                reduce(PlaceListMutation.DistrictChanged(intent.district))
+            }
             PlaceListIntent.FavoritesOnlyToggled -> reduce(
                 PlaceListMutation.FavoritesOnlyToggled
             )
-            PlaceListIntent.ClearAdvancedFilters -> reduce(
-                PlaceListMutation.ClearAdvancedFilters
-            )
-            PlaceListIntent.ClearAllFilters -> reduce(
-                PlaceListMutation.ClearAllFilters
-            )
+            PlaceListIntent.ClearAdvancedFilters -> {
+                invalidateOnlineSearch()
+                reduce(PlaceListMutation.ClearAdvancedFilters)
+            }
+            PlaceListIntent.ClearAllFilters -> {
+                invalidateOnlineSearch()
+                reduce(PlaceListMutation.ClearAllFilters)
+            }
             is PlaceListIntent.FavoriteToggled -> startFavoriteToggle(intent.placeId)
             is PlaceListIntent.PlaceClicked -> effectChannel.send(
                 PlaceListEffect.NavigateToDetail(intent.placeId)
@@ -705,7 +754,10 @@ class PlaceListStore(
             )
             PlaceListIntent.CurrentLocationRequested -> startLocationRequest()
             is PlaceListIntent.ExploreCitySelected -> selectCity(intent.cityId)
-            PlaceListIntent.AllCitiesSelected -> reduce(PlaceListMutation.AllCities)
+            PlaceListIntent.AllCitiesSelected -> {
+                invalidateOnlineSearch()
+                reduce(PlaceListMutation.AllCities)
+            }
             PlaceListIntent.DetectedCityConfirmed -> mutableState.value.detectedCity?.let { city ->
                 reduce(PlaceListMutation.DetectionDismissed)
                 selectCity(city)
@@ -719,7 +771,10 @@ class PlaceListStore(
                     PlaceListMutation.MapPrivacyPrompted
                 }
             )
-            PlaceListIntent.MapPrivacyAccepted -> reduce(PlaceListMutation.MapPrivacyAccepted)
+            PlaceListIntent.MapPrivacyAccepted -> {
+                mapConsentRepository?.accept()
+                reduce(PlaceListMutation.MapPrivacyAccepted)
+            }
             PlaceListIntent.MapPrivacyDeclined -> reduce(PlaceListMutation.MapPrivacyDeclined)
             is PlaceListIntent.MapEventReceived -> when (val event = intent.event) {
                 is MapViewEvent.Ready -> event.camera?.let {
@@ -738,7 +793,8 @@ class PlaceListStore(
                 )
             }
             PlaceListIntent.OnlineSearchRequested -> startOnlineSearch()
-            PlaceListIntent.OnlineResultsDismissed -> reduce(PlaceListMutation.OnlineResultsDismissed)
+            PlaceListIntent.OnlineNextPageRequested -> startOnlineSearch(append = true)
+            PlaceListIntent.OnlineResultsDismissed -> invalidateOnlineSearch()
             is PlaceListIntent.RemotePlaceImportRequested -> startRemoteImport(intent.providerId)
             is PlaceListIntent.CachedPhotoFailed -> {
                 reduce(PlaceListMutation.CachedPhotoRemoved(intent.placeId))
@@ -749,19 +805,26 @@ class PlaceListStore(
 
     private fun startOnlineSearch(
         recommendations: Boolean = false,
-        queryOverride: String? = null
+        queryOverride: String? = null,
+        append: Boolean = false
     ) {
+        val current = mutableState.value
+        if (current.onlineStatus == OnlinePlaceStatus.LOADING || current.onlineLoadingMore) return
+        if (append && !current.onlineHasMore) return
+        val requestedPage = if (append) current.onlinePage + 1 else 1
+        val generation = if (append) onlineGeneration else ++onlineGeneration
+        if (!append) requestedOnlinePages.clear()
+        if (!requestedOnlinePages.add(requestedPage)) return
+        reduce(PlaceListMutation.OnlineSearchStarted(append))
         val remote = remoteDataSource ?: run {
-            reduce(PlaceListMutation.OnlineSearchFinished(RemotePlaceResult.Unavailable))
+            requestedOnlinePages.remove(requestedPage)
+            reduce(PlaceListMutation.OnlineSearchFinished(RemotePlaceResult.Unavailable, append, requestedPage))
             return
         }
-        val current = mutableState.value
-        if (current.onlineStatus == OnlinePlaceStatus.LOADING) return
-        reduce(PlaceListMutation.OnlineSearchStarted)
         val callback: (RemotePlaceResult) -> Unit = { result ->
-            if (!disposed) events.trySend(Event.OnlineResultEvent(result))
+            if (!disposed) events.trySend(Event.OnlineResultEvent(generation, result, append, requestedPage))
         }
-        if (recommendations && current.query.isBlank() && queryOverride == null) {
+        if (!append && recommendations && current.query.isBlank() && queryOverride == null) {
             loadCityPlaceRecommendations(
                 remote,
                 current.selectedCity.displayName,
@@ -770,13 +833,27 @@ class PlaceListStore(
                 callback
             )
         } else {
-            remote.search(
-                query = queryOverride ?: current.query,
+            remote.searchPage(
+                query = queryOverride ?: current.selectedTopic?.remoteQuery ?: current.query.ifBlank { "景点" },
                 city = current.selectedCity.displayName,
                 near = current.currentLocation.takeIf { current.query.isBlank() },
+                page = requestedPage,
+                pageSize = ONLINE_PLACE_RESULT_LIMIT,
                 callback = callback
             )
         }
+    }
+
+    private fun handleOnlineResult(event: Event.OnlineResultEvent) {
+        if (event.generation != onlineGeneration) return
+        if (event.result !is RemotePlaceResult.Success) requestedOnlinePages.remove(event.page)
+        reduce(PlaceListMutation.OnlineSearchFinished(event.result, event.append, event.page))
+    }
+
+    private fun invalidateOnlineSearch() {
+        onlineGeneration++
+        requestedOnlinePages.clear()
+        reduce(PlaceListMutation.OnlineResultsDismissed)
     }
 
     private fun startRemoteImport(providerId: String) {
@@ -815,6 +892,9 @@ class PlaceListStore(
     private fun startLoad() {
         val generation = ++loadGeneration
         reduce(PlaceListMutation.LoadStarted)
+        mapConsentRepository?.load { accepted ->
+            if (!disposed) events.trySend(Event.Mutation(null, PlaceListMutation.MapPrivacyLoaded(accepted)))
+        }
         cityRepository.get { result ->
             enqueue(
                 generation,
@@ -925,12 +1005,14 @@ class PlaceListStore(
     }
 
     private fun selectCity(cityId: String) {
+        invalidateOnlineSearch()
         cityRepository.select(cityId) { result ->
             if (!disposed) events.trySend(Event.CitySelectionResult(result))
         }
     }
 
     private fun selectCity(city: CityDefinition) {
+        invalidateOnlineSearch()
         cityRepository.select(city) { result ->
             if (!disposed) events.trySend(Event.CitySelectionResult(result))
         }
@@ -1024,6 +1106,7 @@ private fun sourceNotice(source: PlaceCatalogSource): PlaceFeatureNotice? = when
 
 private const val FAVORITE_FAILURE_NOTICE = "想去操作失败，页面状态已保持不变。"
 internal const val ONLINE_PLACE_RESULT_LIMIT = 12
+internal const val ONLINE_PLACE_SESSION_LIMIT = 96
 
 private fun PlaceListUiState.locationFailure(
     status: PlaceLocationStatus,

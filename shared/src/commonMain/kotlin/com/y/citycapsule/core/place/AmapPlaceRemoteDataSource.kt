@@ -50,6 +50,15 @@ interface PlaceRemoteDataSource {
         near: GeoPoint? = null,
         callback: (RemotePlaceResult) -> Unit
     )
+
+    fun searchPage(
+        query: String,
+        city: String,
+        near: GeoPoint? = null,
+        page: Int,
+        pageSize: Int,
+        callback: (RemotePlaceResult) -> Unit
+    ) = search(query, city, near, callback)
 }
 
 /** Sequential category fallback used to fill a small, diverse city recommendation set. */
@@ -72,7 +81,7 @@ fun loadCityPlaceRecommendations(
             return
         }
         val query = CITY_RECOMMENDATION_QUERIES[queryIndex++]
-        remote.search(query, city, near) { result ->
+        remote.searchPage(query, city, near, page = 1, pageSize = limit.coerceIn(1, 20)) { result ->
             when (result) {
                 is RemotePlaceResult.Success -> result.places.forEach { place ->
                     if (place.providerId !in collected) collected[place.providerId] = place
@@ -91,10 +100,15 @@ private val CITY_RECOMMENDATION_QUERIES = listOf("景点", "博物馆", "公园"
 class AmapPlaceRemoteDataSource(pager: Pager) : PlaceRemoteDataSource {
     private val transport: PlaceNetworkTransport = PagerPlaceNetworkTransport(pager)
 
-    override fun search(query: String, city: String, near: GeoPoint?, callback: (RemotePlaceResult) -> Unit) {
+    override fun search(query: String, city: String, near: GeoPoint?, callback: (RemotePlaceResult) -> Unit) =
+        searchPage(query, city, near, page = 1, pageSize = 12, callback = callback)
+
+    override fun searchPage(query: String, city: String, near: GeoPoint?, page: Int, pageSize: Int, callback: (RemotePlaceResult) -> Unit) {
         val request = JSONObject().apply {
             put("query", query.trim())
             put("city", city.trim())
+            put("page", page.coerceAtLeast(1))
+            put("pageSize", pageSize.coerceIn(1, 20))
             near?.let { point ->
                 val gcj = ChinaCoordinate.wgs84ToGcj02(point)
                 put("location", "${gcj.longitude},${gcj.latitude}")
@@ -164,10 +178,21 @@ class AmapPlaceRemoteDataSource(pager: Pager) : PlaceRemoteDataSource {
         }
 
         private fun mapCategory(type: String): PlaceCategory = when {
-            listOf("餐饮", "咖啡", "甜品").any(type::contains) -> PlaceCategory.FOOD
-            listOf("公园", "自然地物").any(type::contains) -> PlaceCategory.NATURE
-            listOf("科教文化", "博物馆", "展览馆", "体育休闲").any(type::contains) -> PlaceCategory.CULTURE
+            listOf("咖啡厅", "咖啡馆", "咖啡").any(type::contains) -> PlaceCategory.COFFEE
+            listOf("甜品店", "糕饼店", "蛋糕", "烘焙").any(type::contains) -> PlaceCategory.DESSERT
+            listOf("餐饮", "中餐厅", "外国餐厅", "快餐厅", "小吃").any(type::contains) -> PlaceCategory.RESTAURANT
+            listOf("博物馆", "纪念馆", "科技馆").any(type::contains) -> PlaceCategory.MUSEUM
+            listOf("美术馆", "展览馆", "画廊", "艺术馆").any(type::contains) -> PlaceCategory.ART_SPACE
+            listOf("教堂").any(type::contains) -> PlaceCategory.CHURCH
+            listOf("寺庙", "道观", "清真寺", "宗教场所").any(type::contains) -> PlaceCategory.TEMPLE
+            listOf("历史遗址", "古迹", "名胜古迹", "文物古迹").any(type::contains) -> PlaceCategory.HISTORIC_SITE
+            listOf("公园", "植物园", "动物园").any(type::contains) -> PlaceCategory.PARK
+            listOf("湖泊", "河流", "海滩", "滨水").any(type::contains) -> PlaceCategory.WATERFRONT
+            listOf("自然地物", "山", "森林", "湿地").any(type::contains) -> PlaceCategory.NATURAL_SCENERY
+            listOf("集市", "市场", "特色商业街").any(type::contains) -> PlaceCategory.MARKET
             listOf("购物", "商场").any(type::contains) -> PlaceCategory.SHOPPING
+            listOf("剧场", "电影院", "演出", "体育休闲").any(type::contains) -> PlaceCategory.ENTERTAINMENT
+            listOf("街区", "步行街").any(type::contains) -> PlaceCategory.NEIGHBORHOOD
             listOf("风景名胜", "地名地址", "交通设施").any(type::contains) -> PlaceCategory.LANDMARK
             else -> PlaceCategory.OTHER
         }

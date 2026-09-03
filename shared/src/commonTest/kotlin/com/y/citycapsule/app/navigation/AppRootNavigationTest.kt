@@ -15,10 +15,12 @@ class AppRootNavigationTest {
     fun everyRootUsesItsRealDefaultPageAndStablePagerIndex() {
         assertEquals(AppRoute.Home, AppRootTab.EXPLORE.route)
         assertEquals(AppRoute.Timeline, AppRootTab.RECORD.route)
+        assertEquals(AppRoute.LocalRoutes, AppRootTab.ROAM.route)
         assertEquals(AppRoute.Profile, AppRootTab.PROFILE.route)
-        assertEquals(AppRootTab.entries, (0..2).map(AppRootTab::fromPageIndex))
+        assertEquals(AppRootTab.entries, (0..3).map(AppRootTab::fromPageIndex))
         assertEquals(AppRootTab.EXPLORE, AppRootTab.fromInitialRouteValue("home"))
         assertEquals(AppRootTab.RECORD, AppRootTab.fromInitialRouteValue("timeline"))
+        assertEquals(AppRootTab.ROAM, AppRootTab.fromInitialRouteValue("local_routes"))
         assertEquals(AppRootTab.PROFILE, AppRootTab.fromInitialRouteValue("profile"))
     }
 

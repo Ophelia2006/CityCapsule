@@ -52,7 +52,9 @@ class StorageContractTest {
         assertEquals(StorageStore.PREFERENCES, AppStorageKeys.Roaming.SESSION.store)
         assertEquals("roaming.track", AppStorageKeys.Roaming.TRACK.wireKey)
         assertEquals("roaming.check_ins", AppStorageKeys.Roaming.CHECK_INS.wireKey)
-        assertEquals(14, AppStorageKeys.all.size)
+        assertEquals("roaming.history", AppStorageKeys.Roaming.HISTORY.wireKey)
+        assertEquals("settings.map_privacy_accepted", AppStorageKeys.Settings.MAP_PRIVACY_ACCEPTED.wireKey)
+        assertEquals(16, AppStorageKeys.all.size)
     }
 
     @Test

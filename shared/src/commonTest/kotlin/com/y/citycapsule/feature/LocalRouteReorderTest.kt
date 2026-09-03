@@ -21,4 +21,10 @@ class LocalRouteReorderTest {
         assertSame(ids, reorderPlaceIds(ids, 0, 2))
         assertSame(ids, reorderPlaceIds(ids, 1, 1))
     }
+
+    @Test
+    fun cityComparisonNormalizationAcceptsMunicipalitySuffix() {
+        assertEquals("杭州", normalizeCity(" 杭州市 "))
+        assertEquals("杭州", normalizeCity("杭州"))
+    }
 }

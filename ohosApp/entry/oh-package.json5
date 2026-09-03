@@ -1,9 +1,9 @@
 {
   "name": "entry",
   "version": "1.0.0",
-  "description": "Please describe the basic information.",
+  "description": "CityCapsule HarmonyOS entry module.",
   "main": "",
-  "author": "",
+  "author": "CityCapsule",
   "license": "",
   "dependencies": {
     "@kuikly-open/render": "2.23.2",

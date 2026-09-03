@@ -1,5 +1,7 @@
 # P0-3A AppShell 验收
 
+> 历史验收文档：此清单形成于三根 AppShell 阶段。当前已由 ADR-036 扩展为“探索 / 记录 / 漫游 / 我的”四根，并改用即时 `scrollToPage`；执行新回归时以 `CURRENT_STATE.md` 和 `TODO.md` 顶部清单为准。
+
 ## 验收边界
 
 本轮验收单一 `AppShellPage`、唯一 Bottom Navigation、三个根内容的程序化 Pager 切换与状态保留。根 Pager 的手指左右滑动、Record 内部 HorizontalPager、Home/Profile 视觉重构不属于本轮。

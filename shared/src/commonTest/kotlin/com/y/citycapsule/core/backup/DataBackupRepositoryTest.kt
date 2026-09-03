@@ -10,6 +10,9 @@ import com.y.citycapsule.core.capsule.CityCapsule
 import com.y.citycapsule.core.place.PlaceContract
 import com.y.citycapsule.core.place.PlaceSeedData
 import com.y.citycapsule.core.place.PlaceSource
+import com.y.citycapsule.core.roaming.RoamingHistoryCatalog
+import com.y.citycapsule.core.roaming.RoamingMode
+import com.y.citycapsule.core.roaming.RoamingRecord
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -17,12 +20,12 @@ import kotlin.test.assertTrue
 
 class DataBackupRepositoryTest {
     @Test
-    fun currentBackupRequiresV9ReaderSoLegacyReadersRejectIt() {
+    fun currentBackupRequiresV10ReaderSoLegacyReadersRejectIt() {
         val payload = JSONObject(awaitSnapshot(DataBackupRepository(InMemoryKeyValueStore())).payload)
 
-        assertEquals(9, payload.optInt("backupVersion"))
-        assertEquals(9, payload.optInt("schemaVersion"))
-        assertEquals(9, payload.optInt("minReaderVersion"))
+        assertEquals(10, payload.optInt("backupVersion"))
+        assertEquals(10, payload.optInt("schemaVersion"))
+        assertEquals(10, payload.optInt("minReaderVersion"))
         assertTrue(payload.optInt("backupVersion") != 1)
     }
 
@@ -31,6 +34,9 @@ class DataBackupRepositoryTest {
         val storage = InMemoryKeyValueStore()
         put(storage, AppStorageKeys.Settings.THEME_MODE, ThemeMode.DARK)
         put(storage, AppStorageKeys.Onboarding.COMPLETED_VERSION, 3L)
+        put(storage, AppStorageKeys.Roaming.HISTORY, RoamingHistoryCatalog(records = listOf(
+            RoamingRecord("session-1", RoamingMode.FREE, startedAtEpochMs = 10L, endedAtEpochMs = 20L)
+        )))
         put(storage, AppStorageKeys.Onboarding.DRAFT, AppStorageKeys.Onboarding.DRAFT.defaultValue)
         val repository = DataBackupRepository(storage)
 
@@ -46,6 +52,7 @@ class DataBackupRepositoryTest {
         assertIs<BackupDataResult.Success<Unit>>(restore)
         assertEquals(ThemeMode.DARK, get(storage, AppStorageKeys.Settings.THEME_MODE))
         assertEquals(3L, get(storage, AppStorageKeys.Onboarding.COMPLETED_VERSION))
+        assertEquals("session-1", get(storage, AppStorageKeys.Roaming.HISTORY).records.single().id)
         assertTrue(read(storage, AppStorageKeys.Onboarding.DRAFT) === StorageResult.Missing)
         assertTrue(!snapshot.payload.contains(AppStorageKeys.Onboarding.DRAFT.wireKey))
     }
@@ -73,7 +80,7 @@ class DataBackupRepositoryTest {
     fun previewRejectsBackupThatRequiresANewerReader() {
         val repository = DataBackupRepository(InMemoryKeyValueStore())
         val payload = JSONObject(awaitSnapshot(repository).payload).apply {
-            put("minReaderVersion", 10)
+            put("minReaderVersion", 11)
         }.toString()
 
         val result = awaitPreviewResult(

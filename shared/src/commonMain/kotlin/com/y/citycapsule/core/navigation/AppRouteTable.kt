@@ -9,6 +9,7 @@ object AppRouteTable {
     const val PARAM_INITIAL_ROOT_TAB = "initialRootTab"
     const val PARAM_ROUTE_ID = "routeId"
     const val PARAM_ROAMING_SESSION_ID = "roamingSessionId"
+    const val PARAM_ROAMING_RECORD_ID = "recordId"
 
     const val ROUTE_LAUNCH_GATE = "launch_gate"
     const val ROUTE_ONBOARDING = "onboarding"
@@ -21,6 +22,7 @@ object AppRouteTable {
     const val ROUTE_LOCAL_ROUTES = "local_routes"
     const val ROUTE_LOCAL_ROUTE_EDITOR = "local_route_editor"
     const val ROUTE_ROAMING_SESSION = "roaming_session"
+    const val ROUTE_ROAMING_HISTORY = "roaming_history"
     const val ROUTE_CAPSULE_EDITOR = "capsule_editor"
     const val ROUTE_CAPSULE_DETAIL = "capsule_detail"
     const val ROUTE_TIMELINE = "timeline"
@@ -43,6 +45,7 @@ object AppRouteTable {
     const val PAGE_LOCAL_ROUTES = "local_routes"
     const val PAGE_LOCAL_ROUTE_EDITOR = "local_route_editor"
     const val PAGE_ROAMING_SESSION = "roaming_session"
+    const val PAGE_ROAMING_HISTORY = "roaming_history"
     const val PAGE_CAPSULE_EDITOR = "capsule_editor"
     const val PAGE_CAPSULE_DETAIL = "capsule_detail"
     const val PAGE_TIMELINE = "timeline"
@@ -90,6 +93,7 @@ object AppRouteTable {
         AppRoute.LocalRoutes -> kuikly(action, ROUTE_LOCAL_ROUTES, PAGE_LOCAL_ROUTES)
         is AppRoute.LocalRouteEditor -> kuikly(action, ROUTE_LOCAL_ROUTE_EDITOR, PAGE_LOCAL_ROUTE_EDITOR, optionalParams(PARAM_ROUTE_ID to route.routeId))
         is AppRoute.RoamingSession -> kuikly(action, ROUTE_ROAMING_SESSION, PAGE_ROAMING_SESSION, optionalParams(PARAM_ROUTE_ID to route.routeId))
+        is AppRoute.RoamingHistory -> kuikly(action, ROUTE_ROAMING_HISTORY, PAGE_ROAMING_HISTORY, optionalParams(PARAM_ROAMING_RECORD_ID to route.recordId))
         is AppRoute.CapsuleEditor -> kuikly(
             action = action,
             routeKey = ROUTE_CAPSULE_EDITOR,
@@ -154,6 +158,7 @@ object AppRouteTable {
         AppRouteKey.LOCAL_ROUTES -> ROUTE_LOCAL_ROUTES
         AppRouteKey.LOCAL_ROUTE_EDITOR -> ROUTE_LOCAL_ROUTE_EDITOR
         AppRouteKey.ROAMING_SESSION -> ROUTE_ROAMING_SESSION
+        AppRouteKey.ROAMING_HISTORY -> ROUTE_ROAMING_HISTORY
         AppRouteKey.CAPSULE_EDITOR -> ROUTE_CAPSULE_EDITOR
         AppRouteKey.CAPSULE_DETAIL -> ROUTE_CAPSULE_DETAIL
         AppRouteKey.TIMELINE -> ROUTE_APP_SHELL
@@ -177,6 +182,7 @@ object AppRouteTable {
         AppRouteKey.LOCAL_ROUTES -> RouteDestination.Kuikly(PAGE_LOCAL_ROUTES)
         AppRouteKey.LOCAL_ROUTE_EDITOR -> RouteDestination.Kuikly(PAGE_LOCAL_ROUTE_EDITOR)
         AppRouteKey.ROAMING_SESSION -> RouteDestination.Kuikly(PAGE_ROAMING_SESSION)
+        AppRouteKey.ROAMING_HISTORY -> RouteDestination.Kuikly(PAGE_ROAMING_HISTORY)
         AppRouteKey.CAPSULE_EDITOR -> RouteDestination.Kuikly(PAGE_CAPSULE_EDITOR)
         AppRouteKey.CAPSULE_DETAIL -> RouteDestination.Kuikly(PAGE_CAPSULE_DETAIL)
         AppRouteKey.TIMELINE -> RouteDestination.Kuikly(PAGE_APP_SHELL)

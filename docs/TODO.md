@@ -1,5 +1,53 @@
 ﻿# CityCapsule 待办
 
+## 当前 P0 / P1 收口（2026-09-03）
+
+以下清单优先于后面的历史待办；历史条目用于追溯，不代表仍未实现。
+
+### P0
+
+- [x] 修正 AppShell 架构守卫，使其验证当前即时 `scrollToPage`、禁用根手势、无壳内 route replace 的真实约束。
+- [x] 增加 shared → Android → HarmonyOS capability 注册一致性门禁，并覆盖双端高德地图 Native View 注册。
+- [x] 运行 shared 单测；2026-09-03 通过。
+- [x] 运行 Android 全量 JVM 单测并构建 Debug APK；2026-09-03 通过。
+- [ ] 补齐本机 DevEco SDK 缺失组件后重跑 HarmonyOS entry test、arm64 链接与 signed Debug HAP；当前为环境阻塞，不是已确认源码失败。
+- [ ] 按现有验收文档完成 Android/HarmonyOS 真机异常矩阵：权限允许/拒绝/永久拒绝、弱网/断网、定位超时、媒体取消/失败、存储不足、杀进程恢复、地图反复进入退出、旧数据升级、损坏/超大备份。
+
+### P1
+
+- [x] 工程只 include 真实存在的 `androidApp` 与 `shared` Gradle 模块；H5/小程序不再形成幽灵工程声明。
+- [x] Android 图片栈统一为 Glide，移除无代码引用的 Picasso。
+- [x] HarmonyOS 产品 host 不再注册 Kuikly 示例 `KRMyModule/KRMyView`；示例文件暂留源码，不进入产品运行表。
+- [x] Android/HarmonyOS 清理 Demo 应用名、vendor、模块描述；Android 增加可用的应用图标资源。
+- [x] 明确 KMP hierarchy 与 Windows 禁用 target 配置；第三方 Kuikly/KSP 和 Gradle 9 警告保留为插件升级任务。
+- [x] 将 AGENTS、CURRENT_STATE、IA、用户流程和 UI 文档同步到四 Tab 与已落地的平台能力。
+- [ ] 双端真机关闭 UI/UX 验收：大字体/读屏/触控区、横屏与平板、自适应双栏、长列表拖拽、图片比例与滚动性能。
+- [ ] 如要形成可复现发布候选，再单独确定 targetSdk/签名/混淆/版本策略；项目明确不做真实上架时不把商店合规列为本轮阻塞。
+
+## 历史待办与验收记录
+
+- `[DONE code+shared automation/PARTIAL HarmonyOS performance acceptance 2026-09-02]` Explore 独立 Lazy item 改造、基于真实可见 key 的末 3 项预取、固定 Footer、请求代次、同页幂等、旧前缀保持及失败显式重试已完成；进程内 32 页/10 分钟 LRU 保持不变。按 `P1_EXPLORE_ACCEPTANCE.md` 在同一鸿蒙真机对比连续 3 页的 FPS、卡顿率、最大连续丢帧和分页锚点位移，并复验同一查询缓存命中、TTL、切城市/位置/页码不串缓存。
+- `[FIXED code+automation/PARTIAL HarmonyOS device 2026-08-31]` 无真实道路结果不再绘制景点直线；自动规划失败停留在路线编辑页，不进入按路线漫游。真机复验真实道路成功后才出现折线并可出发；断网、无 Key、配额耗尽均不得显示或保存伪道路。
+- `[DONE code+automation/PARTIAL dual device 2026-08-31]` 漫游根页最近记忆卡从同一漫游关联的最新带图城市碎片读取封面；复验有图、无图、文件丢失及多次漫游不串图。
+
+## 2026-08-29 探索、地图与根导航验收
+
+- `[Code Scan][DONE code+shared automation/PARTIAL dual device]` 应用级地图同意、在线地点 12 条增量预取、地标/古迹/全部在线结果修复、四根 Tab 与 Profile ⚙️ 菜单已实现。双端验收：首次地图同意后依次进入 Explore/路线/实时漫游/回顾不再提示；冷启动后仍保持；定位权限仍只在主动定位时出现；每类连续加载至少 3 页并验证去重、末页、断网重试、快速切分类不串页；四 Tab 状态与二级页返回正确。
+
+## 2026-08-24 本轮回归验收
+
+- `[UI/UX Redesign][DONE code+automation+dual build/PARTIAL device 2026-08-29]` 路线编辑添加候选已限定当前探索城市，Store 同步拒绝跨城 `AddPlace`；规划及开始/继续漫游操作已前移。双端验收：分别选择杭州/上海后进入编辑页，候选只出现对应城市；页面仍在返回栈时切换城市后候选刷新；旧跨城路线地点保留且可手动移除；新建路线保存后开始漫游、活动会话继续入口均正常。
+
+- `[Code Scan][P0]` 在 Android 设备确认 Debug APK 覆盖安装后，连续打开/返回首页“想去”地点至少 30 次并停留 5 分钟，确认 crash buffer 不再出现 `Canvas: trying to use a recycled bitmap`。
+- `[Code Scan][P0]` HarmonyOS 验收 Home/Explore/Timeline → Place/Capsule Detail → 返回，确认回到来源页而不是退出应用；同时验证连续 push/back 后业务路由栈无丢项。
+- `[Code Scan][P0]` 建立路线 A/B，启动 A 后从 B 入口再次进入漫游，确认标题、Marker、打卡列表仍只显示活动会话 A 的地点。
+- `[UI/UX Redesign][P1]` 验收地点详情追加到路线：已有、重复、20 地点上限、无路线四种状态。
+- `[UI/UX Redesign][P1]` 验收按路线/自由漫游选点：路线优先、附近优先与全量选择；当前是有序全量列表，地点数增长后再增加搜索。
+- `[UI/UX Redesign][P0 device]` 双端真机验收漫游回顾：真实轨迹分片、计划/实际双折线、地图同意/拒绝、无轨迹降级、本地开始结束时间、沿途碎片、精选封面 fallback 与系统分享面板。
+- `[Code Scan][P2]` 若要求分享为一张可保存图片，新增双端离屏渲染/截图和临时文件清理；当前完成的是产品内卡片预览 + 真实数据系统文本分享。
+- `[Code Scan][DONE code+automation+dual build/PARTIAL live API+device 2026-08-25]` 真实步行路线规划：手动顺序逐段道路规划、距离/时长/折线、2–8 地点道路距离推荐顺序、明确采用及无直线降级已完成。使用双端真实 Web Key 验收西湖跨岸、无可步行道路、超时、断网、无 Key、连续重算、页面退出回调和高德配额后关闭。
+- `[UI/UX Redesign][DONE code/PARTIAL device 2026-08-25]` Home 推荐地图同页最多展示 5 个类别 Emoji + 地点，点击同步 Marker 选择并进入详情；完成 Android/HarmonyOS 小屏、字体与 Marker 交互验收。
+
 ## 2026-08-20 P1 产品能力检查点
 
 - `[Code Scan][P0 verification]` Pura 80 启动 SIGABRT 已按 faultlogger 根因增加 Kuikly native 预加载并成功构建/安装；设备解锁后验证首次启动、连续 20 次冷启动、前后台切换及 faultlogger 不再新增 `cppcrash-com.y.citycapsule-*`。
@@ -51,6 +99,9 @@
 
 ## P1：补齐基础版探索与本地数据完整性
 
+- `[Code Scan][DONE code+shared automation+dual build/PARTIAL device 2026-08-24]` 漫游×想去×城市碎片×回顾闭环：想去优先选点、到达移除/撤销、碎片精确关联、有界历史归档、Record 回顾入口、会话覆盖保护和备份 v10 已实现。Android APK 与 HarmonyOS signed HAP 已重建，按 `P2_7_END_TO_END_ACCEPTANCE.md` 完成双端证据矩阵。
+- `[Code Scan][DONE code+automation+dual build/PARTIAL device 2026-08-24]` 漫游创建碎片前选点（默认最近景点）、全量轨迹文件、当前位置和双端高德实时 Polyline 已实现；完成双端实际移动、长轨迹、地图拒绝/无 Key/断网/生命周期验收。
+- `[Initial Plan][NOT_STARTED]` 若要在锁屏、长时切到外部导航/相机或系统回收后仍无缺口记录，单独实现 Android 前台定位服务与 HarmonyOS 长时任务/后台定位，并补权限、通知、耗电和异常恢复决策。
 - `[Code Scan][DONE code+automation/PARTIAL device 2026-08-20]` 路线拖拽修正：稳定 `placeId` 身份、把手随卡片移动、整卡选中色、取消反向页面滚动、持续边界自动滚动已实现；在双端使用超过一屏的路线验收向上/向下拖动、长名称不换行回归、边界滚动及保存后顺序。
 - `[Code Scan][DONE code+automation/PARTIAL device 2026-08-20]` 探索城市修正：动态定位城市可确认、持久化并迁移，Explore 左上标题区打开选择器，选中项使用勾选/品牌色/加粗。在双端验收西安确认后标题即时更新、重启恢复，以及“暂无内容”降级。
 - `[Code Scan][DONE code+automation/PARTIAL device 2026-08-20]` Home 与 Explore 共享动态城市上下文；Home 左上可切换城市，无本地内容时两页按需请求高德 POI 在线候选。双端验收西安切换、Home 不再回退上海、弱网/无 Key 降级、Explore 确认导入及重启后本地显示。

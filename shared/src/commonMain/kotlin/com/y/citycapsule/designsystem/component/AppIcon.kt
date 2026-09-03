@@ -24,10 +24,10 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 
 /** Small, deliberately finite icon vocabulary used by the first product flows. */
 enum class AppIconName(val glyph: String) {
-    BACK("‹"), SEARCH("⌕"), EXPLORE("◇"), RECORD("□"), PROFILE("○"),
+    BACK("‹"), SEARCH("⌕"), EXPLORE("◇"), RECORD("□"), ROAM("⌁"), PROFILE("○"),
     FAVORITE("♡"), FAVORITE_FILLED("♥"), LOCATION("⌖"), ADD("＋"),
     MORE("…"), DRAG("≡"), CLOSE("×"), FORWARD("›"), PHOTO("▧"), RETRY("↻"), CHECK("✓"),
-    SETTINGS("⚙")
+    SETTINGS("⚙️")
 }
 
 @Composable

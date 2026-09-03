@@ -254,5 +254,5 @@ Primary 是打开地点；心形为即时移出动作，须可恢复或明确反
 - 筛选与权限解释用 Bottom Sheet；危险删除用确认 Dialog；低频管理用 Overflow Menu。
 - Card 整体点击进入详情；心形、溢出等独立图标需独立触控区和语义标签。
 - Bottom Navigation 只由单一 AppShell 创建一次；Home、Record 根内容和 Profile Overview 共享它。详情与操作页位于 AppShell 外，不显示底栏。Record 的 Timeline/Gallery 两种内部视图共享同一外层底栏。
-- “探索 / 记录 / 我的”位于单一 AppShell；点击驱动 `animateScrollToPage`，重复点击当前 Tab 为 no-op，根 Pager 暂不支持手指左右滑动。
+- “探索 / 记录 / 漫游 / 我的”位于单一 AppShell；点击驱动 `scrollToPage` 即时切换，重复点击当前 Tab 为 no-op，根 Pager 暂不支持手指左右滑动。
 - “列表 / 地图”和“时间轴 / 相册”是各自 Feature 容器内的同级视图状态，不使用页面出入栈。Record 当前只实现 segmented control 点击切换；TabRow + HorizontalPager 左右滑动属于 P0-3B Target。进入地点详情或碎片详情才属于层级导航。

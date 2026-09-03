@@ -310,10 +310,7 @@ private fun CapsuleEditorContent(
     AppCaptionText("点击右上角“完成”，保存到你的城市记忆。")
 }
 
-internal fun CapsuleMood.displayName(): String = when (this) {
-    CapsuleMood.HAPPY -> "开心"; CapsuleMood.CALM -> "平静"; CapsuleMood.SURPRISED -> "惊喜"
-    CapsuleMood.MELANCHOLY -> "低落"; CapsuleMood.ENERGETIC -> "充满活力"
-}
+internal fun CapsuleMood.displayName(): String = "$emoji  $displayName"
 
 internal fun completeCapsuleEditorNavigation(
     editingCapsuleId: String?,

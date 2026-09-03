@@ -37,10 +37,15 @@ import com.y.citycapsule.core.navigation.ExternalNavigationResult
 import com.y.citycapsule.core.navigation.KuiklyExternalNavigationCapability
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.AmapPlaceRemoteDataSource
+import com.y.citycapsule.core.place.CachingPlaceRemoteDataSource
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.place.LocalPlacePhotoCacheRepository
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.RepositoryPlaceMediaCleanup
 import com.y.citycapsule.core.place.PlaceMediaCleanup
+import com.y.citycapsule.core.route.DefaultLocalRouteRepository
+import com.y.citycapsule.core.route.LocalRoute
+import com.y.citycapsule.core.storage.StorageResult
 import com.y.citycapsule.core.media.KuiklyManagedMediaFiles
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.core.capsule.CapsuleRepository
@@ -51,6 +56,7 @@ import com.y.citycapsule.designsystem.component.AppBodyText
 import com.y.citycapsule.designsystem.component.AppActionTopBar
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
+import com.y.citycapsule.designsystem.component.AppBottomSheet
 import com.y.citycapsule.designsystem.component.AppConfirmDialog
 import com.y.citycapsule.designsystem.component.AppFixedHeaderScaffold
 import com.y.citycapsule.designsystem.component.AppSecondaryText
@@ -79,8 +85,9 @@ internal class PlaceDetailPager : BasePager() {
         val storage = KuiklyKeyValueStore(this)
         val placeRepository = LocalPlaceRepository(storage)
         val favoriteRepository = LocalFavoriteRepository(storage, placeRepository)
+        val routeRepository = DefaultLocalRouteRepository(storage, placeRepository)
         val capsuleRepository = LocalCapsuleRepository(storage)
-        val remoteDataSource = AmapPlaceRemoteDataSource(this)
+        val remoteDataSource = CachingPlaceRemoteDataSource(AmapPlaceRemoteDataSource(this))
         val photoCacheRepository = LocalPlacePhotoCacheRepository(storage)
         val themeHost = KuiklyAppThemeHost(this)
         setContent {
@@ -89,6 +96,7 @@ internal class PlaceDetailPager : BasePager() {
                 navigator,
                 placeRepository,
                 favoriteRepository,
+                routeRepository,
                 capsuleRepository,
                 RepositoryPlaceMediaCleanup(placeRepository, capsuleRepository, KuiklyManagedMediaFiles(this)),
                 remoteDataSource,
@@ -108,9 +116,10 @@ private fun PlaceDetailScreen(
     navigator: AppNavigator,
     placeRepository: LocalPlaceRepository,
     favoriteRepository: LocalFavoriteRepository,
+    routeRepository: DefaultLocalRouteRepository,
     capsuleRepository: CapsuleRepository,
     mediaCleanup: PlaceMediaCleanup,
-    remoteDataSource: AmapPlaceRemoteDataSource,
+    remoteDataSource: PlaceRemoteDataSource,
     photoCacheRepository: LocalPlacePhotoCacheRepository,
     dateFormatter: KuiklyLocalCapsuleDateFormatter,
     externalNavigation: ExternalNavigationCapability,
@@ -120,6 +129,10 @@ private fun PlaceDetailScreen(
     var uiState by remember { mutableStateOf(PlaceDetailUiState()) }
     var menuExpanded by remember { mutableStateOf(false) }
     var navigationMessage by remember { mutableStateOf<String?>(null) }
+    var routePickerVisible by remember { mutableStateOf(false) }
+    var routes by remember { mutableStateOf<List<LocalRoute>>(emptyList()) }
+    var routeMessage by remember { mutableStateOf<String?>(null) }
+    var addingToRoute by remember { mutableStateOf(false) }
     val invalidationOwner = remember { PlaceFeatureRuntime.newOwnerToken() }
     val holder = remember(placeId, placeRepository, favoriteRepository, capsuleRepository, mediaCleanup, remoteDataSource, photoCacheRepository) {
         PlaceDetailStateHolder(
@@ -223,6 +236,23 @@ private fun PlaceDetailScreen(
                         AppStatusMessage(message)
                     }
                 }
+                Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+                AppButton(
+                    text = "添加到漫游路线",
+                    variant = AppButtonVariant.SECONDARY,
+                    enabled = !addingToRoute,
+                    onClick = {
+                        routeMessage = null
+                        routeRepository.getCatalog { result ->
+                            routes = (result as? StorageResult.Success)?.value?.routes.orEmpty()
+                            routePickerVisible = true
+                        }
+                    }
+                )
+                routeMessage?.let { message ->
+                    Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+                    AppStatusMessage(message)
+                }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     AppBodyText(if (uiState.favorite) "已加入想去" else "想去")
@@ -300,6 +330,47 @@ private fun PlaceDetailScreen(
             },
             onDismiss = { menuExpanded = false }
         )
+
+        AppBottomSheet(
+            visible = routePickerVisible,
+            title = "添加到漫游路线",
+            onDismiss = { if (!addingToRoute) routePickerVisible = false },
+            dismissLabel = "取消"
+        ) {
+            if (routes.isEmpty()) {
+                AppSecondaryText("还没有漫游路线，请先在“我的路线”中新建路线。")
+                Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+                AppButton(
+                    text = "新建路线",
+                    variant = AppButtonVariant.SECONDARY,
+                    onClick = {
+                        routePickerVisible = false
+                        navigator.navigate(AppRoute.LocalRouteEditor())
+                    }
+                )
+            } else {
+                routes.forEach { route ->
+                    val alreadyAdded = placeId in route.orderedPlaceIds
+                    AppButton(
+                        text = if (alreadyAdded) "${route.name} · 已添加" else route.name,
+                        variant = AppButtonVariant.TEXT,
+                        enabled = !addingToRoute && !alreadyAdded,
+                        onClick = {
+                            addingToRoute = true
+                            routeRepository.update(route.copy(orderedPlaceIds = route.orderedPlaceIds + placeId)) { result ->
+                                addingToRoute = false
+                                routePickerVisible = false
+                                routeMessage = if (result is StorageResult.Success) {
+                                    "已添加到“${route.name}”。"
+                                } else {
+                                    "添加失败，请检查路线地点数量后重试。"
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
 
         if (uiState.showDeleteConfirmation) {
             AppConfirmDialog(

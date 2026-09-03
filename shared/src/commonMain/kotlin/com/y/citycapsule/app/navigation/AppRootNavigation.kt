@@ -6,7 +6,7 @@ import androidx.compose.runtime.setValue
 import com.y.citycapsule.core.navigation.AppRoute
 import com.y.citycapsule.core.navigation.AppRouteTable
 
-/** The three product roots shown in the primary navigation. */
+/** The four product roots shown in the primary navigation. */
 enum class AppRootTab(
     val id: String,
     val route: AppRoute,
@@ -14,13 +14,15 @@ enum class AppRootTab(
 ) {
     EXPLORE("explore", AppRoute.Home, 0),
     RECORD("record", AppRoute.Timeline, 1),
-    PROFILE("profile", AppRoute.Profile, 2);
+    ROAM("roam", AppRoute.LocalRoutes, 2),
+    PROFILE("profile", AppRoute.Profile, 3);
 
     companion object {
         fun fromId(id: String): AppRootTab? = entries.firstOrNull { it.id == id }
         fun fromInitialRouteValue(value: String): AppRootTab? = when (value) {
             AppRouteTable.ROUTE_HOME -> EXPLORE
             AppRouteTable.ROUTE_TIMELINE -> RECORD
+            AppRouteTable.ROUTE_LOCAL_ROUTES -> ROAM
             AppRouteTable.ROUTE_PROFILE -> PROFILE
             else -> fromId(value)
         }
@@ -54,6 +56,7 @@ fun com.y.citycapsule.core.navigation.AppNavigator.backToRoot(tab: AppRootTab) {
         when (tab) {
             AppRootTab.EXPLORE -> com.y.citycapsule.core.navigation.AppRouteKey.HOME
             AppRootTab.RECORD -> com.y.citycapsule.core.navigation.AppRouteKey.TIMELINE
+            AppRootTab.ROAM -> com.y.citycapsule.core.navigation.AppRouteKey.HOME
             AppRootTab.PROFILE -> com.y.citycapsule.core.navigation.AppRouteKey.PROFILE
         }
     )

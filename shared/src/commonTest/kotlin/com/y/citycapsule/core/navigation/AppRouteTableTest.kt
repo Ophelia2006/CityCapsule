@@ -127,6 +127,16 @@ class AppRouteTableTest {
     }
 
     @Test
+    fun roamingHistoryOnlyPassesOptionalRecordId() {
+        val list = AppRouteTable.resolve(AppRoute.RoamingHistory())
+        val detail = AppRouteTable.resolve(AppRoute.RoamingHistory("session-1"))
+
+        assertEquals(RouteDestination.Kuikly(AppRouteTable.PAGE_ROAMING_HISTORY), list.destination)
+        assertEquals(emptyMap(), list.params)
+        assertEquals(mapOf(AppRouteTable.PARAM_ROAMING_RECORD_ID to "session-1"), detail.params)
+    }
+
+    @Test
     fun recordRoutesUseStablePagesAndOnlyPassIdentifiers() {
         val editor = AppRouteTable.resolve(
             AppRoute.CapsuleEditor(capsuleId = "capsule-1", placeId = "place-1")

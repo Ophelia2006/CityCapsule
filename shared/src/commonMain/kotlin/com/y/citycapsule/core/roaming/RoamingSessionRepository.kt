@@ -30,13 +30,19 @@ class LocalRoamingSessionRepository(
     override fun start(routeId: String?, callback: StorageCallback<RoamingSession>) {
         val normalizedId = routeId?.trim()?.takeIf(String::isNotEmpty)
         enqueue { done ->
-            val persist = {
-                val session = RoamingSession(normalizedId, now(), status = RoamingStatus.ACTIVE)
-                write(session, callback, done)
-            }
-            if (normalizedId == null) persist() else routes.getCatalog { result ->
-                if (result is StorageResult.Success && result.value.routes.any { it.id == normalizedId }) persist()
-                else deliver(callback, invalid("Roaming route is unavailable."), done)
+            get { current ->
+                if (current is StorageResult.Success && current.value.status != RoamingStatus.ENDED) {
+                    deliver(callback, invalid("An active roaming session already exists."), done)
+                    return@get
+                }
+                val persist = {
+                    val session = RoamingSession(normalizedId, now(), status = RoamingStatus.ACTIVE)
+                    write(session, callback, done)
+                }
+                if (normalizedId == null) persist() else routes.getCatalog { result ->
+                    if (result is StorageResult.Success && result.value.routes.any { it.id == normalizedId }) persist()
+                    else deliver(callback, invalid("Roaming route is unavailable."), done)
+                }
             }
         }
     }

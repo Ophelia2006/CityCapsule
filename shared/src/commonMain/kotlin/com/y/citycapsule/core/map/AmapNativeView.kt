@@ -84,6 +84,19 @@ internal fun encodeMapState(state: ExploreMapViewState): String = JSONObject().a
         })
     }
     put("showCurrentLocation", state.showCurrentLocation)
+    put("trackPoints", JSONArray().also { array ->
+        MapTrackDisplayPolicy.sample(state.trackPoints).forEach { point ->
+            array.put(JSONObject().apply {
+                put("latitude", point.latitude)
+                put("longitude", point.longitude)
+            })
+        }
+    })
+    put("plannedTrackPoints", JSONArray().also { array ->
+        MapTrackDisplayPolicy.sample(state.plannedTrackPoints).forEach { point ->
+            array.put(JSONObject().apply { put("latitude", point.latitude); put("longitude", point.longitude) })
+        }
+    })
 }.toString()
 
 internal fun decodeMapEvent(encoded: String): MapViewEvent? = try {

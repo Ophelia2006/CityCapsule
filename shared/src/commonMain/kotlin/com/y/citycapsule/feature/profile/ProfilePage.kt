@@ -7,6 +7,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.tencent.kuikly.compose.foundation.clickable
 import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.PaddingValues
@@ -49,6 +51,7 @@ import com.y.citycapsule.core.storage.KuiklyKeyValueStore
 import com.y.citycapsule.designsystem.component.AppActionTopBar
 import com.y.citycapsule.designsystem.component.AppAvatarPicker
 import com.y.citycapsule.designsystem.component.AppBodyText
+import com.y.citycapsule.designsystem.component.AppBottomSheet
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppCaptionText
@@ -108,6 +111,7 @@ internal fun ProfileRootContent(
     val placeRevision = PlaceFeatureRuntime.revision
     val initialPlaceRevision = remember { placeRevision }
     val capsuleRevision = CapsuleFeatureRuntime.revision
+    var showProfileMenu by remember { mutableStateOf(false) }
 
     DisposableEffect(store) {
         onDispose(store::dispose)
@@ -157,7 +161,7 @@ internal fun ProfileRootContent(
             Column(modifier = Modifier.fillMaxWidth()) {
                 ProfileOverviewHeader(
                     onSettings = {
-                        store.dispatch(ProfileOverviewIntent.SettingsClicked)
+                        showProfileMenu = true
                     }
                 )
                 uiState.notice?.let { notice ->
@@ -178,17 +182,24 @@ internal fun ProfileRootContent(
                     CityFootprints(uiState)
                     Spacer(Modifier.height(dimensions.spacingXl))
                     WantToPreview(uiState, store::dispatch)
-                    Spacer(Modifier.height(dimensions.spacingXl))
-                    ProfileNavigation(
-                        onEdit = {
-                            store.dispatch(ProfileOverviewIntent.EditProfileClicked)
-                        },
-                        onSettings = {
-                            store.dispatch(ProfileOverviewIntent.SettingsClicked)
-                        }
-                    )
                 }
             }
+        }
+    }
+    AppBottomSheet(
+        visible = showProfileMenu,
+        title = "档案与数据",
+        onDismiss = { showProfileMenu = false },
+        dismissLabel = "关闭"
+    ) {
+        ProfileNavigationRow("编辑个人档案", "头像、昵称、城市和简介") {
+            showProfileMenu = false
+            store.dispatch(ProfileOverviewIntent.EditProfileClicked)
+        }
+        AppDivider()
+        ProfileNavigationRow("数据与设置", "主题、首次引导和危险操作") {
+            showProfileMenu = false
+            store.dispatch(ProfileOverviewIntent.SettingsClicked)
         }
     }
 }

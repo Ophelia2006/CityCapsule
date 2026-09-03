@@ -25,6 +25,8 @@ import com.y.citycapsule.core.theme.ThemeHostProtocol
 import com.y.citycapsule.core.theme.ThemeMode
 import com.y.citycapsule.core.track.KuiklyTrackFiles
 import com.y.citycapsule.core.track.TrackModule
+import com.y.citycapsule.core.share.KuiklyShareCapability
+import com.y.citycapsule.core.share.KuiklyShareModule
 
 internal abstract class BasePager : ComposeContainer() {
     private var nightModel: Boolean? by observable(null)
@@ -41,6 +43,7 @@ internal abstract class BasePager : ComposeContainer() {
         externalModules[KuiklyExternalNavigationCapability.MODULE_NAME] = KuiklyExternalNavigationModule()
         externalModules[AmapPlaceRemoteDataSource.MODULE_NAME] = KuiklyPlaceNetworkModule()
         externalModules[KuiklyTrackFiles.MODULE] = TrackModule()
+        externalModules[KuiklyShareCapability.MODULE] = KuiklyShareModule()
         return externalModules
     }
 

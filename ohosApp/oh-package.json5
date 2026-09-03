@@ -1,10 +1,10 @@
 {
   "modelVersion": "5.0.0",
-  "name": "kuiklydemo",
+  "name": "citycapsule",
   "version": "1.0.0",
-  "description": "Please describe the basic information.",
+  "description": "City exploration and personal city memory application.",
   "main": "",
-  "author": "",
+  "author": "CityCapsule",
   "license": "",
   "dependencies": {
   },

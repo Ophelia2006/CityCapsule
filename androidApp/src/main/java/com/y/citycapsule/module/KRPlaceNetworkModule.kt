@@ -22,6 +22,7 @@ class KRPlaceNetworkModule : KuiklyRenderBaseModule() {
         val url = when (method) {
             METHOD_SEARCH -> searchUrl(request)
             METHOD_REVERSE -> reverseUrl(request)
+            METHOD_WALKING -> walkingUrl(request)
             else -> null
         }
         if (url == null) {
@@ -48,8 +49,8 @@ class KRPlaceNetworkModule : KuiklyRenderBaseModule() {
             "key" to BuildConfig.AMAP_WEB_SERVICE_KEY,
             "output" to "JSON",
             "extensions" to "all",
-            "offset" to "20",
-            "page" to "1"
+            "offset" to request.optInt("pageSize", 12).coerceIn(1, 20).toString(),
+            "page" to request.optInt("page", 1).coerceAtLeast(1).toString()
         )
         if (query.isNotBlank()) params["keywords"] = query
         if (city.isNotBlank()) {
@@ -72,6 +73,18 @@ class KRPlaceNetworkModule : KuiklyRenderBaseModule() {
             "output" to "JSON",
             "extensions" to "base",
             "location" to location
+        ))
+    }
+
+    private fun walkingUrl(request: JSONObject): String {
+        val origin = request.optString("origin").trim()
+        val destination = request.optString("destination").trim()
+        if (origin.isBlank() || destination.isBlank()) return ""
+        return "https://restapi.amap.com/v3/direction/walking?" + encode(linkedMapOf(
+            "key" to BuildConfig.AMAP_WEB_SERVICE_KEY,
+            "output" to "JSON",
+            "origin" to origin,
+            "destination" to destination
         ))
     }
 
@@ -104,5 +117,6 @@ class KRPlaceNetworkModule : KuiklyRenderBaseModule() {
         const val MODULE_NAME = "CCPlaceNetworkModule"
         const val METHOD_SEARCH = "searchPlaces"
         const val METHOD_REVERSE = "reverseGeocode"
+        const val METHOD_WALKING = "walkingRoute"
     }
 }

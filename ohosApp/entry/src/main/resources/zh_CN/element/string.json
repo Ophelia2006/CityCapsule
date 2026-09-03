@@ -2,15 +2,15 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "模块描述"
+      "value": "城市探索与个人城市记录"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "城市胶囊"
     },
     {
       "name": "EntryAbility_label",
-      "value": "kuiklydemo"
+      "value": "城市胶囊"
     },
     {
       "name": "location_permission_reason",

@@ -1,10 +1,14 @@
 # CityCapsule 当前架构
 
+> 2026-09-02 Explore 增量列表结构：`PlaceListPage` 使用 `AppFixedHeaderLazyScaffold`，本地与在线地点分别以 `local:<placeId>`、`online:<providerId>` 成为真正的 Lazy item；分页由 `LazyListState.layoutInfo.visibleItemsInfo` 中最后可见 key 进入末 3 项时触发。`PlaceListStore` 使用查询代次和已请求页集合隔离旧回调、合并重复分页请求，Reducer 只向尾部追加并按 provider ID 去重。
+
 > 2026-08-20 增量：Profile v2 可引用 `images/avatar` 托管方形头像；Capsule v2 增加可选 `roamingSessionId`，由 typed `CapsuleEditor` route 传入并持久化。自由漫游以 500 米生成附近候选、200 米确认 GPS 到达，打卡顺序可转换为本地路线；这些平台相关能力在双端真机验收前仍为 PARTIAL。
 
 > 2026-08-17 增量：一次性定位成功结果只进入 `CurrentLocationRuntime` 进程内状态，供 Explore、地图相机与 Home 距离排序复用，不新增持久化 Key；用户地点显式坐标仍随 Place V3 持久化。地点托管封面删除必须先经 `RepositoryPlaceMediaCleanup` 读取 Place catalog、已发布 Capsule 与草稿的全部引用，任一读取失败即停止删除。
 
 > 2026-08-17 在线地点增量：`Explore UI → PlaceList Intent → PlaceListStore → PlaceRemoteDataSource/ReverseGeocodeCapability → CCPlaceNetworkModule → 高德 Web API`。Android/HarmonyOS 网络模块持有各自本机注入的 Web Key，共享层只收发请求参数和响应，不读取 Key。在线 POI 只有经用户明确选择后才转换为 `PlaceDraft(source=IMPORTED)` 写入 `LocalPlaceRepository`。
+
+> 2026-08-31 在线查询缓存增量：UI 仍只依赖 `PlaceRemoteDataSource`；运行时注入 `CachingPlaceRemoteDataSource → AmapPlaceRemoteDataSource`。缓存是进程内 32 页、10 分钟 TTL 的 LRU，只保存成功的 `RemotePlace` 页，不写 MMKV、不进入备份，也不缓存失败。
 
 ## 范围
 
@@ -58,7 +62,7 @@ Capsule Editor
 - `core/media`：平台无关 Photo Picker 协议与 `CCMediaModule` transport；不依赖 Android/ArkTS 类型。
 - `designsystem`：语义颜色、Typography、Spacing/Radius/Motion token 及共享组件；`AppFixedHeaderScaffold` 提供固定 Header/独立滚动正文，`AppBottomSheet` 提供固定标题与 Footer、中间限高滚动区。旧 `AppScaffold` 的整页滚动语义保留给未迁移页面。
 - `feature/onboarding`、`feature/profile`、`feature/place`、`feature/capsule`：页面及表现层状态；Profile Overview/Editor 与 PlaceList 已使用 MVI Store，其余仍主要是 callback 型 StateHolder；Capsule 包含编辑、详情、时间轴、相册和共享照片组件。
-- `app/navigation`：`AppShellPager/AppShellPage` 是唯一产品根壳；`AppRootScaffold` 只创建一个 Bottom Navigation，根 `HorizontalPager` 常驻 Home、Record、Profile 三个内容树。`AppRootTab` 提供稳定 id、typed 入口别名和 Pager index。
+- `app/navigation`：`AppShellPager/AppShellPage` 是唯一产品根壳；`AppRootScaffold` 只创建一个 Bottom Navigation，根 `HorizontalPager` 常驻 Home、Record、Roam、Profile 四个内容树。Roam 根内容连接活动会话、路线、想去和漫游回顾，具体会话仍是壳外二级页。
 - shared 顶层 `HomePage`、`SettingsPage`：Home 已接正式一级导航但内容仍是早期探索入口；Settings 保留真实主题偏好、首次引导与返回操作，不再承载路由验收入口。
 - `RouterPage`、`ImageAdapterBenchmarks`：明确的开发诊断页，不是产品功能。
 
@@ -160,6 +164,8 @@ PlaceEditorPage(placeId?)
 
 Repository 用内存 mutation queue 串行化本进程内写操作。Place catalog 当前为 schema v3：`PlaceSource` 区分 `SEED/USER/IMPORTED`；公共 `description`、私人 `personalNote`、`contentSource`、`GeoPoint` 与 `PlaceVisualRef` 均有独立字段。codec 可读取 v1/v2：旧 seed note 迁为 description，用户地点 note 迁为 personalNote；seedVersion 升级只刷新/补充精确 seed ID，不删除用户地点。当前内置上海 15 个、杭州 4 个地点；没有已授权真实摄影的 seed 使用类别 fallback。
 
+地点类别仍使用同一 `category` wire 字段，2026-08-25 起细化为可直接呈现的产品类别并附带稳定 Emoji。新增细分类不改变 Place schema；seedVersion v4 只刷新已知 seed 的类别。旧 `culture/food/nature` 继续解码，用于兼容历史用户/导入数据，但新建地点不再提供这些宽泛选项。
+
 ### 城市碎片记录与回忆
 
 ```text
@@ -232,27 +238,28 @@ Feature Page
                   → HMRouter → KuiklyHostPage / 原生骨架页
 ```
 
-业务页面没有直接调用 HMRouter。路由参数传 `placeId`、`capsuleId`、`requestId` 等 ID。AppShell、CapsuleEditor、CapsuleDetail、Gallery 已有真实 `@Page`；Timeline/Profile/Home 已迁为 AppShell 内部内容。MapExplore 仍只有协议，没有页面实现。
+业务页面没有直接调用 HMRouter。路由参数传 `placeId`、`capsuleId`、`requestId` 等 ID。AppShell、CapsuleEditor、CapsuleDetail、Gallery、MapExplore、RoamingSession 与 RoamingHistory 均有真实 `@Page`；Timeline/Profile/Home/Roam 是 AppShell 内部根内容。
 
 ### 正式一级导航
 
 ```text
-AppRoute.Home / Timeline / Profile
+AppRoute.Home / Timeline / Profile + AppRootTab.ROAM
   → 同一 routeKey/pageName: app_shell
-  → initialRootTab: home / timeline / profile
+  → initialRootTab: home / timeline / roam / profile
   → AppShellPage
-     ├─ HorizontalPager(userScrollEnabled = false, beyondViewportPageCount = 2)
+     ├─ HorizontalPager(userScrollEnabled = false, beyondViewportPageCount = 3)
      │  ├─ HomeRootContent + 独立 LazyListState
      │  ├─ RecordRootContent + 独立 LazyListState + RecordRootView
+     │  ├─ RoamingRootContent + 独立 LazyListState
      │  └─ ProfileRootContent + 独立 LazyListState
      └─ 唯一 AppBottomNavigation
-        → 点击其他 Tab：animateScrollToPage(index)
+         → 点击其他 Tab：scrollToPage(index)
         → 重复点击当前 Tab：no-op
 
 二级页面 typed push → 独立 Page/AppScaffold（无底栏）→ back 返回同一 AppShell 实例
 ```
 
-根 Tab 切换不再调用平台 dispatcher，因此不会产生三个原生根 host 或独立 Tab 路由栈。三个 typed 根 route 仍可用于冷启动、外部入口和兼容调用，但统一解析到 `app_shell` 并携带初始 Tab。Android/HarmonyOS 测试覆盖根 Tab 切换不增加原生栈项，以及 push 详情后 back 保留同一 AppShell host。
+根 Tab 切换不再调用平台 dispatcher，因此不会产生四个原生根 host 或独立 Tab 路由栈。Home/Timeline/Profile typed 根 route 仍可用于冷启动、外部入口和兼容调用；Roam 当前是壳内根目标，通过 `AppShellRuntime` 选择。Android/HarmonyOS 测试覆盖根 Tab 切换不增加原生栈项，以及 push 详情后 back 保留同一 AppShell host。
 
 二级页若要回到指定根目标，调用 `backToRoot(AppRootTab)`：`AppShellRuntime` 先把目标 Tab 交给仍存活的壳，再执行 typed `backTo`；若壳已不在原生栈中，`resolveBackTo` 的 fallback request 也携带对应 `initialRootTab`。直接对 HOME/TIMELINE/PROFILE 调用普通 `backTo` 会丢失“返回后选中哪个 Tab”的语义，业务代码不得这样使用。
 
@@ -298,7 +305,7 @@ AppShellPage / RecordRootContent
 ## 平台与网络能力
 
 - Android：Kuikly host 注册媒体、一次性前台定位、外部导航与 `CCAmapView`；地图由高德 Android `MapView` 实现。相册图片复制到 `filesDir/images/original`；仍没有相机能力。
-- HarmonyOS：注册媒体、一次性前台定位、外部导航与 `CCAmapView`；地图由高德 `MapViewComponent` 实现，并必须位于明确全尺寸的 `Stack` 宿主中以保证 Surface 与 Kuikly 稳定合成。Permission/FileImport 页仍是骨架；`KRMyView/KRMyModule/KRBridgeModule` 保留模板/临时代码。
+- HarmonyOS：注册媒体、一次性前台定位、外部导航与 `CCAmapView`；地图由高德 `MapViewComponent` 实现，并必须位于明确全尺寸的 `Stack` 宿主中以保证 Surface 与 Kuikly 稳定合成。Permission/FileImport 页仍是骨架；`KRMyView/KRMyModule` 示例文件不再注册到产品 host，`KRBridgeModule` 仍承载兼容诊断能力。
 - 图片 adapter 的 HTTP 示例只存在于诊断页，不是业务网络层。
 - 没有 OkHttp/Ktor/Retrofit/NetStack 业务封装、RemoteDataSource、天气、地理编码、路线或 AI 调用。
 
@@ -369,7 +376,9 @@ CapsuleEditorPage
 
 ## 本地路线 7A
 
-`Explore → typed AppRoute → LocalRoute Page → LocalRouteStore (MVI) → DefaultLocalRouteRepository → routes.catalog / MMKV`。Repository 在写入前通过 PlaceRepository 校验有序地点 ID；当前不存在在线规划或漫游运行时。
+`Explore → typed AppRoute → LocalRoute Page → LocalRouteStore (MVI) → DefaultLocalRouteRepository → routes.catalog / MMKV`。Repository 在写入前通过 PlaceRepository 校验有序地点 ID；道路规划与漫游运行时见后续 7B 和路线规划链路。
+
+路线编辑器还通过 `ExploreCityRepository` 读取 Home / Explore / Map 共用的当前探索城市。UI 只展示 `Place.city` 与当前城市匹配的可添加地点，Store 在处理 `AddPlace` 时执行相同校验，避免绕过 UI 添加跨城地点；比较时仅统一首尾空白和可选“市”后缀，不做模糊城市推断。旧路线已经保存的跨城地点继续显示并允许用户手动移除，不在读取时静默改写持久数据。`ExploreCityRuntime.revision` 变化会触发路线页重新加载城市上下文。
 
 ## 漫游会话 7B
 
@@ -382,3 +391,41 @@ CapsuleEditorPage
 ## 打卡与总结 7D
 
 定位采样用 `GeoDistance` 判断 150 米附近，只产生“确认到达”候选；用户确认后才写 `roaming.check_ins`。定位中断只允许 `MANUAL` 标记。总结按需读取 Route、RoamingSession、CheckIn、轨迹分片和时间范围内 CityCapsule，不保存伪造或重复的 summary snapshot。
+
+## 漫游回顾与想去联动（2026-08-24）
+
+`RoamingRecord` v2 与 `CityCapsule.roamingSessionId` 是报告事实来源。路线编辑器只在高德步行 API 成功后保存最多 500 点的 `PlannedRouteSnapshot`；漫游结束时固化计划快照、实际 Track 文件路径/距离、到达快照和“到达当时是否想去”。`buildRoamingReport` 只做纯派生：按时间合并到达与碎片，并计算心情/标签摘要、完成想去、临时发现、跳过地点与绕路距离。原始 GPS 点仍在轨迹文件中。
+
+地图契约同时携带计划点和实际点，双端原生高德 View 分别绘制灰色计划线和暖琥珀实际线。共享 `ShareCapability` 进入 Android ACTION_SEND / HarmonyOS Share Kit；当前是产品内卡片预览和系统文本分享，不伪装成尚未生成的图片卡片。
+
+2026-08-30 起，按路线开始漫游以“可用的真实道路快照”为前置条件：已有且顺序一致则直接复用；没有则由 `LocalRouteStore → RoutePlanningRemoteDataSource` 自动规划，成功保存后导航，失败停留并显示真实错误。会话页的下一站只按 `orderedPlaceIds - checkedInPlaceIds` 取首项；往期记忆只读取该地点已发布且不属于当前会话的 Capsule。结束 ACTIVE 会话前尝试一次最终定位采样，但权限/服务失败时仍允许结束，报告按实际点数降级。
+
+```text
+想去 / 路线编辑
+  → LocalRouteStore（想去地点优先）
+  → RoamingSessionStore
+     ├─ 到达确认 → CheckInRepository
+     ├─ 若原为想去 → FavoriteRepository.remove（可撤销）
+     ├─ 留下城市碎片 → CapsuleEditor(placeId, roamingSessionId)
+     └─ 结束 → Track.complete → RoamingHistoryRepository.archive
+  → 记录 / 漫游回顾 → RoamingHistoryPage
+     → 地点到达记录 → 已有 Capsule 详情 / 补记 Capsule
+```
+
+`roaming.history` 保存最多 100 条已结束漫游快照，每条最多 20 个到达地点。快照保存会话类型、路线名与有序地点快照、开始/结束时间、真实轨迹距离、到达方式及轨迹分片路径。快照 ID 继续使用会话 `startedAtEpochMs` 字符串，与现有 Capsule `roamingSessionId` 关联协议一致。结束后或重启读到 `ENDED` 会话时均执行幂等归档，防止“会话已结束、历史未写入”的崩溃窗口。轨迹坐标仍只存文件，MMKV 不保存点集。
+
+2026-08-24 增量：`RoamingSessionStore` 在读取轨迹索引后通过 `TrackFileCapability.readChunks()` 恢复已有点，每次成功采样在文件落盘后再更新 UI State。`ExploreMapViewState.trackPoints` 把 WGS-84 轨迹交给既有 `CCAmapView`；Android 使用 `PolylineOptions`，HarmonyOS 使用等价 `PolylineOptions`，两端都在渲染边界转为高德坐标。文件保留全量点，跨端地图 State 最多等距取 500 个显示点并保留首尾，不改动 Track schema。
+
+漫游页的“留下城市碎片”允许选择当前地点 catalog 中的任意地点：按路线漫游优先排列本次路线地点与附近地点，自由漫游优先排列附近地点，其后补齐已到达地点和全量 catalog。有定位时默认选中最近地点，无附近结果时按路线顺序选择首个地点；确认后只通过 typed `CapsuleEditor(placeId, roamingSessionId)` 进入编辑器。恢复 ACTIVE/PAUSED 会话时，只以会话持久化的 `routeId` 作为当前路线，不能继续使用页面请求携带的另一条 `routeId`。
+
+地点详情可读取本地路线 catalog，并把当前地点 ID 追加到用户选定的已有路线；重复地点不追加，空路线 catalog 引导进入路线编辑页。
+
+当前采样仍由漫游 Kuikly Page 的会话协程驱动，能覆盖页面保持活动时的开始到结束与页内导航。Android 前台服务、HarmonyOS 长时任务/后台定位尚未实现；锁屏、系统回收或长时切到其他 App 时不得宣称无缺口后台轨迹。
+
+2026-08-24 回顾呈现增量：`RoamingHistoryStore → TrackFileCapability.readChunks(trackChunkPaths)` 读取归档记录引用的真实轨迹点，详情页在用户确认地图 SDK 后绘制轨迹，同时聚合 `roamingSessionId == record.id` 的已发布 Capsule，展示时间、时长、距离、到达地点数、碎片数以及带首张照片的碎片卡。轨迹点继续只存在沙箱分片文件中，不复制进 MMKV 历史模型。
+
+本地路线编辑器只持久化用户最终确认的地点顺序，并通过长按拖拽和辅助菜单调整；任何可视路线都必须来自真实道路规划结果，绝不把地点坐标直接连线。
+
+2026-08-25 起路线规划调用链为 `LocalRoute UI → LocalRouteStore → RoutePlanningRemoteDataSource → CCPlaceNetworkModule.walkingRoute → 高德 Web 步行 API → PlannedWalkingRoute → ExploreMapViewState → 双端原生 CCAmapView`。P0 按手动顺序顺序请求相邻地点；P1 仅对 2–8 个地点建立真实道路距离矩阵，固定首点并执行最近邻 + 2-opt。该结果称为“推荐顺序”，不宣称全局最优。规划结果当前只存在 Store State，不写 MMKV 或备份；路线持久层仍只保存用户最终确认的地点 ID 顺序。
+
+Home 探索推荐增加地图入口，最多标记当前本地推荐中的 5 个有坐标地点；地图下方以类别 Emoji + 地点名称展示同页选择项，点击后选中对应 Marker，并可进入地点详情。该入口不再依赖地点多图或缩略图模型。

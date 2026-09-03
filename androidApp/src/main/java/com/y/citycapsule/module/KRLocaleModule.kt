@@ -18,7 +18,7 @@ class KRLocaleModule : KuiklyRenderBaseModule() {
             JSONObject(params ?: "{}").optLong(FIELD_EPOCH_MS, -1L)
         }.getOrDefault(-1L)
         return if (epochMs >= 0L) {
-            LocalDateFormatterEngine.format(epochMs, TimeZone.getDefault())
+            if (JSONObject(params ?: "{}").optString("style") == "dateTime") LocalDateFormatterEngine.formatDateTime(epochMs, TimeZone.getDefault()) else LocalDateFormatterEngine.format(epochMs, TimeZone.getDefault())
         } else {
             ""
         }
@@ -42,5 +42,10 @@ internal object LocalDateFormatterEngine {
             calendar.get(Calendar.MONTH) + 1,
             calendar.get(Calendar.DAY_OF_MONTH)
         )
+    }
+    fun formatDateTime(epochMs: Long, timeZone: TimeZone): String {
+        val calendar = Calendar.getInstance(timeZone, Locale.ROOT).apply { timeInMillis = epochMs }
+        return "%04d-%02d-%02d %02d:%02d".format(Locale.ROOT, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1,
+            calendar.get(Calendar.DAY_OF_MONTH), calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE))
     }
 }

@@ -498,7 +498,13 @@ class KuiklyHostActivity :
         runCatching {
             @Suppress("MissingPermission")
             providers.forEach { provider ->
-                manager.requestSingleUpdate(provider, listener, Looper.getMainLooper())
+                manager.requestLocationUpdates(
+                    provider,
+                    0L,
+                    0f,
+                    listener,
+                    Looper.getMainLooper()
+                )
             }
             locationHandler.postDelayed(locationTimeout, LOCATION_TIMEOUT_MS)
             logLocationInfo("location_request_started")

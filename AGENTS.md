@@ -15,7 +15,7 @@
 
 CityCapsule / 城市胶囊是“城市探索 + 个人城市记录工具”，核心体验是“发现 → 探索 → 记录 → 回忆”。它不是社交媒体、攻略社区、导航 App、照片管理器或后台管理系统。不得在没有真实实现时宣传 AI 推荐、云同步、社区、实时后台或智能算法。
 
-基础阶段产品一级导航采用“探索 / 记录 / 我的”。用户界面的“收藏”展示为“想去”，底层 `Favorite*` 命名与既有存储协议无需为文案而重构。地图在基础阶段属于探索方式，不提前成为一级 Tab。
+当前产品一级导航采用“探索 / 记录 / 漫游 / 我的”。“漫游”只承载已经真实接通的路线、活动会话和回顾入口；地图仍是探索与漫游的内容能力，不单独成为一级 Tab。用户界面的“收藏”展示为“想去”，底层 `Favorite*` 命名与既有存储协议无需为文案而重构。
 
 ## 当前技术与模块边界
 
@@ -24,7 +24,7 @@ CityCapsule / 城市胶囊是“城市探索 + 个人城市记录工具”，核
 - 本地结构化存储：Android 与 HarmonyOS 均为 MMKV 2.4.0，经 `KeyValueStore` 和 `CCStorageModule` bridge 访问。
 - 路由：共享层只依赖 `AppRoute` / `AppNavigator`；Android 使用 `AndroidRouteDispatcher`，HarmonyOS 使用 `HarmonyRouteDispatcher` 再进入 HMRouter。
 - 主题：shared 语义 token + 双端系统外观 host。
-- 当前没有数据库、网络业务数据源、MQ、Redis、RPC、地图 SDK、定位或相机实现。城市碎片已经接入双端系统相册选择；原图复制到应用沙箱，MMKV 只保存路径和结构化元数据。删除碎片、移除照片或丢弃草稿后，必须通过引用保护的媒体清理能力删除不再被 catalog/草稿引用的托管原图。
+- 当前没有数据库、MQ、Redis 或 RPC。网络业务只通过 `PlaceRemoteDataSource`/平台 bridge 接入高德 POI、逆地理编码与步行路线；Android/HarmonyOS 已有高德地图 Native View、一次性定位、相册/相机、外部导航、分享、轨迹文件和数据归档能力。城市碎片原图复制到应用沙箱，MMKV 只保存路径和结构化元数据。删除碎片、移除照片或丢弃草稿后，必须通过引用保护的媒体清理能力删除不再被 catalog/草稿引用的托管原图。
 - iOS/H5/小程序来自 Kuikly 工程骨架，不属于当前已验收的 CityCapsule 产品目标；不得仅因目录或 target 存在就宣称支持。
 
 业务页面不得直接依赖 Android SDK、ArkTS、HMRouter、MMKV 实例或原始路由字符串。平台 API 只能位于平台宿主/adapter/capability 边界。网络能力未来必须经 `RemoteDataSource` / Repository 接入，不能写入 Page、StateHolder 或领域模型。
@@ -51,8 +51,8 @@ CityCapsule / 城市胶囊是“城市探索 + 个人城市记录工具”，核
 
 ## 正式一级导航规则
 
-- 基础阶段只有三个真实根目标：探索 → `AppRoute.Home`，记录 → `AppRoute.Timeline`，我的 → `AppRoute.Profile`；三个 typed route 都进入同一个 `AppShellPage`，只通过 `initialRootTab` 选择初始页。
-- `AppShellPage` 只创建一个 Bottom Navigation，并以根 `HorizontalPager` 常驻 Home / Record / Profile 三个内容树。点击底栏调用 `pagerState.animateScrollToPage()`；重复点击当前 Tab 必须是 no-op。根 Pager 当前 `userScrollEnabled = false`，不得提前开放手指横滑。
+- 当前有四个真实根目标：探索 → `AppRoute.Home`，记录 → `AppRoute.Timeline`，漫游 → AppShell 内 `AppRootTab.ROAM`，我的 → `AppRoute.Profile`；它们由同一个 `AppShellPage` 常驻承载。
+- `AppShellPage` 只创建一个 Bottom Navigation，并以根 `HorizontalPager` 常驻 Home / Record / Roam / Profile 四个内容树。重复点击当前 Tab 必须是 no-op。根 Pager 当前 `userScrollEnabled = false`，不得提前开放手指横滑。
 - 三个根内容分别持有自己的滚动与页面状态；切换 Tab 不得重建平台页面。Record 内部“时间轴 / 相册”使用 Compose 状态切换并共享 catalog，内部切换不执行 `push`、`replace` 或 `back`；内部左右滑动 Pager 属于后续 Feature。
 - Place/Capsule Detail、Editor、Settings 等二级页面继续使用 typed route 并位于 AppShell 之外，因此不显示底栏。现有独立 Gallery route/page 只作兼容入口，不是正式产品层级。
 - 二级页需要返回指定根 Tab 时必须调用共享 `backToRoot(AppRootTab)`；不要直接 `backTo(HOME/TIMELINE/PROFILE)`，否则 canonical `app_shell` 虽能返回，但常驻壳无法得知应选中的 Tab。

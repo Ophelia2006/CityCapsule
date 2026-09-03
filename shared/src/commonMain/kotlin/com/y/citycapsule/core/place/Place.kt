@@ -10,7 +10,7 @@ object PlaceContract {
     const val SCHEMA_VERSION = 3
     const val LEGACY_SCHEMA_VERSION = 1
     const val PREVIOUS_SCHEMA_VERSION = 2
-    const val CURRENT_SEED_VERSION = 3
+    const val CURRENT_SEED_VERSION = 4
     const val MAX_CATALOG_SIZE = 500
 
     const val FIELD_SCHEMA_VERSION = "schemaVersion"
@@ -77,13 +77,34 @@ data class PlaceVisualRef(
     val value: String
 )
 
-enum class PlaceCategory(val wireValue: String) {
-    LANDMARK("landmark"),
-    CULTURE("culture"),
-    FOOD("food"),
-    NATURE("nature"),
-    SHOPPING("shopping"),
-    OTHER("other");
+enum class PlaceCategory(
+    val wireValue: String,
+    val displayName: String,
+    val emoji: String,
+    val selectable: Boolean = true
+) {
+    LANDMARK("landmark", "城市地标", "🏙️"),
+    HISTORIC_SITE("historic_site", "历史遗迹", "🏛️"),
+    MUSEUM("museum", "博物馆", "🏺"),
+    ART_SPACE("art_space", "美术与展览", "🖼️"),
+    CHURCH("church", "教堂", "⛪"),
+    TEMPLE("temple", "寺庙与宗教场所", "🛕"),
+    COFFEE("coffee", "咖啡", "☕"),
+    RESTAURANT("restaurant", "美食餐厅", "🍜"),
+    DESSERT("dessert", "甜品烘焙", "🍰"),
+    PARK("park", "公园", "🌳"),
+    NATURAL_SCENERY("natural_scenery", "自然风景", "🏞️"),
+    WATERFRONT("waterfront", "湖泊与滨水", "🌊"),
+    SHOPPING("shopping", "商场购物", "🛍️"),
+    MARKET("market", "市集与老街", "🧺"),
+    NEIGHBORHOOD("neighborhood", "街区漫步", "🚶"),
+    ENTERTAINMENT("entertainment", "演出与娱乐", "🎭"),
+    OTHER("other", "其他", "📍"),
+
+    // Historical broad values remain decodable but are hidden from new-place selection.
+    CULTURE("culture", "文化空间", "🎨", selectable = false),
+    FOOD("food", "餐饮", "🍽️", selectable = false),
+    NATURE("nature", "自然户外", "🌿", selectable = false);
 
     companion object {
         fun fromWireValue(value: String): PlaceCategory? = entries.firstOrNull {

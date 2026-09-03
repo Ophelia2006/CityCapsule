@@ -33,7 +33,8 @@ class AppShellArchitectureGuardTest {
         val source = File(sharedSourceRoot(), "app/navigation/AppShellPage.kt").readText()
 
         assertTrue(source.contains("HorizontalPager("))
-        assertTrue(source.contains("pagerState.animateScrollToPage("))
+        assertTrue(source.contains("pagerState.scrollToPage("))
+        assertFalse(source.contains("pagerState.animateScrollToPage("))
         assertTrue(source.contains("userScrollEnabled = false"))
         assertFalse(source.contains("navigator.replace("))
         assertFalse(source.contains("navigator.navigate("))
@@ -71,9 +72,9 @@ class AppShellArchitectureGuardTest {
 
     private fun sharedSourceRoot(): File {
         val projectRoot = generateSequence(
-            File(System.getProperty("user.dir")).canonicalFile,
+            File(System.getProperty("user.dir") ?: ".").canonicalFile,
             File::getParentFile
-        ).firstOrNull { File(it, "shared/src/commonMain").isDirectory }
+        ).filterNotNull().firstOrNull { File(it, "shared/src/commonMain").isDirectory }
             ?: error("Cannot locate CityCapsule project root from ${System.getProperty("user.dir")}")
         return File(projectRoot, "shared/src/commonMain/kotlin/com/y/citycapsule")
     }

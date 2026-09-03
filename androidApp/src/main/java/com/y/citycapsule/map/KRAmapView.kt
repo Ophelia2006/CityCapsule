@@ -13,6 +13,7 @@ import com.amap.api.maps.TextureMapView
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.BitmapDescriptorFactory
 import com.amap.api.maps.model.MarkerOptions
+import com.amap.api.maps.model.PolylineOptions
 import com.tencent.kuikly.core.render.android.expand.component.KRView
 import com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback
 import org.json.JSONObject
@@ -147,6 +148,26 @@ class KRAmapView(context: Context) : KRView(context) {
                     )
                 }
             }
+            state.optJSONArray("plannedTrackPoints")?.let { points ->
+                val converted = buildList { for (index in 0 until points.length()) { val point = points.getJSONObject(index); add(toAmap(point.getDouble("latitude"), point.getDouble("longitude"))) } }
+                if (converted.size >= 2) map.addPolyline(PolylineOptions().addAll(converted).width(18f).color(0xFF9A9A9A.toInt()))
+            }
+            state.optJSONArray("trackPoints")?.let { points ->
+                val converted = buildList {
+                    for (index in 0 until points.length()) {
+                        val point = points.getJSONObject(index)
+                        add(toAmap(point.getDouble("latitude"), point.getDouble("longitude")))
+                    }
+                }
+                if (converted.size >= 2) {
+                    map.addPolyline(
+                        PolylineOptions()
+                            .addAll(converted)
+                            .width(TRACK_WIDTH_PX)
+                            .color(TRACK_COLOR)
+                    )
+                }
+            }
             state.optJSONObject("camera")?.let { camera ->
                 map.moveCamera(CameraUpdateFactory.newLatLngZoom(
                     toAmap(camera.getDouble("latitude"), camera.getDouble("longitude")),
@@ -212,5 +233,7 @@ class KRAmapView(context: Context) : KRView(context) {
         private const val PROP_PRIVACY_ACCEPTED = "privacyAccepted"
         private const val EVENT_MAP = "onMapEvent"
         private const val DEFAULT_ZOOM = 12f
+        private const val TRACK_WIDTH_PX = 12f
+        private const val TRACK_COLOR = 0xFFFF9F1C.toInt()
     }
 }

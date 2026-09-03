@@ -30,6 +30,12 @@ class LocalRoamingSessionRepositoryTest {
         assertIs<StorageResult.Failure>(result { repository.start("missing", it) })
     }
 
+    @Test fun activeSessionCannotBeSilentlyOverwritten() {
+        val repository = LocalRoamingSessionRepository(InMemoryKeyValueStore(), FakeRoutes(), now = { 10L })
+        assertIs<StorageResult.Success<RoamingSession>>(result { repository.start(null, it) })
+        assertIs<StorageResult.Failure>(result { repository.start("route-1", it) })
+    }
+
     private fun success(block: (StorageCallback<RoamingSession>) -> Unit): RoamingSession = assertIs<StorageResult.Success<RoamingSession>>(result(block)).value
     private fun result(block: (StorageCallback<RoamingSession>) -> Unit): StorageResult<RoamingSession> {
         var value: StorageResult<RoamingSession>? = null

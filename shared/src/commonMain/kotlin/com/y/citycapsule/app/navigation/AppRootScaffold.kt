@@ -17,10 +17,11 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 private val rootNavigationItems = listOf(
     AppBottomNavigationItem(AppRootTab.EXPLORE.id, "探索", AppIconName.EXPLORE),
     AppBottomNavigationItem(AppRootTab.RECORD.id, "记录", AppIconName.RECORD),
+    AppBottomNavigationItem(AppRootTab.ROAM.id, "漫游", AppIconName.ROAM),
     AppBottomNavigationItem(AppRootTab.PROFILE.id, "我的", AppIconName.PROFILE)
 )
 
-/** The single structural shell shared by all three product roots. */
+/** The single structural shell shared by all four product roots. */
 @Composable
 fun AppRootScaffold(
     selectedTab: AppRootTab,

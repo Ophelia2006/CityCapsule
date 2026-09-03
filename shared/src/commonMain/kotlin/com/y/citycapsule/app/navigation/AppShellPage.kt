@@ -28,6 +28,7 @@ import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.place.LocalPlaceRepository
 import com.y.citycapsule.core.place.LocalPlacePhotoCacheRepository
 import com.y.citycapsule.core.place.AmapPlaceRemoteDataSource
+import com.y.citycapsule.core.place.CachingPlaceRemoteDataSource
 import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
@@ -35,6 +36,11 @@ import com.y.citycapsule.core.storage.SettingsRepository
 import com.y.citycapsule.core.media.KuiklyMediaMaintenance
 import com.y.citycapsule.feature.capsule.RecordRootContent
 import com.y.citycapsule.feature.profile.ProfileRootContent
+import com.y.citycapsule.feature.roaming.RoamingRootContent
+import com.y.citycapsule.core.route.DefaultLocalRouteRepository
+import com.y.citycapsule.core.roaming.LocalRoamingSessionRepository
+import com.y.citycapsule.core.roaming.LocalRoamingHistoryRepository
+import com.y.citycapsule.core.map.MapPrivacyConsentRepository
 import kotlinx.coroutines.launch
 
 @Page(AppRouteTable.PAGE_APP_SHELL, supportInLocal = true)
@@ -45,6 +51,8 @@ internal class AppShellPager : BasePager() {
         val storage = KuiklyKeyValueStore(this)
         val placeRepository = LocalPlaceRepository(storage)
         val photoCacheRepository = LocalPlacePhotoCacheRepository(storage)
+        val mapConsentRepository = MapPrivacyConsentRepository(storage)
+        val routeRepository = DefaultLocalRouteRepository(storage, placeRepository)
         val initialTab = AppRootTab.fromInitialRouteValue(
             pageData.params.optString(AppRouteTable.PARAM_INITIAL_ROOT_TAB)
         ) ?: AppRootTab.EXPLORE
@@ -57,11 +65,15 @@ internal class AppShellPager : BasePager() {
                 cityRepository = LocalExploreCityRepository(storage),
                 placeRepository = placeRepository,
                 photoCacheRepository = photoCacheRepository,
-                remoteDataSource = AmapPlaceRemoteDataSource(this),
+                remoteDataSource = CachingPlaceRemoteDataSource(AmapPlaceRemoteDataSource(this)),
                 favoriteRepository = LocalFavoriteRepository(storage, placeRepository),
                 capsuleRepository = LocalCapsuleRepository(storage),
                 dateFormatter = KuiklyLocalCapsuleDateFormatter(this),
                 thumbnailCapability = KuiklyMediaMaintenance(this),
+                mapConsentRepository = mapConsentRepository,
+                routeRepository = routeRepository,
+                roamingSessions = LocalRoamingSessionRepository(storage, routeRepository),
+                roamingHistory = LocalRoamingHistoryRepository(storage),
                 themeHost = KuiklyAppThemeHost(this)
             )
         }
@@ -82,6 +94,10 @@ private fun AppShellScreen(
     capsuleRepository: LocalCapsuleRepository,
     dateFormatter: KuiklyLocalCapsuleDateFormatter,
     thumbnailCapability: KuiklyMediaMaintenance,
+    mapConsentRepository: MapPrivacyConsentRepository,
+    routeRepository: DefaultLocalRouteRepository,
+    roamingSessions: LocalRoamingSessionRepository,
+    roamingHistory: LocalRoamingHistoryRepository,
     themeHost: AppThemeHost
 ) {
     val statusBarHeight = LocalActivity.current.pageData.statusBarHeight
@@ -92,6 +108,7 @@ private fun AppShellScreen(
     val exploreListState = rememberLazyListState()
     val recordListState = rememberLazyListState()
     val profileListState = rememberLazyListState()
+    val roamingListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val requestedTab = AppShellRuntime.requestedTab
 
@@ -138,6 +155,7 @@ private fun AppShellScreen(
                         favoriteRepository = favoriteRepository,
                         capsuleRepository = capsuleRepository,
                         dateFormatter = dateFormatter,
+                        mapConsentRepository = mapConsentRepository,
                         active = shellState.selectedTab == AppRootTab.EXPLORE,
                         statusBarHeight = statusBarHeight,
                         listState = exploreListState
@@ -153,6 +171,21 @@ private fun AppShellScreen(
                         selectedView = shellState.recordView,
                         onViewSelected = shellState::selectRecordView,
                         thumbnailCapability = thumbnailCapability
+                    )
+
+                    AppRootTab.ROAM -> RoamingRootContent(
+                        navigator = navigator,
+                        sessions = roamingSessions,
+                        routes = routeRepository,
+                        places = placeRepository,
+                        favorites = favoriteRepository,
+                        history = roamingHistory,
+                        capsules = capsuleRepository,
+                        dateFormatter = dateFormatter,
+                        thumbnailCapability = thumbnailCapability,
+                        active = shellState.selectedTab == AppRootTab.ROAM,
+                        statusBarHeight = statusBarHeight,
+                        listState = roamingListState
                     )
 
                     AppRootTab.PROFILE -> ProfileRootContent(

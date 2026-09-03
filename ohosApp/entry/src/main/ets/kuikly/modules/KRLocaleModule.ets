@@ -21,7 +21,7 @@ export class KRLocaleModule extends KuiklyRenderBaseModule {
       if (request.epochMs < 0) {
         return '';
       }
-      return formatLocalCalendarDate(request.epochMs);
+      return request.style === 'dateTime' ? formatLocalDateTime(request.epochMs) : formatLocalCalendarDate(request.epochMs);
     } catch (_) {
       return '';
     }
@@ -30,6 +30,12 @@ export class KRLocaleModule extends KuiklyRenderBaseModule {
 
 interface LocalDateRequest {
   epochMs: number;
+  style?: string;
+}
+
+export function formatLocalDateTime(epochMs: number): string {
+  const date = new Date(epochMs);
+  return `${formatLocalCalendarDate(epochMs)} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 }
 
 export function formatLocalCalendarDate(epochMs: number): string {

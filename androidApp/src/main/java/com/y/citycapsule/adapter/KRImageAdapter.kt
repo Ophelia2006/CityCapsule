@@ -91,7 +91,18 @@ class KRImageAdapter(val context: Context) : IKRImageAdapter {
                     resource: Drawable,
                     transition: Transition<in Drawable>?,
                 ) {
-                    callback.invoke(resource)
+                    // Glide owns resources delivered to CustomTarget and may return their Bitmap
+                    // to its pool after the target is cleared. Kuikly keeps the Drawable beyond
+                    // that callback, so handing the pooled instance to KRImageView can later draw
+                    // a recycled Bitmap. Detach bitmap drawables from Glide's lifecycle.
+                    val detached = if (resource is BitmapDrawable) {
+                        val source = resource.bitmap
+                        val config = source.config ?: Bitmap.Config.ARGB_8888
+                        BitmapDrawable(context.resources, source.copy(config, false))
+                    } else {
+                        resource.constantState?.newDrawable(context.resources)?.mutate() ?: resource
+                    }
+                    callback.invoke(detached)
                 }
             })
     }

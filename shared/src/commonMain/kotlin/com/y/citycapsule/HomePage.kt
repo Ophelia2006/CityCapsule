@@ -44,6 +44,11 @@ import com.y.citycapsule.core.place.PlacePhotoCacheRepository
 import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.media.ImageLoadPriority
 import com.y.citycapsule.core.media.PlaceImageLoadRuntime
+import com.y.citycapsule.core.map.AmapNativeView
+import com.y.citycapsule.core.map.ExploreMapViewState
+import com.y.citycapsule.core.map.MapCameraModel
+import com.y.citycapsule.core.map.MapMarkerModel
+import com.y.citycapsule.core.map.MapViewEvent
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.designsystem.component.AppBodyText
 import com.y.citycapsule.designsystem.component.AppBottomSheet
@@ -65,6 +70,7 @@ import com.y.citycapsule.designsystem.component.CapsuleCardVariant
 import com.y.citycapsule.designsystem.component.EmptyState
 import com.y.citycapsule.designsystem.component.ErrorState
 import com.y.citycapsule.designsystem.component.LoadingState
+import com.y.citycapsule.designsystem.component.AppConfirmDialog
 import com.y.citycapsule.designsystem.component.PlaceCard
 import com.y.citycapsule.designsystem.component.PlaceCardModel
 import com.y.citycapsule.designsystem.component.PlaceCardVariant
@@ -81,6 +87,8 @@ import com.y.citycapsule.feature.place.PlaceFeatureRuntime
 import com.y.citycapsule.feature.place.displayName
 import com.y.citycapsule.feature.place.PlaceMedia
 import com.y.citycapsule.feature.place.RemotePlaceSummaryCard
+import com.y.citycapsule.core.map.MapPrivacyConsentRepository
+import com.y.citycapsule.core.map.MapPrivacyConsentRuntime
 
 /** Explore root content hosted inside the single AppShellPage. */
 @Composable
@@ -94,6 +102,7 @@ internal fun HomeRootContent(
     favoriteRepository: FavoriteRepository,
     capsuleRepository: CapsuleRepository,
     dateFormatter: CapsuleDateFormatter,
+    mapConsentRepository: MapPrivacyConsentRepository,
     active: Boolean,
     statusBarHeight: Float,
     listState: LazyListState
@@ -159,6 +168,7 @@ internal fun HomeRootContent(
                         onToggleFavorite = holder::toggleFavorite,
                         onCachedPhotoFailed = holder::invalidateCachedPhoto,
                         onQuickRecord = { showPlacePicker = true },
+                        mapConsentRepository = mapConsentRepository,
                         onRetry = holder::load
                     )
                 }
@@ -228,9 +238,14 @@ private fun HomeContent(
     onToggleFavorite: (String) -> Unit,
     onCachedPhotoFailed: (String) -> Unit,
     onQuickRecord: () -> Unit,
+    mapConsentRepository: MapPrivacyConsentRepository,
     onRetry: () -> Unit
 ) {
     val dimensions = AppTheme.dimensions
+    var recommendationMapAccepted by remember { mutableStateOf(MapPrivacyConsentRuntime.accepted) }
+    var showRecommendationMapPrompt by remember { mutableStateOf(false) }
+    var selectedRecommendationId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(mapConsentRepository) { mapConsentRepository.load { recommendationMapAccepted = it } }
     AppSectionTitle("今天想去哪里？")
     Spacer(Modifier.height(dimensions.spacingSm))
     val featured = state.featuredPlace
@@ -330,10 +345,52 @@ private fun HomeContent(
         )
     }
 
+    val mapRecommendations = (listOfNotNull(state.featuredPlace) + state.supportingPlaces)
+        .distinctBy(Place::id)
+        .filter { it.geoPoint != null }
+        .take(HOME_MAP_RECOMMENDATION_LIMIT)
+    if (mapRecommendations.isNotEmpty()) {
+        Spacer(Modifier.height(dimensions.spacingXl))
+        AppSectionTitle("在地图上发现")
+        Spacer(Modifier.height(dimensions.spacingXxs))
+        AppSecondaryText("地图标出本次推荐地点；下方用类别 Emoji 展示，最多 5 个。")
+        Spacer(Modifier.height(dimensions.spacingSm))
+        if (recommendationMapAccepted) {
+            AmapNativeView(
+                state = ExploreMapViewState(
+                    markers = mapRecommendations.map { place -> MapMarkerModel(place.id, place.name, place.geoPoint!!) },
+                    selectedPlaceId = selectedRecommendationId,
+                    camera = mapRecommendations.first().geoPoint?.let { MapCameraModel(it, 12.5) }
+                ),
+                privacyAccepted = true,
+                onEvent = { event -> if (event is MapViewEvent.MarkerSelected) selectedRecommendationId = event.placeId },
+                modifier = Modifier.fillMaxWidth().height(dimensions.mapViewportHeight)
+            )
+            Spacer(Modifier.height(dimensions.spacingSm))
+            mapRecommendations.forEach { place ->
+                AppChoiceChip(
+                    text = "${place.category.recommendationEmoji()}  ${place.name}",
+                    selected = place.id == selectedRecommendationId,
+                    onClick = { selectedRecommendationId = place.id }
+                )
+                Spacer(Modifier.height(dimensions.spacingXs))
+            }
+            val selectedRecommendation = mapRecommendations.firstOrNull { it.id == selectedRecommendationId }
+                ?: mapRecommendations.first()
+            AppButton(
+                text = "查看 ${selectedRecommendation.name}",
+                onClick = { navigator.navigate(AppRoute.PlaceDetail(selectedRecommendation.id)) },
+                variant = AppButtonVariant.TEXT
+            )
+        } else {
+            AppButton("打开推荐地图", { showRecommendationMapPrompt = true }, variant = AppButtonVariant.SECONDARY)
+        }
+    }
+
     Spacer(Modifier.height(dimensions.spacingXl))
     AppSectionTitle("规划下一次探索")
     Spacer(Modifier.height(dimensions.spacingXxs))
-    AppSecondaryText("手动挑选地点并安排顺序；当前不会计算交通或推荐路线。")
+    AppSecondaryText("挑选地点并手动安排顺序；真实步行路线接通前，不绘制可能穿越湖面或建筑的直线。")
     Spacer(Modifier.height(dimensions.spacingSm))
     AppButton("我的路线", { navigator.navigate(AppRoute.LocalRoutes) }, variant = AppButtonVariant.SECONDARY)
 
@@ -368,6 +425,15 @@ private fun HomeContent(
         AppBodyText("先选择所在地点，再写下照片、心情和文字。")
         Spacer(Modifier.height(dimensions.spacingSm))
         AppButton("选择地点并快速记录", onQuickRecord, variant = AppButtonVariant.SECONDARY)
+    }
+    if (showRecommendationMapPrompt) {
+        AppConfirmDialog(
+            title = "显示推荐地图",
+            message = "地图由高德地图 SDK 提供，启用后会联网加载底图。这里只展示本地规则选出的真实地点，不使用个性化算法。",
+            confirmText = "同意并打开地图",
+            onConfirm = { mapConsentRepository.accept(); recommendationMapAccepted = true; showRecommendationMapPrompt = false },
+            onDismiss = { showRecommendationMapPrompt = false }
+        )
     }
 }
 
@@ -484,15 +550,18 @@ private fun HomePlacePicker(
 }
 
 private fun PlaceCategory.toFallbackKind(): PlaceFallbackKind = when (this) {
-    PlaceCategory.LANDMARK -> PlaceFallbackKind.LANDMARK
-    PlaceCategory.CULTURE -> PlaceFallbackKind.CULTURE
-    PlaceCategory.FOOD -> PlaceFallbackKind.FOOD
-    PlaceCategory.NATURE -> PlaceFallbackKind.NATURE
-    PlaceCategory.SHOPPING -> PlaceFallbackKind.SHOPPING
+    PlaceCategory.LANDMARK, PlaceCategory.HISTORIC_SITE, PlaceCategory.CHURCH, PlaceCategory.TEMPLE -> PlaceFallbackKind.LANDMARK
+    PlaceCategory.MUSEUM, PlaceCategory.ART_SPACE, PlaceCategory.ENTERTAINMENT, PlaceCategory.CULTURE -> PlaceFallbackKind.CULTURE
+    PlaceCategory.COFFEE, PlaceCategory.RESTAURANT, PlaceCategory.DESSERT, PlaceCategory.FOOD -> PlaceFallbackKind.FOOD
+    PlaceCategory.PARK, PlaceCategory.NATURAL_SCENERY, PlaceCategory.WATERFRONT, PlaceCategory.NATURE -> PlaceFallbackKind.NATURE
+    PlaceCategory.SHOPPING, PlaceCategory.MARKET, PlaceCategory.NEIGHBORHOOD -> PlaceFallbackKind.SHOPPING
     PlaceCategory.OTHER -> PlaceFallbackKind.OTHER
 }
 
+private fun PlaceCategory.recommendationEmoji(): String = emoji
+
 private const val HOME_CATEGORY_LIMIT = 6
+private const val HOME_MAP_RECOMMENDATION_LIMIT = 5
 private const val HOME_CATEGORY_COLUMNS = 2
 private const val HOME_CATEGORY_GAP_WEIGHT = 0.08f
 private const val HOME_SEARCH_GAP_WEIGHT = 0.4f

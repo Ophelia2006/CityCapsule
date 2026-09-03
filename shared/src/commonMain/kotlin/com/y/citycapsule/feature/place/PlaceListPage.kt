@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import com.tencent.kuikly.compose.foundation.clickable
 import com.tencent.kuikly.compose.foundation.layout.Box
@@ -19,6 +20,8 @@ import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.padding
 import com.tencent.kuikly.compose.foundation.layout.width
 import com.tencent.kuikly.compose.foundation.lazy.LazyRow
+import com.tencent.kuikly.compose.foundation.lazy.LazyListScope
+import com.tencent.kuikly.compose.foundation.lazy.rememberLazyListState
 import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.setContent
@@ -47,6 +50,7 @@ import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.location.KuiklyLocationCapability
 import com.y.citycapsule.core.location.LocationCapability
 import com.y.citycapsule.core.map.AmapNativeView
+import com.y.citycapsule.core.map.MapPrivacyConsentRepository
 import com.y.citycapsule.core.media.ImageLoadPriority
 import com.y.citycapsule.core.media.PlaceImageLoadRuntime
 import com.y.citycapsule.core.place.LocalPlaceRepository
@@ -55,6 +59,7 @@ import com.y.citycapsule.core.place.PlaceCategory
 import com.y.citycapsule.core.place.PlaceValidator
 import com.y.citycapsule.core.place.AmapReverseGeocodeCapability
 import com.y.citycapsule.core.place.AmapPlaceRemoteDataSource
+import com.y.citycapsule.core.place.CachingPlaceRemoteDataSource
 import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.place.FallbackReverseGeocodeCapability
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
@@ -70,7 +75,7 @@ import com.y.citycapsule.designsystem.component.AppFilterChip
 import com.y.citycapsule.designsystem.component.AppIconName
 import com.y.citycapsule.designsystem.component.AppMenuItem
 import com.y.citycapsule.designsystem.component.AppOverflowMenu
-import com.y.citycapsule.designsystem.component.AppFixedHeaderScaffold
+import com.y.citycapsule.designsystem.component.AppFixedHeaderLazyScaffold
 import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppSectionTitle
 import com.y.citycapsule.designsystem.component.AppStatusMessage
@@ -81,6 +86,7 @@ import com.y.citycapsule.designsystem.component.LoadingState
 import com.y.citycapsule.designsystem.component.SearchField
 import com.y.citycapsule.designsystem.theme.AppTheme
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Page(AppRouteTable.PAGE_PLACE_LIST, supportInLocal = true)
 internal class PlaceListPager : BasePager() {
@@ -117,7 +123,8 @@ internal class PlaceListPager : BasePager() {
                 reverseGeocodeCapability = FallbackReverseGeocodeCapability(
                     AmapReverseGeocodeCapability(this), SupportedCityReverseGeocoder
                 ),
-                remoteDataSource = AmapPlaceRemoteDataSource(this),
+                remoteDataSource = CachingPlaceRemoteDataSource(AmapPlaceRemoteDataSource(this)),
+                mapConsentRepository = MapPrivacyConsentRepository(storage),
                 themeHost = themeHost,
                 initialCategory = initialCategory
             )
@@ -148,7 +155,8 @@ internal class FavoritesPager : BasePager() {
                 reverseGeocodeCapability = FallbackReverseGeocodeCapability(
                     AmapReverseGeocodeCapability(this), SupportedCityReverseGeocoder
                 ),
-                remoteDataSource = AmapPlaceRemoteDataSource(this),
+                remoteDataSource = CachingPlaceRemoteDataSource(AmapPlaceRemoteDataSource(this)),
+                mapConsentRepository = MapPrivacyConsentRepository(storage),
                 themeHost = themeHost
             )
         }
@@ -166,6 +174,7 @@ private fun PlaceListScreen(
     locationCapability: LocationCapability,
     reverseGeocodeCapability: com.y.citycapsule.core.city.ReverseGeocodeCapability,
     remoteDataSource: PlaceRemoteDataSource,
+    mapConsentRepository: MapPrivacyConsentRepository,
     themeHost: AppThemeHost,
     initialCategory: PlaceCategory? = null
 ) {
@@ -180,6 +189,7 @@ private fun PlaceListScreen(
         locationCapability,
         reverseGeocodeCapability,
         remoteDataSource,
+        mapConsentRepository,
         mode,
         initialCategory
     ) {
@@ -191,6 +201,7 @@ private fun PlaceListScreen(
             locationCapability = locationCapability,
             reverseGeocodeCapability = reverseGeocodeCapability,
             remoteDataSource = remoteDataSource,
+            mapConsentRepository = mapConsentRepository,
             parentScope = storeScope,
             mode = mode,
             initialCategory = initialCategory
@@ -202,6 +213,7 @@ private fun PlaceListScreen(
     var showCities by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var selectedPlaceId by remember { mutableStateOf<String?>(null) }
+    val contentListState = rememberLazyListState()
     val expanded = LocalConfiguration.current.pageViewWidth.dp >=
         AppTheme.dimensions.adaptiveGridBreakpoint
 
@@ -232,10 +244,40 @@ private fun PlaceListScreen(
         }
     }
 
+    val onlinePrefetchKeys = remember(uiState.onlinePlaces) {
+        uiState.onlinePlaces.takeLast(ONLINE_PLACE_PREFETCH_DISTANCE).mapTo(mutableSetOf()) {
+            onlinePlaceItemKey(it.providerId)
+        }
+    }
+    LaunchedEffect(
+        contentListState,
+        onlinePrefetchKeys,
+        uiState.onlineHasMore,
+        uiState.onlineLoadingMore,
+        uiState.onlineLoadMoreFailed,
+        uiState.onlineStatus
+    ) {
+        if (
+            uiState.onlineStatus != OnlinePlaceStatus.RESULTS ||
+            !uiState.onlineHasMore ||
+            uiState.onlineLoadingMore ||
+            uiState.onlineLoadMoreFailed ||
+            onlinePrefetchKeys.isEmpty()
+        ) return@LaunchedEffect
+        snapshotFlow { contentListState.layoutInfo.visibleItemsInfo.lastOrNull()?.key }
+            .distinctUntilChanged()
+            .collect { lastVisibleKey ->
+                if (lastVisibleKey in onlinePrefetchKeys) {
+                    store.dispatch(PlaceListIntent.OnlineNextPageRequested)
+                }
+            }
+    }
+
     RuntimeAppTheme(themeHost = themeHost) {
-        AppFixedHeaderScaffold(
+        AppFixedHeaderLazyScaffold(
             statusBarHeight = statusBarHeight,
             contentMaxWidth = AppTheme.dimensions.adaptiveContentMaxWidth,
+            contentListState = contentListState,
             header = {
                 AppActionTopBar(
                 title = if (mode == PlaceListMode.FAVORITES) {
@@ -250,12 +292,13 @@ private fun PlaceListScreen(
                 onTitleClick = if (mode == PlaceListMode.ALL && uiState.status == PlaceListUiStatus.READY) {
                     { showCities = true }
                 } else null,
+                actionLabel = if (mode == PlaceListMode.FAVORITES && uiState.favoriteIds.isNotEmpty()) "规划漫游" else null,
                 actionIcon = if (mode == PlaceListMode.ALL) AppIconName.MORE else null,
-                actionDescription = "更多操作",
-                onActionClick = if (mode == PlaceListMode.ALL) {
-                    { showMenu = true }
-                } else {
-                    null
+                actionDescription = if (mode == PlaceListMode.FAVORITES) "从想去地点规划漫游" else "更多操作",
+                onActionClick = when {
+                    mode == PlaceListMode.ALL -> { { showMenu = true } }
+                    mode == PlaceListMode.FAVORITES && uiState.favoriteIds.isNotEmpty() -> { { navigator.navigate(AppRoute.LocalRouteEditor()) } }
+                    else -> null
                 }
                 )
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
@@ -291,36 +334,18 @@ private fun PlaceListScreen(
                 Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
             }
         ) {
-            uiState.notice?.let { notice ->
-                AppStatusMessage(notice.message, tone = notice.tone.toAppStatusTone())
-                Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
-            }
-            ResultHeader(uiState, onFilterClick = { showFilters = true })
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-            DirectoryViewSelector(uiState, store::dispatch)
-            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-            LocationControl(uiState, store::dispatch)
-            Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-            if (uiState.viewMode == PlaceDirectoryViewMode.MAP) {
-                PlaceMapContent(uiState, store::dispatch)
-            } else {
-                PlaceListContent(
-                    state = uiState,
-                    dispatch = store::dispatch,
-                    expanded = expanded,
-                    selectedPlaceId = selectedPlaceId,
-                    onPlaceSelected = { id ->
-                        if (expanded) selectedPlaceId = id
-                        else store.dispatch(PlaceListIntent.PlaceClicked(id))
-                    }
-                )
-                if (mode == PlaceListMode.ALL && uiState.onlineStatus != OnlinePlaceStatus.IDLE) {
-                    Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
-                    AppSectionTitle("在线发现 · 最多 $ONLINE_PLACE_RESULT_LIMIT 个")
-                    Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-                    OnlinePlaceResults(uiState, store::dispatch)
+            placeDirectoryItems(
+                state = uiState,
+                dispatch = store::dispatch,
+                mode = mode,
+                expanded = expanded,
+                selectedPlaceId = selectedPlaceId,
+                onFilterClick = { showFilters = true },
+                onPlaceSelected = { id ->
+                    if (expanded) selectedPlaceId = id
+                    else store.dispatch(PlaceListIntent.PlaceClicked(id))
                 }
-            }
+            )
         }
 
         if (uiState.showMapPrivacyPrompt) {
@@ -399,39 +424,134 @@ private fun PlaceListScreen(
     }
 }
 
-@Composable
-private fun OnlinePlaceResults(
+private fun LazyListScope.placeDirectoryItems(
     state: PlaceListUiState,
-    dispatch: (PlaceListIntent) -> Unit
+    dispatch: (PlaceListIntent) -> Unit,
+    mode: PlaceListMode,
+    expanded: Boolean,
+    selectedPlaceId: String?,
+    onFilterClick: () -> Unit,
+    onPlaceSelected: (String) -> Unit
 ) {
-    when (state.onlineStatus) {
-        OnlinePlaceStatus.LOADING -> LoadingState("正在搜索${state.selectedCity.displayName}的地点…")
-        OnlinePlaceStatus.EMPTY -> EmptyState(
-            title = "没有找到在线地点",
-            message = "可以更换关键词或城市后重试。"
-        )
-        OnlinePlaceStatus.ERROR,
-        OnlinePlaceStatus.UNAVAILABLE -> ErrorState(
-            message = "本地点目录仍可离线浏览。",
-            onRetry = { dispatch(PlaceListIntent.OnlineSearchRequested) }
-        )
-        OnlinePlaceStatus.RESULTS -> state.onlinePlaces.forEachIndexed { index, place ->
-            RemotePlaceSummaryCard(
-                place = place,
-                imagePriority = if (index < PlaceImageLoadRuntime.INITIAL_VISIBLE_LIMIT) ImageLoadPriority.VISIBLE else ImageLoadPriority.PREFETCH,
-                onOpen = { dispatch(PlaceListIntent.RemotePlaceImportRequested(place.providerId)) }
-            )
-            AppButton(
-                text = if (state.importingProviderId == place.providerId) "保存中…" else "保存到本地",
-                onClick = { dispatch(PlaceListIntent.RemotePlaceImportRequested(place.providerId)) },
-                variant = AppButtonVariant.TEXT,
-                enabled = state.importingProviderId == null && !state.readOnly
-            )
+    item(key = "place:controls") {
+        Column(Modifier.fillMaxWidth()) {
+            state.notice?.let { notice ->
+                AppStatusMessage(notice.message, tone = notice.tone.toAppStatusTone())
+                Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
+            }
+            ResultHeader(state, onFilterClick)
             Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            DirectoryViewSelector(state, dispatch)
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            LocationControl(state, dispatch)
+            Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
+        }
+    }
+
+    if (state.viewMode == PlaceDirectoryViewMode.MAP) {
+        item(key = "place:map") { PlaceMapContent(state, dispatch) }
+        return
+    }
+
+    if (state.contentState == PlaceListContentState.RESULTS && !expanded) {
+        items(
+            count = state.visiblePlaces.size,
+            key = { index -> localPlaceItemKey(state.visiblePlaces[index].id) }
+        ) { index ->
+            val place = state.visiblePlaces[index]
+            PlaceSummaryCard(
+                place = place,
+                favorite = place.id in state.favoriteIds,
+                favoriteEnabled = !state.readOnly && state.busyFavoriteId == null,
+                distanceLabel = state.distanceLabel(place),
+                photo = state.photoByPlaceId[place.id],
+                imagePriority = if (index < PlaceImageLoadRuntime.INITIAL_VISIBLE_LIMIT) ImageLoadPriority.VISIBLE else ImageLoadPriority.PREFETCH,
+                onCachedPhotoFailed = { dispatch(PlaceListIntent.CachedPhotoFailed(place.id)) },
+                onOpen = { onPlaceSelected(place.id) },
+                onToggleFavorite = { dispatch(PlaceListIntent.FavoriteToggled(place.id)) }
+            )
+            if (index < state.visiblePlaces.lastIndex) AppDivider()
+        }
+    } else {
+        item(key = "place:local-content") {
+            PlaceListContent(state, dispatch, expanded, selectedPlaceId, onPlaceSelected)
+        }
+    }
+
+    if (mode != PlaceListMode.ALL || state.onlineStatus == OnlinePlaceStatus.IDLE) return
+    item(key = "online:header") {
+        Column(Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(AppTheme.dimensions.spacingLg))
+            AppSectionTitle("在线发现 · ${state.onlinePlaces.size} 个")
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+        }
+    }
+    when (state.onlineStatus) {
+        OnlinePlaceStatus.LOADING -> item(key = "online:loading") {
+            LoadingState("正在搜索${state.selectedCity.displayName}的地点…")
+        }
+        OnlinePlaceStatus.EMPTY -> item(key = "online:empty") {
+            EmptyState("没有找到在线地点", "可以更换关键词或城市后重试。")
+        }
+        OnlinePlaceStatus.ERROR,
+        OnlinePlaceStatus.UNAVAILABLE -> item(key = "online:error") {
+            ErrorState("本地点目录仍可离线浏览。") { dispatch(PlaceListIntent.OnlineSearchRequested) }
+        }
+        OnlinePlaceStatus.RESULTS -> {
+            items(
+                count = state.onlinePlaces.size,
+                key = { index -> onlinePlaceItemKey(state.onlinePlaces[index].providerId) }
+            ) { index ->
+                val place = state.onlinePlaces[index]
+                RemotePlaceSummaryCard(
+                    place = place,
+                    imagePriority = if (index < PlaceImageLoadRuntime.INITIAL_VISIBLE_LIMIT) ImageLoadPriority.VISIBLE else ImageLoadPriority.PREFETCH,
+                    onOpen = { dispatch(PlaceListIntent.RemotePlaceImportRequested(place.providerId)) }
+                )
+                AppButton(
+                    text = if (state.importingProviderId == place.providerId) "保存中…" else "保存到本地",
+                    onClick = { dispatch(PlaceListIntent.RemotePlaceImportRequested(place.providerId)) },
+                    variant = AppButtonVariant.TEXT,
+                    enabled = state.importingProviderId == null && !state.readOnly
+                )
+                Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            }
+            item(key = "online:footer") { OnlinePaginationFooter(state, dispatch) }
         }
         OnlinePlaceStatus.IDLE -> Unit
     }
 }
+
+@Composable
+private fun OnlinePaginationFooter(
+    state: PlaceListUiState,
+    dispatch: (PlaceListIntent) -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth().height(AppTheme.dimensions.minTouchTarget),
+        contentAlignment = Alignment.Center
+    ) {
+        if (state.onlineLoadMoreFailed) {
+            AppButton(
+                text = "加载失败，点击重试",
+                onClick = { dispatch(PlaceListIntent.OnlineNextPageRequested) },
+                variant = AppButtonVariant.TEXT
+            )
+        } else {
+            AppSecondaryText(
+                when {
+                    state.onlineLoadingMore -> "正在加载更多地点…"
+                    state.onlineHasMore -> "继续滑动加载更多"
+                    else -> "已经看完本次在线发现"
+                }
+            )
+        }
+    }
+}
+
+internal fun localPlaceItemKey(placeId: String): String = "local:$placeId"
+internal fun onlinePlaceItemKey(providerId: String): String = "online:$providerId"
+internal const val ONLINE_PLACE_PREFETCH_DISTANCE = 3
 
 @Composable
 private fun CityPickerContent(

@@ -18,6 +18,8 @@ import com.y.citycapsule.core.route.LocalRouteCatalog
 import com.y.citycapsule.core.route.LocalRouteCatalogCodec
 import com.y.citycapsule.core.roaming.RoamingSession
 import com.y.citycapsule.core.roaming.RoamingSessionCodec
+import com.y.citycapsule.core.roaming.RoamingHistoryCatalog
+import com.y.citycapsule.core.roaming.RoamingHistoryCodec
 import com.y.citycapsule.core.track.TrackMetadata
 import com.y.citycapsule.core.track.TrackMetadataCodec
 import com.y.citycapsule.core.checkin.CheckInCatalog
@@ -48,6 +50,13 @@ object AppStorageKeys {
             name = "theme_mode",
             defaultValue = ThemeMode.SYSTEM,
             codec = ThemeModeCodec
+        )
+        val MAP_PRIVACY_ACCEPTED = StorageKey(
+            store = StorageStore.PREFERENCES,
+            namespace = "settings",
+            name = "map_privacy_accepted",
+            defaultValue = false,
+            codec = StorageCodecs.BOOLEAN
         )
     }
 
@@ -146,6 +155,13 @@ object AppStorageKeys {
     }
 
     object Roaming {
+        val HISTORY = StorageKey(
+            store = StorageStore.PREFERENCES,
+            namespace = "roaming",
+            name = "history",
+            defaultValue = RoamingHistoryCatalog.EMPTY,
+            codec = RoamingHistoryCodec
+        )
         val SESSION = StorageKey<RoamingSession>(
             store = StorageStore.PREFERENCES,
             namespace = "roaming",
@@ -165,6 +181,7 @@ object AppStorageKeys {
 
     val all: List<StorageKey<*>> = listOf(
         Settings.THEME_MODE,
+        Settings.MAP_PRIVACY_ACCEPTED,
         Profile.LOCAL_PROFILE,
         Onboarding.COMPLETED_VERSION,
         Onboarding.DRAFT,
@@ -177,6 +194,7 @@ object AppStorageKeys {
         Routes.CATALOG,
         Roaming.SESSION,
         Roaming.TRACK,
-        Roaming.CHECK_INS
+        Roaming.CHECK_INS,
+        Roaming.HISTORY
     )
 }

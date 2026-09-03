@@ -2,15 +2,15 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "CityCapsule city exploration and personal memory"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "CityCapsule"
     },
     {
       "name": "EntryAbility_label",
-      "value": "kuiklydemo"
+      "value": "CityCapsule"
     },
     {
       "name": "location_permission_reason",

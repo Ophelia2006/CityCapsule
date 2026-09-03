@@ -17,6 +17,7 @@ import com.y.citycapsule.core.place.PlaceFilter
 import com.y.citycapsule.core.place.PlaceSeedData
 import com.y.citycapsule.core.place.RemotePlace
 import com.y.citycapsule.core.place.RemotePlaceResult
+import com.y.citycapsule.core.place.PlaceRemoteDataSource
 import com.y.citycapsule.core.storage.AppStorageKeys
 import com.y.citycapsule.core.storage.InMemoryKeyValueStore
 import kotlinx.coroutines.async
@@ -82,6 +83,99 @@ class PlaceListStoreTest {
         )
 
         assertEquals(ONLINE_PLACE_RESULT_LIMIT, state.onlinePlaces.size)
+    }
+
+    @Test
+    fun onlineAppendPreservesExistingPrefixAndDeduplicatesProviderIds() {
+        val firstPage = remotePlaces("first", ONLINE_PLACE_RESULT_LIMIT)
+        val initial = PlaceListReducer.reduce(
+            PlaceListUiState(),
+            PlaceListMutation.OnlineSearchFinished(RemotePlaceResult.Success(firstPage))
+        )
+        val duplicate = firstPage.last()
+        val appended = PlaceListReducer.reduce(
+            initial,
+            PlaceListMutation.OnlineSearchFinished(
+                RemotePlaceResult.Success(listOf(duplicate) + remotePlaces("second", 3)),
+                append = true,
+                page = 2
+            )
+        )
+
+        assertEquals(firstPage, appended.onlinePlaces.take(firstPage.size))
+        assertEquals(firstPage.size + 3, appended.onlinePlaces.size)
+        assertEquals(appended.onlinePlaces.size, appended.onlinePlaces.distinctBy(RemotePlace::providerId).size)
+    }
+
+    @Test
+    fun repeatedNextPageIntentsStartOnlyOneRequestForThatPage() = runTest {
+        val remote = ControllablePlaceRemoteDataSource()
+        val fixture = fixture()
+        val store = fixture.store(remoteDataSource = remote)
+        store.dispatch(PlaceListIntent.Load)
+        advanceUntilIdle()
+        store.dispatch(PlaceListIntent.QueryChanged("咖啡"))
+        store.dispatch(PlaceListIntent.OnlineSearchRequested)
+        advanceUntilIdle()
+        remote.completeFirst("咖啡", 1, RemotePlaceResult.Success(remotePlaces("page-1", ONLINE_PLACE_RESULT_LIMIT)))
+        advanceUntilIdle()
+
+        repeat(5) { store.dispatch(PlaceListIntent.OnlineNextPageRequested) }
+        advanceUntilIdle()
+
+        assertEquals(1, remote.requests.count { it.page == 2 })
+        assertTrue(store.state.value.onlineLoadingMore)
+        store.dispose()
+    }
+
+    @Test
+    fun appendFailureKeepsExistingRowsAndAllowsExplicitRetry() = runTest {
+        val remote = ControllablePlaceRemoteDataSource()
+        val fixture = fixture()
+        val store = fixture.store(remoteDataSource = remote)
+        store.dispatch(PlaceListIntent.Load)
+        advanceUntilIdle()
+        store.dispatch(PlaceListIntent.QueryChanged("咖啡"))
+        store.dispatch(PlaceListIntent.OnlineSearchRequested)
+        advanceUntilIdle()
+        val firstPage = remotePlaces("page-1", ONLINE_PLACE_RESULT_LIMIT)
+        remote.completeFirst("咖啡", 1, RemotePlaceResult.Success(firstPage))
+        advanceUntilIdle()
+
+        store.dispatch(PlaceListIntent.OnlineNextPageRequested)
+        advanceUntilIdle()
+        remote.completeLast("咖啡", 2, RemotePlaceResult.Failure("弱网"))
+        advanceUntilIdle()
+        assertEquals(firstPage, store.state.value.onlinePlaces)
+        assertTrue(store.state.value.onlineLoadMoreFailed)
+
+        store.dispatch(PlaceListIntent.OnlineNextPageRequested)
+        advanceUntilIdle()
+        assertEquals(2, remote.requests.count { it.query == "咖啡" && it.page == 2 })
+        store.dispose()
+    }
+
+    @Test
+    fun staleOnlineResponseCannotOverwriteNewQueryResults() = runTest {
+        val remote = ControllablePlaceRemoteDataSource()
+        val fixture = fixture()
+        val store = fixture.store(remoteDataSource = remote)
+        store.dispatch(PlaceListIntent.Load)
+        advanceUntilIdle()
+
+        store.dispatch(PlaceListIntent.QueryChanged("旧查询"))
+        store.dispatch(PlaceListIntent.OnlineSearchRequested)
+        advanceUntilIdle()
+        store.dispatch(PlaceListIntent.QueryChanged("新查询"))
+        store.dispatch(PlaceListIntent.OnlineSearchRequested)
+        advanceUntilIdle()
+
+        remote.completeFirst("新查询", 1, RemotePlaceResult.Success(remotePlaces("new", 2)))
+        remote.completeFirst("旧查询", 1, RemotePlaceResult.Success(remotePlaces("old", 2)))
+        advanceUntilIdle()
+
+        assertEquals(listOf("new-0", "new-1"), store.state.value.onlinePlaces.map(RemotePlace::providerId))
+        store.dispose()
     }
 
     @Test
@@ -167,7 +261,7 @@ class PlaceListStoreTest {
         )
 
         store.dispatch(PlaceListIntent.QueryChanged(""))
-        store.dispatch(PlaceListIntent.CategoryToggled(PlaceCategory.NATURE))
+        store.dispatch(PlaceListIntent.CategoryToggled(PlaceCategory.WATERFRONT))
         store.dispatch(PlaceListIntent.CityChanged("杭州"))
         advanceUntilIdle()
         assertEquals(listOf("seed_west_lake"), store.state.value.visiblePlaces.map(Place::id))
@@ -400,6 +494,7 @@ private data class StoreFixture(
         reverseGeocodeCapability: ReverseGeocodeCapability = ReverseGeocodeCapability { _, callback ->
             callback(ReverseGeocodeResult.UnsupportedCity())
         },
+        remoteDataSource: PlaceRemoteDataSource? = null,
         mode: PlaceListMode = PlaceListMode.ALL,
         initialCategory: PlaceCategory? = null
     ) = PlaceListStore(
@@ -408,8 +503,54 @@ private data class StoreFixture(
         favoriteRepository = favoriteRepository,
         locationCapability = locationCapability,
         reverseGeocodeCapability = reverseGeocodeCapability,
+        remoteDataSource = remoteDataSource,
         parentScope = scope,
         mode = mode,
         initialCategory = initialCategory
+    )
+}
+
+private data class RemoteRequest(
+    val query: String,
+    val page: Int,
+    val callback: (RemotePlaceResult) -> Unit
+)
+
+private class ControllablePlaceRemoteDataSource : PlaceRemoteDataSource {
+    val requests = mutableListOf<RemoteRequest>()
+
+    override fun search(query: String, city: String, near: GeoPoint?, callback: (RemotePlaceResult) -> Unit) {
+        searchPage(query, city, near, 1, ONLINE_PLACE_RESULT_LIMIT, callback)
+    }
+
+    override fun searchPage(
+        query: String,
+        city: String,
+        near: GeoPoint?,
+        page: Int,
+        pageSize: Int,
+        callback: (RemotePlaceResult) -> Unit
+    ) {
+        requests += RemoteRequest(query, page, callback)
+    }
+
+    fun completeFirst(query: String, page: Int, result: RemotePlaceResult) =
+        requests.first { it.query == query && it.page == page }.callback(result)
+
+    fun completeLast(query: String, page: Int, result: RemotePlaceResult) =
+        requests.last { it.query == query && it.page == page }.callback(result)
+}
+
+private fun remotePlaces(prefix: String, count: Int): List<RemotePlace> = (0 until count).map { index ->
+    RemotePlace(
+        providerId = "$prefix-$index",
+        name = "地点$index",
+        city = "上海",
+        district = null,
+        address = null,
+        category = PlaceCategory.OTHER,
+        tags = emptyList(),
+        geoPoint = GeoPoint(31.2, 121.4),
+        photoUrl = null
     )
 }

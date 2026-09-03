@@ -61,7 +61,7 @@ class AmapPlaceRemoteDataSourceTest {
             AmapPlaceRemoteDataSource.parseSearchResponse(response)
         )
         val place = result.places.single()
-        assertEquals(PlaceCategory.CULTURE, place.category)
+        assertEquals(PlaceCategory.MUSEUM, place.category)
         assertEquals("https://example.com/photo.jpg", place.photoUrl)
         assertTrue(abs(place.geoPoint.longitude - 121.48) > 0.0001)
         val draft = place.toImportedDraft()
@@ -80,7 +80,7 @@ class AmapPlaceRemoteDataSourceTest {
             AmapPlaceRemoteDataSource.parseSearchResponse(response)
         )
 
-        assertEquals(PlaceCategory.NATURE, result.places.single().category)
+        assertEquals(PlaceCategory.PARK, result.places.single().category)
     }
 
     @Test

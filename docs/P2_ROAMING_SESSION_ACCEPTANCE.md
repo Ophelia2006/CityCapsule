@@ -1,5 +1,7 @@
 # P2-7B 漫游会话验收
 
+> 历史导航说明：当前已按 ADR-036 增加“漫游”一级 Tab；本文其余会话验收步骤继续有效。
+
 ## 当前边界
 
 - `RoamingSession` 仅保存可选 `routeId`、`startedAtEpochMs`、可选 `endedAtEpochMs` 和 `status`。

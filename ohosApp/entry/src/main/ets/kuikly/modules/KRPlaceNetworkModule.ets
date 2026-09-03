@@ -6,6 +6,7 @@ export class KRPlaceNetworkModule extends KuiklyRenderBaseModule {
   static readonly MODULE_NAME: string = 'CCPlaceNetworkModule';
   private static readonly SEARCH: string = 'searchPlaces';
   private static readonly REVERSE: string = 'reverseGeocode';
+  private static readonly WALKING: string = 'walkingRoute';
 
   syncMode(): boolean { return false; }
 
@@ -24,6 +25,8 @@ export class KRPlaceNetworkModule extends KuiklyRenderBaseModule {
       url = this.searchUrl(request);
     } else if (method === KRPlaceNetworkModule.REVERSE) {
       url = this.reverseUrl(request);
+    } else if (method === KRPlaceNetworkModule.WALKING) {
+      url = this.walkingUrl(request);
     }
     if (url.length === 0) {
       callback(JSON.stringify({ status: 'failure', message: '网络请求参数无效。' }));
@@ -50,7 +53,9 @@ export class KRPlaceNetworkModule extends KuiklyRenderBaseModule {
     const endpoint = location.length > 0 && query.length === 0 ? 'around' : 'text';
     const values: string[] = [
       this.param('key', AMAP_WEB_SERVICE_KEY), this.param('output', 'JSON'),
-      this.param('extensions', 'all'), this.param('offset', '20'), this.param('page', '1')
+      this.param('extensions', 'all'),
+      this.param('offset', String(Math.min(20, Math.max(1, Number(request['pageSize'] ?? 12))))),
+      this.param('page', String(Math.max(1, Number(request['page'] ?? 1))))
     ];
     if (query.length > 0) values.push(this.param('keywords', query));
     if (city.length > 0) {
@@ -87,6 +92,17 @@ export class KRPlaceNetworkModule extends KuiklyRenderBaseModule {
       this.param('extensions', 'base'), this.param('location', location)
     ];
     return `https://restapi.amap.com/v3/geocode/regeo?${values.join('&')}`;
+  }
+
+  private walkingUrl(request: Record<string, KRAny>): string {
+    const origin = String(request['origin'] ?? '').trim();
+    const destination = String(request['destination'] ?? '').trim();
+    if (origin.length === 0 || destination.length === 0) return '';
+    const values: string[] = [
+      this.param('key', AMAP_WEB_SERVICE_KEY), this.param('output', 'JSON'),
+      this.param('origin', origin), this.param('destination', destination)
+    ];
+    return `https://restapi.amap.com/v3/direction/walking?${values.join('&')}`;
   }
 
   private param(key: string, value: string): string {

@@ -11,12 +11,14 @@ object CapsuleContract {
     const val IMAGE_PATH_MAX_LENGTH = 2048
 }
 
-enum class CapsuleMood(val wireValue: String) {
-    HAPPY("happy"),
-    CALM("calm"),
-    SURPRISED("surprised"),
-    MELANCHOLY("melancholy"),
-    ENERGETIC("energetic");
+enum class CapsuleMood(val wireValue: String, val displayName: String, val emoji: String) {
+    HAPPY("happy", "开心", "😀"),
+    CALM("calm", "平静", "😌"),
+    SURPRISED("surprised", "震撼", "🤯"),
+    MELANCHOLY("melancholy", "难过", "😭"),
+    ENERGETIC("energetic", "兴奋", "🤩"),
+    NOSTALGIC("nostalgic", "怀念", "🥹"),
+    TIRED("tired", "疲惫", "😮‍💨");
 
     companion object {
         fun fromWireValue(value: String): CapsuleMood? = entries.firstOrNull {

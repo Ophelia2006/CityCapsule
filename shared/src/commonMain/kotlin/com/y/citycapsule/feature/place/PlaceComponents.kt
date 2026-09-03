@@ -176,22 +176,15 @@ internal fun PlaceMedia(
 }
 
 internal fun PlaceCategory.toFallbackKind(): PlaceFallbackKind = when (this) {
-    PlaceCategory.LANDMARK -> PlaceFallbackKind.LANDMARK
-    PlaceCategory.CULTURE -> PlaceFallbackKind.CULTURE
-    PlaceCategory.FOOD -> PlaceFallbackKind.FOOD
-    PlaceCategory.NATURE -> PlaceFallbackKind.NATURE
-    PlaceCategory.SHOPPING -> PlaceFallbackKind.SHOPPING
+    PlaceCategory.LANDMARK, PlaceCategory.HISTORIC_SITE, PlaceCategory.CHURCH, PlaceCategory.TEMPLE -> PlaceFallbackKind.LANDMARK
+    PlaceCategory.MUSEUM, PlaceCategory.ART_SPACE, PlaceCategory.ENTERTAINMENT, PlaceCategory.CULTURE -> PlaceFallbackKind.CULTURE
+    PlaceCategory.COFFEE, PlaceCategory.RESTAURANT, PlaceCategory.DESSERT, PlaceCategory.FOOD -> PlaceFallbackKind.FOOD
+    PlaceCategory.PARK, PlaceCategory.NATURAL_SCENERY, PlaceCategory.WATERFRONT, PlaceCategory.NATURE -> PlaceFallbackKind.NATURE
+    PlaceCategory.SHOPPING, PlaceCategory.MARKET, PlaceCategory.NEIGHBORHOOD -> PlaceFallbackKind.SHOPPING
     PlaceCategory.OTHER -> PlaceFallbackKind.OTHER
 }
 
-internal fun PlaceCategory.displayName(): String = when (this) {
-    PlaceCategory.LANDMARK -> "城市地标"
-    PlaceCategory.CULTURE -> "文化场馆"
-    PlaceCategory.FOOD -> "餐饮美食"
-    PlaceCategory.NATURE -> "自然户外"
-    PlaceCategory.SHOPPING -> "购物街区"
-    PlaceCategory.OTHER -> "其他"
-}
+internal fun PlaceCategory.displayName(): String = "$emoji  $displayName"
 
 internal fun PlaceNoticeTone.toAppStatusTone() =
     when (this) {
