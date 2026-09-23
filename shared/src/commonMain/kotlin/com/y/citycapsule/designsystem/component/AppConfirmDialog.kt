@@ -40,7 +40,8 @@ fun AppConfirmDialog(
             AppCard(
                 modifier = Modifier
                     .widthIn(max = AppTheme.dimensions.contentMaxWidth)
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
+                elevation = AppTheme.elevation.overlay
             ) {
                 AppSectionTitle(text = title)
                 Spacer(Modifier.height(AppTheme.dimensions.spacingXs))

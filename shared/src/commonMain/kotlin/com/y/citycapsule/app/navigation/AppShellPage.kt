@@ -194,6 +194,7 @@ private fun AppShellScreen(
                         placeRepository = placeRepository,
                         favoriteRepository = favoriteRepository,
                         capsuleRepository = capsuleRepository,
+                        photoCacheRepository = photoCacheRepository,
                         active = shellState.selectedTab == AppRootTab.PROFILE,
                         statusBarHeight = statusBarHeight,
                         listState = profileListState

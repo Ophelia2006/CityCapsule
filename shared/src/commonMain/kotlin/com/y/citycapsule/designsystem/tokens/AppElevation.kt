@@ -12,6 +12,6 @@ data class AppElevation(
 
 val DefaultAppElevation = AppElevation(
     flat = 0.dp,
-    raised = 4.dp,
-    overlay = 12.dp
+    raised = 3.dp,
+    overlay = 10.dp
 )

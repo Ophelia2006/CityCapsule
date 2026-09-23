@@ -13,6 +13,7 @@ import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
+import com.tencent.kuikly.compose.ui.draw.shadow
 import com.tencent.kuikly.compose.ui.graphics.Color
 import com.y.citycapsule.designsystem.theme.AppTheme
 
@@ -25,11 +26,19 @@ fun AppSegmentedControl(
 ) {
     require(options.isNotEmpty())
     val safeSelectedIndex = selectedIndex.coerceIn(options.indices)
+    val containerShape = RoundedCornerShape(AppTheme.dimensions.radiusMd)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(AppTheme.dimensions.radiusLg))
-            .background(AppTheme.colors.surfaceVariant)
+            .shadow(
+                AppTheme.elevation.raised,
+                containerShape,
+                clip = false,
+                ambientColor = AppTheme.colors.scrim.copy(alpha = 0.04f),
+                spotColor = AppTheme.colors.scrim.copy(alpha = 0.07f)
+            )
+            .clip(containerShape)
+            .background(AppTheme.colors.surface)
             .padding(AppTheme.dimensions.spacingXxs)
     ) {
         options.forEachIndexed { index, label ->
@@ -38,15 +47,15 @@ fun AppSegmentedControl(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = AppTheme.dimensions.minTouchTarget)
-                    .clip(RoundedCornerShape(AppTheme.dimensions.radiusMd))
-                    .background(if (selected) AppTheme.colors.surface else Color.Transparent)
+                    .clip(RoundedCornerShape(AppTheme.dimensions.radiusSm))
+                    .background(if (selected) AppTheme.colors.primaryContainer else Color.Transparent)
                     .clickable(enabled = !selected) { onSelected(index) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = label,
                     color = if (selected) {
-                        AppTheme.colors.textPrimary
+                        AppTheme.colors.primary
                     } else {
                         AppTheme.colors.textSecondary
                     },

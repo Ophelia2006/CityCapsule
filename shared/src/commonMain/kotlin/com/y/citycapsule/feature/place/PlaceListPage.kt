@@ -87,6 +87,9 @@ import com.y.citycapsule.designsystem.component.SearchField
 import com.y.citycapsule.designsystem.theme.AppTheme
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.delay
+
+private const val SEARCH_INPUT_DEBOUNCE_MS = 300L
 
 @Page(AppRouteTable.PAGE_PLACE_LIST, supportInLocal = true)
 internal class PlaceListPager : BasePager() {
@@ -208,6 +211,8 @@ private fun PlaceListScreen(
         )
     }
     val uiState by store.state.collectAsState()
+    var searchInput by remember(store) { mutableStateOf(store.state.value.query) }
+    var lastStoreQuery by remember(store) { mutableStateOf(store.state.value.query) }
     val catalogRevision = PlaceFeatureRuntime.revision
     var showFilters by remember { mutableStateOf(false) }
     var showCities by remember { mutableStateOf(false) }
@@ -224,6 +229,22 @@ private fun PlaceListScreen(
     LaunchedEffect(store, catalogRevision) {
         if (PlaceFeatureRuntime.shouldReload(invalidationOwner)) {
             store.dispatch(PlaceListIntent.Load)
+        }
+    }
+
+    LaunchedEffect(uiState.query) {
+        if (searchInput == lastStoreQuery || uiState.query.isBlank()) {
+            searchInput = uiState.query
+        }
+        lastStoreQuery = uiState.query
+    }
+
+    LaunchedEffect(store, searchInput) {
+        if (searchInput != store.state.value.query) {
+            delay(SEARCH_INPUT_DEBOUNCE_MS)
+            if (searchInput != store.state.value.query) {
+                store.dispatch(PlaceListIntent.QueryChanged(searchInput))
+            }
         }
     }
 
@@ -303,10 +324,8 @@ private fun PlaceListScreen(
                 )
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
                 SearchField(
-                value = uiState.query,
-                onValueChange = {
-                    store.dispatch(PlaceListIntent.QueryChanged(it))
-                },
+                value = searchInput,
+                onValueChange = { searchInput = it },
                 placeholder = if (mode == PlaceListMode.FAVORITES) {
                     "搜索想去地点"
                 } else {
@@ -318,15 +337,20 @@ private fun PlaceListScreen(
                     Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
                     AppButton(
                         text = when {
-                            uiState.query.isNotBlank() -> "在线搜索“${uiState.query}”"
+                            searchInput.isNotBlank() -> "在线搜索“${searchInput}”"
                             uiState.currentLocation != null -> "在线发现附近地点"
                             else -> "输入关键词或先获取位置"
                         },
-                        onClick = { store.dispatch(PlaceListIntent.OnlineSearchRequested) },
+                        onClick = {
+                            if (searchInput != store.state.value.query) {
+                                store.dispatch(PlaceListIntent.QueryChanged(searchInput))
+                            }
+                            store.dispatch(PlaceListIntent.OnlineSearchRequested)
+                        },
                         variant = AppButtonVariant.TEXT,
                         enabled = uiState.status == PlaceListUiStatus.READY &&
                             uiState.onlineStatus != OnlinePlaceStatus.LOADING &&
-                            (uiState.query.isNotBlank() || uiState.currentLocation != null)
+                            (searchInput.isNotBlank() || uiState.currentLocation != null)
                     )
                 }
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))

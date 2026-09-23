@@ -2,11 +2,13 @@ package com.y.citycapsule.designsystem.tokens
 
 import com.tencent.kuikly.compose.ui.text.TextStyle
 import com.tencent.kuikly.compose.ui.text.font.FontWeight
+import com.tencent.kuikly.compose.ui.text.font.FontFamily
 import com.tencent.kuikly.compose.ui.unit.sp
 
 /** Semantic type scale. Color is supplied separately by the active color scheme. */
 data class AppTypography(
     val display: TextStyle,
+    val cityTitle: TextStyle,
     val pageTitle: TextStyle,
     val sectionTitle: TextStyle,
     val body: TextStyle,
@@ -17,18 +19,24 @@ data class AppTypography(
 
 val DefaultAppTypography = AppTypography(
     display = TextStyle(
-        fontSize = 36.sp,
-        lineHeight = 44.sp,
+        fontSize = 34.sp,
+        lineHeight = 42.sp,
         fontWeight = FontWeight.Bold
     ),
+    cityTitle = TextStyle(
+        fontSize = 28.sp,
+        lineHeight = 36.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = FontFamily.Serif
+    ),
     pageTitle = TextStyle(
-        fontSize = 30.sp,
-        lineHeight = 38.sp,
+        fontSize = 28.sp,
+        lineHeight = 36.sp,
         fontWeight = FontWeight.Bold
     ),
     sectionTitle = TextStyle(
-        fontSize = 18.sp,
-        lineHeight = 26.sp,
+        fontSize = 19.sp,
+        lineHeight = 27.sp,
         fontWeight = FontWeight.Bold
     ),
     body = TextStyle(

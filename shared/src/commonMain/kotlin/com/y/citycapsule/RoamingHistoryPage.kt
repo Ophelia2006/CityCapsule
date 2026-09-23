@@ -45,6 +45,7 @@ import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppCaptionText
 import com.y.citycapsule.designsystem.component.AppCard
+import com.y.citycapsule.designsystem.component.AppCityTitle
 import com.y.citycapsule.designsystem.component.AppFixedHeaderScaffold
 import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppSectionTitle
@@ -167,7 +168,7 @@ private fun RoamingRecordDetail(
         CapsulePhoto(path, "本次漫游精选封面", compact = false)
         Spacer(Modifier.height(AppTheme.dimensions.spacingMd))
     }
-    AppSectionTitle(record.routeName ?: if (record.mode == RoamingMode.FREE) "自由漫游" else "计划漫游")
+    AppCityTitle(record.routeName ?: if (record.mode == RoamingMode.FREE) "自由漫游" else "计划漫游")
     Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
     AppSecondaryText("${formatter.format(record.startedAtEpochMs)} · ${durationLabel(record)}")
     AppSecondaryText("开始 ${formatter.formatDateTime(record.startedAtEpochMs)}")
@@ -193,7 +194,7 @@ private fun RoamingRecordDetail(
             )
             if (points.size < 2) {
                 Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
-                AppStatusMessage("本次只保存了 ${points.size} 个有效 GPS 点，无法绘制实际轨迹线；灰色线仅代表出发前的道路规划。")
+                AppStatusMessage("本次只保存了 ${points.size} 个有效 GPS 点，无法绘制实际轨迹线；浅绿色线仅代表出发前的道路规划。")
             }
         } else {
             AppButton("查看地图轨迹", { showMapPrompt = true }, variant = AppButtonVariant.SECONDARY)
@@ -201,7 +202,7 @@ private fun RoamingRecordDetail(
     }
     if (record.plannedDistanceMeters != null) {
         Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
-        AppCaptionText("灰色为计划道路，琥珀色为实际轨迹 · 计划 ${com.y.citycapsule.core.location.GeoDistance.label(record.plannedDistanceMeters.toDouble())}")
+        AppCaptionText("浅绿为计划道路，薄荷绿为实际轨迹 · 计划 ${com.y.citycapsule.core.location.GeoDistance.label(record.plannedDistanceMeters.toDouble())}")
         report.detourMeters?.let { AppCaptionText("绕路距离 ${com.y.citycapsule.core.location.GeoDistance.label(it)}") }
         if (report.skippedPlaceIds.isNotEmpty()) AppCaptionText("跳过 ${report.skippedPlaceIds.size} 个计划地点")
     } else if (record.mode == RoamingMode.PLANNED) {
@@ -226,8 +227,8 @@ private fun RoamingRecordDetail(
                 placeLabel = moment.visit?.place?.name ?: "漫游途中",
                 excerpt = capsule.content.ifBlank { "这一刻被留在了城市里" },
                 metadata = capsule.tags.takeIf { it.isNotEmpty() }?.joinToString("  ") { "#$it" }
-            ), onOpen = { dispatch(RoamingHistoryIntent.OpenCapsule(capsule.id)) }, variant = CapsuleCardVariant.RECENT,
-                media = capsule.imagePaths.firstOrNull()?.let { path -> { CapsulePhoto(path, "沿途照片", compact = true) } })
+            ), onOpen = { dispatch(RoamingHistoryIntent.OpenCapsule(capsule.id)) }, variant = CapsuleCardVariant.TIMELINE,
+                media = capsule.imagePaths.firstOrNull()?.let { path -> { CapsulePhoto(path, "沿途照片", compact = false) } })
         }
     }
     if (report.moodSummary != null || report.tagSummary != null) {

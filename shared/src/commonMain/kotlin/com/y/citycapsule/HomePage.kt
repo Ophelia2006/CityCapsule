@@ -18,12 +18,14 @@ import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.heightIn
 import com.tencent.kuikly.compose.foundation.layout.padding
+import com.tencent.kuikly.compose.foundation.layout.width
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.foundation.lazy.LazyListState
 import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
+import com.tencent.kuikly.compose.ui.draw.shadow
 import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.tencent.kuikly.compose.material3.Text
@@ -55,6 +57,7 @@ import com.y.citycapsule.designsystem.component.AppBottomSheet
 import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppCaptionText
+import com.y.citycapsule.designsystem.component.AppCityTitle
 import com.y.citycapsule.designsystem.component.AppChoiceChip
 import com.y.citycapsule.designsystem.component.AppIcon
 import com.y.citycapsule.designsystem.component.AppIconName
@@ -140,7 +143,7 @@ internal fun HomeRootContent(
         state = listState,
         contentPadding = PaddingValues(
             start = dimensions.screenHorizontalPadding,
-            top = statusBarHeight.dp + dimensions.spacingXxl,
+            top = statusBarHeight.dp + dimensions.spacingXl,
             end = dimensions.screenHorizontalPadding,
             bottom = dimensions.spacingXl
         )
@@ -149,7 +152,9 @@ internal fun HomeRootContent(
             Column(Modifier.fillMaxWidth()) {
                 HomeProfileHeader(uiState, onCityClick = { showCityPicker = true })
                 Spacer(Modifier.height(dimensions.spacingLg))
-                AppSectionTitle("你好，${uiState.profile.displayName}")
+                AppCaptionText("CITY CAPSULE")
+                Spacer(Modifier.height(dimensions.spacingXxs))
+                AppCityTitle("你好，${uiState.profile.displayName}")
                 Spacer(Modifier.height(dimensions.spacingXxs))
                 AppSecondaryText("今天想去哪里？也看看最近留在城市里的片段。")
                 Spacer(Modifier.height(dimensions.spacingMd))
@@ -205,8 +210,9 @@ internal fun HomeRootContent(
 private fun HomeProfileHeader(state: HomeUiState, onCityClick: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).clickable(onClick = onCityClick)) {
-            AppSectionTitle("${state.selectedCity.displayName}  ⌔")
-            AppCaptionText("点击切换探索城市")
+            AppCaptionText("当前城市")
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
+            AppCityTitle("📍 ${state.selectedCity.displayName}")
         }
         AppProfileAvatar(
             preset = state.profile.avatarPreset,
@@ -217,16 +223,24 @@ private fun HomeProfileHeader(state: HomeUiState, onCityClick: () -> Unit) {
 
 @Composable
 private fun HomeSearchEntry(onClick: () -> Unit) {
+    val shape = RoundedCornerShape(AppTheme.dimensions.radiusMd)
     Row(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(AppTheme.dimensions.radiusMd))
-            .background(AppTheme.colors.surfaceVariant)
+            .shadow(
+                AppTheme.elevation.raised,
+                shape,
+                clip = false,
+                ambientColor = AppTheme.colors.scrim.copy(alpha = 0.05f),
+                spotColor = AppTheme.colors.scrim.copy(alpha = 0.08f)
+            )
+            .clip(shape)
+            .background(AppTheme.colors.surface)
             .clickable(onClick = onClick)
             .padding(AppTheme.dimensions.spacingSm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AppIcon(AppIconName.SEARCH, "搜索地点")
-        Spacer(Modifier.weight(HOME_SEARCH_GAP_WEIGHT))
+        Spacer(Modifier.width(AppTheme.dimensions.spacingSm))
         AppSecondaryText("搜索地点、分类或区域")
     }
 }
@@ -353,7 +367,7 @@ private fun HomeContent(
         Spacer(Modifier.height(dimensions.spacingXl))
         AppSectionTitle("在地图上发现")
         Spacer(Modifier.height(dimensions.spacingXxs))
-        AppSecondaryText("地图标出本次推荐地点；下方用类别 Emoji 展示，最多 5 个。")
+        AppSecondaryText("把今天值得去的地点放到地图里看看。")
         Spacer(Modifier.height(dimensions.spacingSm))
         if (recommendationMapAccepted) {
             AmapNativeView(
@@ -390,7 +404,7 @@ private fun HomeContent(
     Spacer(Modifier.height(dimensions.spacingXl))
     AppSectionTitle("规划下一次探索")
     Spacer(Modifier.height(dimensions.spacingXxs))
-    AppSecondaryText("挑选地点并手动安排顺序；真实步行路线接通前，不绘制可能穿越湖面或建筑的直线。")
+    AppSecondaryText("把想去的地方排成一次轻松的城市散步。")
     Spacer(Modifier.height(dimensions.spacingSm))
     AppButton("我的路线", { navigator.navigate(AppRoute.LocalRoutes) }, variant = AppButtonVariant.SECONDARY)
 

@@ -13,6 +13,8 @@ import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceCatalogSnapshot
 import com.y.citycapsule.core.place.PlaceCatalogSource
 import com.y.citycapsule.core.place.PlaceRepository
+import com.y.citycapsule.core.place.PlacePhotoCacheEntry
+import com.y.citycapsule.core.place.PlacePhotoCacheRepository
 import com.y.citycapsule.core.profile.AvatarPreset
 import com.y.citycapsule.core.profile.LocalProfile
 import com.y.citycapsule.core.profile.LocalProfileRepository
@@ -52,6 +54,7 @@ data class ProfileOverviewUiState(
     val profile: LocalProfile = LocalProfile.DEFAULT,
     val catalogPlaces: List<Place> = emptyList(),
     val favoriteIds: Set<String>? = null,
+    val photoByPlaceId: Map<String, PlacePhotoCacheEntry> = emptyMap(),
     val capsules: List<CityCapsule>? = null,
     val catalogReadOnly: Boolean = false,
     val busyFavoriteId: String? = null,
@@ -114,6 +117,9 @@ internal sealed interface ProfileOverviewMutation {
     data class CapsulesLoaded(
         val result: StorageResult<List<CityCapsule>>
     ) : ProfileOverviewMutation
+    data class PhotosLoaded(
+        val result: StorageResult<Map<String, PlacePhotoCacheEntry>>
+    ) : ProfileOverviewMutation
     data class FavoriteToggleStarted(val placeId: String) : ProfileOverviewMutation
     data class FavoriteToggleSucceeded(
         val placeId: String,
@@ -164,6 +170,9 @@ internal object ProfileOverviewReducer {
             } else {
                 state.notice
             }
+        )
+        is ProfileOverviewMutation.PhotosLoaded -> state.copy(
+            photoByPlaceId = (mutation.result as? StorageResult.Success)?.value.orEmpty()
         )
         is ProfileOverviewMutation.CapsulesLoaded -> {
             val capsules = when (val result = mutation.result) {
@@ -228,6 +237,7 @@ class ProfileOverviewStore(
     private val placeRepository: PlaceRepository,
     private val favoriteRepository: FavoriteRepository,
     private val capsuleRepository: CapsuleRepository,
+    private val photoCacheRepository: PlacePhotoCacheRepository,
     parentScope: CoroutineScope
 ) : MviStore<ProfileOverviewIntent, ProfileOverviewUiState, ProfileOverviewEffect> {
     private sealed interface Event {
@@ -320,6 +330,12 @@ class ProfileOverviewStore(
                 }
             }
             is ProfileOverviewMutation.FavoritesLoaded -> {
+                val generation = event.generation ?: return
+                photoCacheRepository.getValid { result ->
+                    enqueue(generation, ProfileOverviewMutation.PhotosLoaded(result))
+                }
+            }
+            is ProfileOverviewMutation.PhotosLoaded -> {
                 val generation = event.generation ?: return
                 capsuleRepository.getPublished { result ->
                     enqueue(generation, ProfileOverviewMutation.CapsulesLoaded(result))

@@ -13,6 +13,7 @@ import {
   MapsInitializer,
   Marker,
   MarkerOptions,
+  Polyline,
   PolylineOptions
 } from '@amap/amap_lbs_map3d';
 import {
@@ -66,6 +67,15 @@ export class KRAmapView extends KuiklyRenderBaseView {
   private mapView: MapView | null = null;
   private aMap: AMap | null = null;
   private markerPlaces: Map<string, string> = new Map();
+  private placeMarkers: Marker[] = [];
+  private currentLocationMarker: Marker | null = null;
+  private plannedTrack: Polyline | null = null;
+  private actualTrack: Polyline | null = null;
+  private renderedMarkers: string = '';
+  private renderedCurrentLocation: string = '';
+  private renderedPlannedTrack: string = '';
+  private renderedActualTrack: string = '';
+  private renderedCamera: string = '';
   private mapCreatedCallback: MapViewCreateCallback | null = null;
   private hostContext: Context | null = null;
   private mapMountListener: ((enabled: boolean) => void) | null = null;
@@ -104,6 +114,14 @@ export class KRAmapView extends KuiklyRenderBaseView {
 
   attach(context: Context): void {
     this.hostContext = context;
+    if (!this.mapView && !this.aMap) {
+      this.initialized = false;
+      this.renderedMarkers = '';
+      this.renderedCurrentLocation = '';
+      this.renderedPlannedTrack = '';
+      this.renderedActualTrack = '';
+      this.renderedCamera = '';
+    }
     this.logStage('context_attached');
     this.tryInitialize();
   }
@@ -181,52 +199,79 @@ export class KRAmapView extends KuiklyRenderBaseView {
     if (!this.aMap || this.encodedState.length === 0) return;
     try {
       const state = JSON.parse(this.encodedState) as MapStatePayload;
-      this.aMap.clear();
-      this.markerPlaces.clear();
-      state.markers.forEach((payload: MapMarkerPayload) => {
-        const converted = wgs84ToGcj02(payload.latitude, payload.longitude);
-        const marker = this.aMap?.addMarker(
-          new MarkerOptions()
-            .setPosition(new LatLng(converted[0], converted[1]))
-            .setTitle(payload.title)
-        );
-        if (marker) this.markerPlaces.set(marker.getId(), payload.placeId);
-      });
+      const markerState = JSON.stringify(state.markers);
+      if (markerState !== this.renderedMarkers) {
+        this.placeMarkers.forEach((marker: Marker) => marker.remove());
+        this.placeMarkers = [];
+        this.markerPlaces.clear();
+        state.markers.forEach((payload: MapMarkerPayload) => {
+          const converted = wgs84ToGcj02(payload.latitude, payload.longitude);
+          const marker = this.aMap?.addMarker(
+            new MarkerOptions()
+              .setPosition(new LatLng(converted[0], converted[1]))
+              .setTitle(payload.title)
+          );
+          if (marker) {
+            this.placeMarkers.push(marker);
+            this.markerPlaces.set(marker.getId(), payload.placeId);
+          }
+        });
+        this.renderedMarkers = markerState;
+      }
       const plannedTrackPoints = state.plannedTrackPoints ?? [];
-      if (plannedTrackPoints.length >= 2) {
+      const plannedState = JSON.stringify(plannedTrackPoints);
+      if (plannedState !== this.renderedPlannedTrack) {
+        this.plannedTrack?.remove();
+        this.plannedTrack = null;
         const convertedPlan: LatLng[] = plannedTrackPoints.map((point: MapPointPayload) => { const converted = wgs84ToGcj02(point.latitude, point.longitude); return new LatLng(converted[0], converted[1]); });
-        this.aMap.addPolyline(new PolylineOptions().add(...convertedPlan).setWidth(18).setColor(0xFF9A9A9A));
+        if (convertedPlan.length >= 2) this.plannedTrack = this.aMap.addPolyline(new PolylineOptions().add(...convertedPlan).setWidth(16).setColor(0xFF8ABFAE));
+        this.renderedPlannedTrack = plannedState;
       }
       const trackPoints = state.trackPoints ?? [];
-      if (trackPoints.length >= 2) {
+      const trackState = JSON.stringify(trackPoints);
+      if (trackState !== this.renderedActualTrack) {
+        this.actualTrack?.remove();
+        this.actualTrack = null;
         const convertedTrack: LatLng[] = trackPoints.map((point: MapPointPayload) => {
           const converted = wgs84ToGcj02(point.latitude, point.longitude);
           return new LatLng(converted[0], converted[1]);
         });
-        this.aMap.addPolyline(
+        if (convertedTrack.length >= 2) this.actualTrack = this.aMap.addPolyline(
           new PolylineOptions()
             .add(...convertedTrack)
             .setWidth(12)
-            .setColor(0xFFFF9F1C)
+            .setColor(0xFF3FAF8A)
         );
+        this.renderedActualTrack = trackState;
       }
-      if (state.showCurrentLocation && state.currentLocation) {
+      const currentState = state.showCurrentLocation && state.currentLocation ? JSON.stringify(state.currentLocation) : '';
+      if (currentState !== this.renderedCurrentLocation) {
+        if (!state.showCurrentLocation || !state.currentLocation) {
+          this.currentLocationMarker?.remove();
+          this.currentLocationMarker = null;
+        } else {
         const current = wgs84ToGcj02(
           state.currentLocation.latitude,
           state.currentLocation.longitude
         );
-        this.aMap.addMarker(
-          new MarkerOptions()
-            .setPosition(new LatLng(current[0], current[1]))
-            .setTitle('当前位置')
-        );
+          const position = new LatLng(current[0], current[1]);
+          if (this.currentLocationMarker) this.currentLocationMarker.setPosition(position);
+          else this.currentLocationMarker = this.aMap.addMarker(
+            new MarkerOptions().setPosition(position).setTitle('当前位置')
+          );
+        }
+        this.renderedCurrentLocation = currentState;
       }
       if (state.camera) {
-        const center = wgs84ToGcj02(state.camera.latitude, state.camera.longitude);
-        this.aMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
-          new LatLng(center[0], center[1]),
-          state.camera.zoom
-        ));
+        const cameraState = JSON.stringify(state.camera);
+        if (cameraState !== this.renderedCamera) {
+          const center = wgs84ToGcj02(state.camera.latitude, state.camera.longitude);
+          this.aMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
+            new LatLng(center[0], center[1]),
+            state.camera.zoom
+          ));
+          this.renderedCamera = cameraState;
+        }
       }
       this.logStage(
         `state_rendered markers=${this.markerPlaces.size} camera=${state.camera !== undefined}`
@@ -253,6 +298,11 @@ export class KRAmapView extends KuiklyRenderBaseView {
       MapViewManager.getInstance().unregisterMapViewCreatedCallback(this.mapCreatedCallback);
     }
     this.mapCreatedCallback = null;
+    this.initialized = false;
+    this.placeMarkers = [];
+    this.currentLocationMarker = null;
+    this.plannedTrack = null;
+    this.actualTrack = null;
     this.hostContext = null;
     this.mapMountListener = null;
     this.sizeListener = null;

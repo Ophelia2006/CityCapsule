@@ -38,7 +38,10 @@ fun AppOverflowMenu(
     if (!expanded) return
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, scrimColor = AppTheme.colors.scrim)) {
         Box(Modifier.fillMaxSize().padding(AppTheme.dimensions.screenHorizontalPadding), contentAlignment = Alignment.CenterEnd) {
-            AppCard(Modifier.widthIn(max = AppTheme.dimensions.contentMaxWidth)) {
+            AppCard(
+                Modifier.widthIn(max = AppTheme.dimensions.contentMaxWidth),
+                elevation = AppTheme.elevation.overlay
+            ) {
                 items.forEachIndexed { index, item ->
                     Box(Modifier.fillMaxWidth().clickable(enabled = item.enabled) { onSelected(item.id) }.padding(AppTheme.dimensions.spacingMd)) {
                         Text(
@@ -70,7 +73,8 @@ fun AppBottomSheet(
                 Modifier
                     .fillMaxWidth()
                     .widthIn(max = AppTheme.dimensions.contentMaxWidth)
-                    .heightIn(max = maxHeight * BOTTOM_SHEET_MAX_HEIGHT_FRACTION)
+                    .heightIn(max = maxHeight * BOTTOM_SHEET_MAX_HEIGHT_FRACTION),
+                elevation = AppTheme.elevation.overlay
             ) {
                 AppSectionTitle(title)
                 Spacer(Modifier.height(AppTheme.dimensions.spacingMd))

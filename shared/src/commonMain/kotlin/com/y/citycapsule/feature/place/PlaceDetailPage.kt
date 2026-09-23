@@ -63,7 +63,7 @@ import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppSection
 import com.y.citycapsule.designsystem.component.AppStatusMessage
 import com.y.citycapsule.designsystem.component.AppTopBar
-import com.y.citycapsule.designsystem.component.AppPageTitle
+import com.y.citycapsule.designsystem.component.AppCityTitle
 import com.y.citycapsule.designsystem.component.AppCaptionText
 import com.y.citycapsule.designsystem.component.AppIconButton
 import com.y.citycapsule.designsystem.component.AppIconName
@@ -391,7 +391,7 @@ private fun PlaceDetailScreen(
 @Composable
 private fun PlaceDetails(place: Place) {
     Column {
-        AppPageTitle(place.name)
+        AppCityTitle(place.name)
         Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
         AppSecondaryText(
             listOfNotNull(place.city, place.district, place.category.displayName()).joinToString(" · ")

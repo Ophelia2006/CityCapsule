@@ -188,6 +188,7 @@ private class ProfileFixture {
         placeRepository = placeRepository,
         favoriteRepository = favoriteRepository,
         capsuleRepository = capsuleRepository,
+        photoCacheRepository = com.y.citycapsule.core.place.PlacePhotoCacheRepository.NONE,
         parentScope = scope,
     )
 

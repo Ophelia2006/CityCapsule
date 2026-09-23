@@ -45,8 +45,8 @@ import com.y.citycapsule.core.route.DefaultLocalRouteRepository
 import com.y.citycapsule.core.route.AmapRoutePlanningRemoteDataSource
 import com.y.citycapsule.core.map.AmapNativeView
 import com.y.citycapsule.core.map.ExploreMapViewState
-import com.y.citycapsule.core.map.MapCameraModel
 import com.y.citycapsule.core.map.MapMarkerModel
+import com.y.citycapsule.core.map.MapViewportPolicy
 import com.y.citycapsule.core.map.MapPrivacyConsentRepository
 import com.y.citycapsule.core.map.MapPrivacyConsentRuntime
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
@@ -217,7 +217,7 @@ private fun BasePager.install(mode: LocalRouteMode, routeId: String?) {
                 AmapNativeView(
                     state = ExploreMapViewState(
                         markers = previewPlaces.mapNotNull { place -> place.geoPoint?.let { MapMarkerModel(place.id, place.name, it) } },
-                        camera = (roadPoints.firstOrNull() ?: markerPoints.firstOrNull())?.let { MapCameraModel(it, 13.0) },
+                        camera = MapViewportPolicy.cameraFor(roadPoints.ifEmpty { markerPoints }),
                         plannedTrackPoints = roadPoints
                     ), privacyAccepted = true, onEvent = {},
                     modifier = Modifier.fillMaxWidth().height(AppTheme.dimensions.mapViewportHeight)

@@ -15,6 +15,7 @@ import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
+import com.tencent.kuikly.compose.ui.draw.shadow
 import com.y.citycapsule.TextField
 import com.y.citycapsule.designsystem.theme.AppTheme
 
@@ -29,16 +30,24 @@ fun SearchField(
     var focused by remember { mutableStateOf(false) }
     val dimensions = AppTheme.dimensions
     val contentColor = if (enabled) AppTheme.colors.textPrimary else AppTheme.colors.disabledContent
+    val shape = RoundedCornerShape(dimensions.radiusMd)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = dimensions.minTouchTarget)
-            .clip(RoundedCornerShape(dimensions.radiusMd))
-            .background(if (enabled) AppTheme.colors.surfaceVariant else AppTheme.colors.disabledSurface)
+            .shadow(
+                AppTheme.elevation.raised,
+                shape,
+                clip = false,
+                ambientColor = AppTheme.colors.scrim.copy(alpha = 0.05f),
+                spotColor = AppTheme.colors.scrim.copy(alpha = 0.08f)
+            )
+            .clip(shape)
+            .background(if (enabled) AppTheme.colors.surface else AppTheme.colors.disabledSurface)
             .border(
                 dimensions.strokeThin,
                 if (focused) AppTheme.colors.primary else AppTheme.colors.divider,
-                RoundedCornerShape(dimensions.radiusMd)
+                shape
             )
             .padding(horizontal = dimensions.spacingSm),
         verticalAlignment = Alignment.CenterVertically

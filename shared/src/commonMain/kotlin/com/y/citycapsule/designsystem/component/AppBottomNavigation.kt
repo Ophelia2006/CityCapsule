@@ -13,6 +13,8 @@ import com.tencent.kuikly.compose.foundation.layout.padding
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.draw.shadow
+import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.ui.semantics.Role
 import com.tencent.kuikly.compose.ui.semantics.contentDescription
 import com.tencent.kuikly.compose.ui.semantics.role
@@ -33,7 +35,18 @@ fun AppBottomNavigation(
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxWidth().background(AppTheme.colors.surface)) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                AppTheme.elevation.raised,
+                RoundedCornerShape(AppTheme.dimensions.radiusLg),
+                clip = false,
+                ambientColor = AppTheme.colors.scrim.copy(alpha = 0.05f),
+                spotColor = AppTheme.colors.scrim.copy(alpha = 0.09f)
+            )
+            .background(AppTheme.colors.surface)
+    ) {
         AppDivider()
         Row(
             modifier = Modifier.fillMaxWidth()

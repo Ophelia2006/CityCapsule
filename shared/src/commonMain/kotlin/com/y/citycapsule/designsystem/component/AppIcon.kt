@@ -10,6 +10,7 @@ import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
+import com.tencent.kuikly.compose.ui.draw.shadow
 import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.geometry.Offset
@@ -24,10 +25,10 @@ import com.y.citycapsule.designsystem.theme.AppTheme
 
 /** Small, deliberately finite icon vocabulary used by the first product flows. */
 enum class AppIconName(val glyph: String) {
-    BACK("‹"), SEARCH("⌕"), EXPLORE("◇"), RECORD("□"), ROAM("⌁"), PROFILE("○"),
-    FAVORITE("♡"), FAVORITE_FILLED("♥"), LOCATION("⌖"), ADD("＋"),
+    BACK("‹"), SEARCH("⌕"), EXPLORE("🧭"), RECORD("📖"), ROAM("🚶"), PROFILE("👤"),
+    FAVORITE("♡"), FAVORITE_FILLED("♥"), LOCATION("📍"), ADD("＋"),
     MORE("…"), DRAG("≡"), CLOSE("×"), FORWARD("›"), PHOTO("▧"), RETRY("↻"), CHECK("✓"),
-    SETTINGS("⚙️")
+    SETTINGS("⚙")
 }
 
 @Composable
@@ -70,10 +71,20 @@ fun AppIconButton(
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
+        val visualShape = RoundedCornerShape(if (compactVisual) AppTheme.dimensions.radiusXl else AppTheme.dimensions.radiusMd)
         Box(
             modifier = Modifier
                 .size(if (compactVisual) AppTheme.dimensions.iconXl else AppTheme.dimensions.minTouchTarget)
-                .clip(RoundedCornerShape(if (compactVisual) AppTheme.dimensions.radiusXl else AppTheme.dimensions.radiusMd))
+                .let { base ->
+                    if (compactVisual) base.shadow(
+                        AppTheme.elevation.raised,
+                        visualShape,
+                        clip = false,
+                        ambientColor = colors.scrim.copy(alpha = 0.06f),
+                        spotColor = colors.scrim.copy(alpha = 0.10f)
+                    ) else base
+                }
+                .clip(visualShape)
                 .background(if (selected) colors.primaryContainer else Color.Transparent),
             contentAlignment = Alignment.Center
         ) {

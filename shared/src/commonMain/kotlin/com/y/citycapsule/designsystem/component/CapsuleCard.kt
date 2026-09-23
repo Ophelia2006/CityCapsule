@@ -12,6 +12,7 @@ import com.tencent.kuikly.compose.foundation.layout.padding
 import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
+import com.tencent.kuikly.compose.ui.draw.shadow
 import com.y.citycapsule.designsystem.theme.AppTheme
 
 enum class CapsuleCardVariant { TIMELINE, RECENT }
@@ -31,10 +32,34 @@ fun CapsuleCard(
     variant: CapsuleCardVariant = CapsuleCardVariant.TIMELINE,
     media: (@Composable () -> Unit)? = null
 ) {
+    val containerModifier = modifier
+        .fillMaxWidth()
+        .let { base ->
+            if (variant == CapsuleCardVariant.RECENT) {
+                val shape = RoundedCornerShape(AppTheme.dimensions.radiusLg)
+                base.shadow(
+                    AppTheme.elevation.raised,
+                    shape,
+                    clip = false,
+                    ambientColor = AppTheme.colors.scrim.copy(alpha = 0.06f),
+                    spotColor = AppTheme.colors.scrim.copy(alpha = 0.10f)
+                ).clip(shape)
+                    .background(AppTheme.colors.surface)
+            } else {
+                base
+            }
+        }
+        .clickable(onClick = onOpen)
+        .padding(
+            horizontal = if (variant == CapsuleCardVariant.TIMELINE) {
+                AppTheme.dimensions.spacingXxs
+            } else {
+                AppTheme.dimensions.spacingMd
+            },
+            vertical = AppTheme.dimensions.spacingMd
+        )
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(AppTheme.dimensions.radiusLg))
-            .background(AppTheme.colors.surface).clickable(onClick = onOpen)
-            .padding(AppTheme.dimensions.spacingMd)
+        containerModifier
     ) {
         AppCaptionText(model.dateLabel)
         Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))

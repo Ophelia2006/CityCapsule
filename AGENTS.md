@@ -63,7 +63,7 @@ CityCapsule / 城市胶囊是“城市探索 + 个人城市记录工具”，核
 - 正式页面不得出现 AppTheme、Repository、MMKV、Kuikly、HMRouter、路由验收、Replace、Debug 状态或“已接入”等开发信息。
 - 一个页面优先只有一个 Primary CTA；整张内容 Card 可点击，避免连续的大按钮菜单和后台 CRUD 风格。
 - 地点、城市碎片等真实内容单元才使用 Card，禁止 Everything is a Card。
-- 视觉方向：70% 现代极简、20% 城市摄影、10% 旅行记忆；基础色为暖白、近黑、中性灰，Accent 使用克制的暖琥珀/夕阳橙。
+- 视觉方向：现代极简 + 地图编辑感 + 城市记忆；基础色为暖白、墨绿与中性灰，Primary Accent 使用克制的薄荷绿。真实照片和地图是主要视觉内容，路线轨迹可保留与地图高对比的独立语义色。
 - 视觉色彩主要来自真实城市照片；不得用假照片、假推荐或假业务数据冒充完成状态。
 - 产品照片、插画和第三方图形必须先登记到 `docs/ASSET_ATTRIBUTION.md`；缺少可核验来源与授权时只能使用代码生成的类别 fallback，诊断页 `sample.png` 永远不得作为地点摄影素材。
 - 远程地点图片必须经共享 `ImageLoadCoordinator` 进入平台图片 adapter：保持固定 fallback、最大 3 个冷请求并发、首批内容优先、URL 去重和组合生命周期释放。不得在 Page 中循环直接发起全量图片下载；图片字节仍由平台加载器缓存，MMKV 只保存有界 URL 元数据。

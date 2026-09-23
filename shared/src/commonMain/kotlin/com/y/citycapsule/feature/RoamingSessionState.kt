@@ -15,6 +15,8 @@ import com.y.citycapsule.core.checkin.*
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceRepository
 import com.y.citycapsule.core.place.GeoPoint
+import com.y.citycapsule.core.place.PlacePhotoCacheEntry
+import com.y.citycapsule.core.place.PlacePhotoCacheRepository
 import com.y.citycapsule.core.map.MapAvailability
 import com.y.citycapsule.core.map.MapViewEvent
 import com.y.citycapsule.core.capsule.CapsuleRepository
@@ -54,6 +56,7 @@ data class RoamingSessionUiState(
     val track: TrackMetadata? = null,
     val sampling: Boolean = false,
     val routePlaces: List<Place> = emptyList(),
+    val placePhotos: Map<String, PlacePhotoCacheEntry> = emptyMap(),
     val plannedRoutePoints: List<GeoPoint> = emptyList(),
     val availablePlaces: List<Place> = emptyList(),
     val favoriteIds: Set<String> = emptySet(),
@@ -68,6 +71,7 @@ data class RoamingSessionUiState(
     val showMapPrivacyPrompt: Boolean = false,
     val showCapsulePlacePicker: Boolean = false,
     val selectedCapsulePlaceId: String? = null,
+    val selectedMapPlaceId: String? = null,
     val mapMessage: String? = null
 )
 
@@ -111,6 +115,7 @@ internal sealed interface RoamingSessionMutation {
     data object SamplingStarted : RoamingSessionMutation
     data class TrackUpdated(val track: TrackMetadata) : RoamingSessionMutation
     data class PlacesLoaded(val routePlaces: List<Place>, val availablePlaces: List<Place>, val plannedRoutePoints: List<GeoPoint>) : RoamingSessionMutation
+    data class PlacePhotosLoaded(val values: Map<String, PlacePhotoCacheEntry>) : RoamingSessionMutation
     data class FavoritesLoaded(val ids: Set<String>) : RoamingSessionMutation
     data class Nearby(val places: List<NearbyRoamingPlace>) : RoamingSessionMutation
     data class CheckInsLoaded(val values: List<CheckIn>) : RoamingSessionMutation
@@ -127,6 +132,7 @@ internal sealed interface RoamingSessionMutation {
     data class ShowCapsulePlacePicker(val defaultPlaceId: String?) : RoamingSessionMutation
     data object DismissCapsulePlacePicker : RoamingSessionMutation
     data class SelectCapsulePlace(val placeId: String) : RoamingSessionMutation
+    data class SelectMapPlace(val placeId: String) : RoamingSessionMutation
     data class MapMessage(val message: String?) : RoamingSessionMutation
 }
 
@@ -147,6 +153,7 @@ internal object RoamingSessionReducer {
         RoamingSessionMutation.SamplingStarted -> state.copy(sampling = true)
         is RoamingSessionMutation.TrackUpdated -> state.copy(track = mutation.track, sampling = false)
         is RoamingSessionMutation.PlacesLoaded -> state.copy(routePlaces = mutation.routePlaces, availablePlaces = mutation.availablePlaces, plannedRoutePoints = mutation.plannedRoutePoints)
+        is RoamingSessionMutation.PlacePhotosLoaded -> state.copy(placePhotos = mutation.values)
         is RoamingSessionMutation.FavoritesLoaded -> state.copy(favoriteIds = mutation.ids)
         is RoamingSessionMutation.Nearby -> state.copy(nearbyPlaces = mutation.places, sampling = false)
         is RoamingSessionMutation.CheckInsLoaded -> state.copy(checkIns = mutation.values)
@@ -179,6 +186,7 @@ internal object RoamingSessionReducer {
         )
         RoamingSessionMutation.DismissCapsulePlacePicker -> state.copy(showCapsulePlacePicker = false)
         is RoamingSessionMutation.SelectCapsulePlace -> state.copy(selectedCapsulePlaceId = mutation.placeId)
+        is RoamingSessionMutation.SelectMapPlace -> state.copy(selectedMapPlaceId = mutation.placeId)
         is RoamingSessionMutation.MapMessage -> state.copy(mapMessage = mutation.message)
     }
 }
@@ -193,7 +201,8 @@ class RoamingSessionStore(
     private val favorites: FavoriteRepository,
     private val history: RoamingHistoryRepository,
     requestedRouteId: String?,
-    parentScope: CoroutineScope
+    parentScope: CoroutineScope,
+    private val photoCache: PlacePhotoCacheRepository = PlacePhotoCacheRepository.NONE
 ) : MviStore<RoamingSessionIntent, RoamingSessionUiState, RoamingSessionEffect> {
     private val job = SupervisorJob(parentScope.coroutineContext[Job])
     private val scope = CoroutineScope(parentScope.coroutineContext + job)
@@ -235,8 +244,13 @@ class RoamingSessionStore(
         is RoamingSessionIntent.CapsulePlaceSelected -> mutations.send(RoamingSessionMutation.SelectCapsulePlace(intent.placeId))
         RoamingSessionIntent.CreateCapsule -> createCapsule()
         is RoamingSessionIntent.OpenPreviousMemory -> effectChannel.send(RoamingSessionEffect.OpenCapsule(intent.capsuleId))
-        is RoamingSessionIntent.MapEventReceived -> mutations.send(
-            RoamingSessionMutation.MapMessage(when (val event = intent.event) {
+        is RoamingSessionIntent.MapEventReceived -> when (val event = intent.event) {
+            is MapViewEvent.MarkerSelected -> {
+                if (mutable.value.availablePlaces.any { it.id == event.placeId }) {
+                    mutations.send(RoamingSessionMutation.SelectMapPlace(event.placeId))
+                } else Unit
+            }
+            else -> mutations.send(RoamingSessionMutation.MapMessage(when (event) {
                 is MapViewEvent.Unavailable -> when (val reason = event.reason) {
                     MapAvailability.MissingConfiguration -> "地图未配置，轨迹仍在本地记录。"
                     MapAvailability.Offline -> "地图当前离线，轨迹仍在本地记录。"
@@ -246,8 +260,8 @@ class RoamingSessionStore(
                 }
                 is MapViewEvent.Ready -> null
                 else -> mutable.value.mapMessage
-            })
-        )
+            }))
+        }
     }
 
     private fun openCapsulePlacePicker() {
@@ -272,6 +286,13 @@ class RoamingSessionStore(
 
     private fun load() {
         mutations.trySend(RoamingSessionMutation.Loading)
+        photoCache.getValid { result ->
+            mutations.trySend(
+                RoamingSessionMutation.PlacePhotosLoaded(
+                    (result as? StorageResult.Success)?.value.orEmpty()
+                )
+            )
+        }
         routes.getCatalog { routeResult ->
             repository.get { sessionResult ->
                 val session = (sessionResult as? StorageResult.Success)?.value

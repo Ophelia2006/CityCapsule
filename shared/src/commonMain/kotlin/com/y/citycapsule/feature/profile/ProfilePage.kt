@@ -45,6 +45,7 @@ import com.y.citycapsule.core.navigation.AppRouteTable
 import com.y.citycapsule.core.navigation.KuiklyAppNavigator
 import com.y.citycapsule.core.place.Place
 import com.y.citycapsule.core.place.PlaceRepository
+import com.y.citycapsule.core.place.PlacePhotoCacheRepository
 import com.y.citycapsule.core.profile.LocalProfileRepository
 import com.y.citycapsule.core.profile.LocalProfileValidator
 import com.y.citycapsule.core.storage.KuiklyKeyValueStore
@@ -60,7 +61,7 @@ import com.y.citycapsule.designsystem.component.AppDivider
 import com.y.citycapsule.designsystem.component.AppIcon
 import com.y.citycapsule.designsystem.component.AppIconButton
 import com.y.citycapsule.designsystem.component.AppIconName
-import com.y.citycapsule.designsystem.component.AppPageTitle
+import com.y.citycapsule.designsystem.component.AppCityTitle
 import com.y.citycapsule.designsystem.component.AppProfileAvatar
 import com.y.citycapsule.designsystem.component.AppScaffold
 import com.y.citycapsule.designsystem.component.AppSecondaryText
@@ -75,6 +76,7 @@ import com.y.citycapsule.designsystem.component.PlaceCardVariant
 import com.y.citycapsule.designsystem.theme.AppTheme
 import com.y.citycapsule.feature.capsule.CapsuleFeatureRuntime
 import com.y.citycapsule.feature.place.PlaceFeatureRuntime
+import com.y.citycapsule.feature.place.PlaceMedia
 import com.y.citycapsule.feature.place.displayName
 import com.y.citycapsule.feature.place.toFallbackKind
 import kotlinx.coroutines.flow.collect
@@ -86,6 +88,7 @@ internal fun ProfileRootContent(
     placeRepository: PlaceRepository,
     favoriteRepository: FavoriteRepository,
     capsuleRepository: CapsuleRepository,
+    photoCacheRepository: PlacePhotoCacheRepository,
     active: Boolean,
     statusBarHeight: Float,
     listState: LazyListState
@@ -95,13 +98,15 @@ internal fun ProfileRootContent(
         profileRepository,
         placeRepository,
         favoriteRepository,
-        capsuleRepository
+        capsuleRepository,
+        photoCacheRepository
     ) {
         ProfileOverviewStore(
             profileRepository = profileRepository,
             placeRepository = placeRepository,
             favoriteRepository = favoriteRepository,
             capsuleRepository = capsuleRepository,
+            photoCacheRepository = photoCacheRepository,
             parentScope = storeScope
         )
     }
@@ -152,7 +157,7 @@ internal fun ProfileRootContent(
         state = listState,
         contentPadding = PaddingValues(
             start = dimensions.screenHorizontalPadding,
-            top = statusBarHeight.dp + dimensions.spacingXxl,
+            top = statusBarHeight.dp + dimensions.spacingXl,
             end = dimensions.screenHorizontalPadding,
             bottom = dimensions.spacingXl
         )
@@ -211,7 +216,7 @@ private fun ProfileOverviewHeader(onSettings: () -> Unit) {
         verticalAlignment = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            AppPageTitle("我的")
+            AppCityTitle("我的城市档案")
             Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
             AppSecondaryText("一份只属于你的城市档案。")
         }
@@ -239,7 +244,7 @@ private fun ProfileIdentity(state: ProfileOverviewUiState) {
                 .weight(1f)
                 .padding(start = AppTheme.dimensions.spacingMd)
         ) {
-            AppSectionTitle(state.profile.displayName)
+            AppCityTitle(state.profile.displayName)
             Spacer(Modifier.height(AppTheme.dimensions.spacingXxs))
             AppSecondaryText(
                 state.profile.homeCity?.let { "$it · 本地档案" } ?: "未设置常驻城市 · 本地档案"
@@ -335,6 +340,7 @@ private fun WantToPreview(
         else -> state.wantToPlaces.forEachIndexed { index, place ->
             ProfileWantToPlace(
                 place = place,
+                photo = state.photoByPlaceId[place.id],
                 busy = state.busyFavoriteId == place.id,
                 onOpen = {
                     dispatch(ProfileOverviewIntent.PlaceClicked(place.id))
@@ -351,6 +357,7 @@ private fun WantToPreview(
 @Composable
 private fun ProfileWantToPlace(
     place: Place,
+    photo: com.y.citycapsule.core.place.PlacePhotoCacheEntry?,
     busy: Boolean,
     onOpen: () -> Unit,
     onRemove: () -> Unit
@@ -368,7 +375,8 @@ private fun ProfileWantToPlace(
         onOpen = onOpen,
         onToggleFavorite = onRemove,
         variant = PlaceCardVariant.COMPACT,
-        favoriteEnabled = !busy
+        favoriteEnabled = !busy,
+        media = { PlaceMedia(place = place, cachedPhoto = photo) }
     )
 }
 

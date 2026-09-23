@@ -39,7 +39,7 @@ import com.y.citycapsule.designsystem.component.AppButton
 import com.y.citycapsule.designsystem.component.AppButtonVariant
 import com.y.citycapsule.designsystem.component.AppCaptionText
 import com.y.citycapsule.designsystem.component.AppCard
-import com.y.citycapsule.designsystem.component.AppPageTitle
+import com.y.citycapsule.designsystem.component.AppCityTitle
 import com.y.citycapsule.designsystem.component.AppSecondaryText
 import com.y.citycapsule.designsystem.component.AppSectionTitle
 import com.y.citycapsule.designsystem.theme.AppTheme
@@ -97,14 +97,14 @@ fun RoamingRootContent(
         state = listState,
         contentPadding = PaddingValues(
             start = dimensions.screenHorizontalPadding,
-            top = statusBarHeight.dp + dimensions.spacingXxl,
+            top = statusBarHeight.dp + dimensions.spacingXl,
             end = dimensions.screenHorizontalPadding,
             bottom = dimensions.spacingXl
         )
     ) {
         item {
             Column(Modifier.fillMaxWidth()) {
-                AppPageTitle("漫游")
+                AppCityTitle("城市漫游")
                 Spacer(Modifier.height(dimensions.spacingXs))
                 AppSecondaryText("把想去的地方连成一次真实的城市探索。")
                 Spacer(Modifier.height(dimensions.spacingXl))

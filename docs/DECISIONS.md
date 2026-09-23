@@ -345,3 +345,27 @@ Settings 只依赖共享 `DataArchiveCapability`；Android 以系统 Storage Acc
 - 漫游详情、路线编辑和回顾仍使用 typed route 位于 AppShell 外；返回指定根页通过 `backToRoot(AppRootTab.ROAM)`。
 
 依据：用户随后明确要求把漫游作为应用核心功能，并要求它与想去及可回顾城市碎片联动；当前代码已真实实现路线/自由会话、轨迹、打卡、历史归档和 Capsule 关联，因此早期“闭环前不增加 Tab”的前提已经改变。无法从代码确认的其他产品理由不作补充。
+
+## ADR-037：共享 UI 采用地图编辑感与城市记忆视觉语言
+
+状态：Accepted；共享代码完成，双端真机视觉验收待完成。
+
+- 共享语义色调整为暖白背景、墨绿文字、薄荷绿主要操作；深色模式采用同一绿色色相关系，而不是另建蓝紫主题。
+- 城市名、地点名、旅程名与档案标题允许使用 Serif Bold；正文、元数据和操作继续使用系统无衬线字体，避免整页复古化。
+- 地图、真实城市照片、轨迹与时间轴是主要内容视觉。普通列表、时间轴和设置减少容器 Card；地点 Hero、真实记忆、路线摘要等独立内容单元仍可使用 Card。
+- 参考图仅用于提炼层级、留白、色彩和地图/照片主导关系，不复制其地图截图、照片、人物、品牌名称或图标资产。
+- 本次保持 AppRoute、Store/Repository、MMKV wire schema 与平台 Capability 不变；视觉改造不得伪造参考图中本项目没有的社交、等级、世界地图或海报功能。
+
+依据：用户于 2026-09-03 明确提供 11 张视觉参考并要求全项目统一改造，同时要求保持现有功能不变；当前项目已有共享 Design System、真实地图、照片、轨迹与城市记忆能力，适合在既有边界内统一实现。
+
+## ADR-038：业务跨端优先，Android Activity 保持薄宿主
+
+状态：Accepted；Android 代码与自动化完成，平台真机行为待随各 Capability 验收。
+
+- 产品 UI、状态、领域模型、校验、Repository、codec、路由语义和业务编排继续位于 `shared/src/commonMain`。
+- Android 与 HarmonyOS 保持能力对称，但平台实现只报告系统事实并执行系统 API；地点、碎片、路线、漫游、想去、备份范围等产品规则不得进入平台宿主。
+- Android `KuiklyHostActivity` 只承载 Activity/Kuikly 生命周期、模块注册、路由宿主和能力转发；Activity Result、定位及归档选择分别进入 `AndroidMediaHost`、`AndroidLocationHost`、`AndroidArchiveHost`。
+- 地图 Native View、权限、URI、相机、文件、MMKV、分享、外部导航和 HTTP transport 仍保留平台实现，不为减少原生文件数量迁入共享业务层。
+- 架构测试禁止 `commonMain` 导入 Android/高德 Native SDK/MMKV/HarmonyOS API，并防止 Activity 重新吸收 Capability 实现；漫游状态继续只由 Mutation/Reducer 串行写入。
+
+依据：求职项目的学习重点为 HarmonyOS 原生与 Kotlin 跨端，同时明确要求 Android/HarmonyOS 对称实现；判断标准是产品规则是否共享，而不是平台目录代码行数。

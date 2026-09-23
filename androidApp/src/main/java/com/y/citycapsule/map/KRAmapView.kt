@@ -13,6 +13,8 @@ import com.amap.api.maps.TextureMapView
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.BitmapDescriptorFactory
 import com.amap.api.maps.model.MarkerOptions
+import com.amap.api.maps.model.Marker
+import com.amap.api.maps.model.Polyline
 import com.amap.api.maps.model.PolylineOptions
 import com.tencent.kuikly.core.render.android.expand.component.KRView
 import com.tencent.kuikly.core.render.android.export.KuiklyRenderCallback
@@ -25,6 +27,15 @@ class KRAmapView(context: Context) : KRView(context) {
     private var pendingState: String? = null
     private var privacyAccepted = false
     private var destroyed = false
+    private val placeMarkers = mutableListOf<Marker>()
+    private var currentLocationMarker: Marker? = null
+    private var plannedTrack: Polyline? = null
+    private var actualTrack: Polyline? = null
+    private var renderedMarkers = ""
+    private var renderedCurrentLocation = ""
+    private var renderedPlannedTrack = ""
+    private var renderedActualTrack = ""
+    private var renderedCamera = ""
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
@@ -119,60 +130,98 @@ class KRAmapView(context: Context) : KRView(context) {
         val encoded = pendingState ?: return
         runCatching {
             val state = JSONObject(encoded)
-            map.clear()
             val markers = state.optJSONArray("markers")
-            if (markers != null) {
-                for (index in 0 until markers.length()) {
-                    val marker = markers.getJSONObject(index)
-                    val position = toAmap(
-                        marker.getDouble("latitude"),
-                        marker.getDouble("longitude")
-                    )
-                    map.addMarker(
-                        MarkerOptions().position(position).title(marker.optString("title"))
-                    )?.`object` = marker.getString("placeId")
+            val markerState = markers?.toString().orEmpty()
+            if (markerState != renderedMarkers) {
+                placeMarkers.forEach(Marker::remove)
+                placeMarkers.clear()
+                if (markers != null) {
+                    for (index in 0 until markers.length()) {
+                        val marker = markers.getJSONObject(index)
+                        val position = toAmap(
+                            marker.getDouble("latitude"),
+                            marker.getDouble("longitude")
+                        )
+                        map.addMarker(
+                            MarkerOptions().position(position).title(marker.optString("title"))
+                        )?.also { added ->
+                            added.`object` = marker.getString("placeId")
+                            placeMarkers += added
+                        }
+                    }
                 }
+                renderedMarkers = markerState
             }
-            if (state.optBoolean("showCurrentLocation")) {
-                state.optJSONObject("currentLocation")?.let { point ->
-                    map.addMarker(
+            val currentState = if (state.optBoolean("showCurrentLocation")) {
+                state.optJSONObject("currentLocation")?.toString().orEmpty()
+            } else ""
+            if (currentState != renderedCurrentLocation) {
+                val point = state.optJSONObject("currentLocation")
+                if (currentState.isBlank() || point == null) {
+                    currentLocationMarker?.remove()
+                    currentLocationMarker = null
+                } else {
+                    val position = toAmap(point.getDouble("latitude"), point.getDouble("longitude"))
+                    val existing = currentLocationMarker
+                    if (existing == null) currentLocationMarker = map.addMarker(
                         MarkerOptions()
-                            .position(toAmap(
-                                point.getDouble("latitude"),
-                                point.getDouble("longitude")
-                            ))
+                            .position(position)
                             .title("当前位置")
                             .icon(BitmapDescriptorFactory.defaultMarker(
                                 BitmapDescriptorFactory.HUE_AZURE
                             ))
-                    )
+                    ) else existing.position = position
                 }
+                renderedCurrentLocation = currentState
             }
-            state.optJSONArray("plannedTrackPoints")?.let { points ->
-                val converted = buildList { for (index in 0 until points.length()) { val point = points.getJSONObject(index); add(toAmap(point.getDouble("latitude"), point.getDouble("longitude"))) } }
-                if (converted.size >= 2) map.addPolyline(PolylineOptions().addAll(converted).width(18f).color(0xFF9A9A9A.toInt()))
-            }
-            state.optJSONArray("trackPoints")?.let { points ->
+            val plannedPoints = state.optJSONArray("plannedTrackPoints")
+            val plannedState = plannedPoints?.toString().orEmpty()
+            if (plannedState != renderedPlannedTrack) {
+                plannedTrack?.remove()
+                plannedTrack = null
+                val points = plannedPoints
                 val converted = buildList {
-                    for (index in 0 until points.length()) {
+                    if (points != null) for (index in 0 until points.length()) {
                         val point = points.getJSONObject(index)
                         add(toAmap(point.getDouble("latitude"), point.getDouble("longitude")))
                     }
                 }
+                if (converted.size >= 2) plannedTrack = map.addPolyline(
+                    PolylineOptions().addAll(converted).width(PLANNED_TRACK_WIDTH_PX).color(PLANNED_TRACK_COLOR)
+                )
+                renderedPlannedTrack = plannedState
+            }
+            val trackPoints = state.optJSONArray("trackPoints")
+            val trackState = trackPoints?.toString().orEmpty()
+            if (trackState != renderedActualTrack) {
+                actualTrack?.remove()
+                actualTrack = null
+                val points = trackPoints
+                val converted = buildList {
+                    if (points != null) for (index in 0 until points.length()) {
+                            val point = points.getJSONObject(index)
+                            add(toAmap(point.getDouble("latitude"), point.getDouble("longitude")))
+                    }
+                }
                 if (converted.size >= 2) {
-                    map.addPolyline(
+                    actualTrack = map.addPolyline(
                         PolylineOptions()
                             .addAll(converted)
                             .width(TRACK_WIDTH_PX)
                             .color(TRACK_COLOR)
                     )
                 }
+                renderedActualTrack = trackState
             }
             state.optJSONObject("camera")?.let { camera ->
-                map.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                    toAmap(camera.getDouble("latitude"), camera.getDouble("longitude")),
-                    camera.optDouble("zoom", DEFAULT_ZOOM.toDouble()).toFloat()
-                ))
+                val cameraState = camera.toString()
+                if (cameraState != renderedCamera) {
+                    map.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                        toAmap(camera.getDouble("latitude"), camera.getDouble("longitude")),
+                        camera.optDouble("zoom", DEFAULT_ZOOM.toDouble()).toFloat()
+                    ))
+                    renderedCamera = cameraState
+                }
             }
         }.onFailure { error ->
             Log.e(TAG, "AMap state rendering failed", error)
@@ -195,8 +244,18 @@ class KRAmapView(context: Context) : KRView(context) {
 
     override fun onAddToParent(parent: android.view.ViewGroup) {
         super.onAddToParent(parent)
+        if (destroyed) {
+            // Kuikly may reuse the native wrapper after a retained root/page is shown again.
+            // onDestroy() tears down only the provider view; allow this wrapper to mount anew.
+            destroyed = false
+            renderedMarkers = ""
+            renderedCurrentLocation = ""
+            renderedPlannedTrack = ""
+            renderedActualTrack = ""
+            renderedCamera = ""
+        }
         Log.d(TAG, "AMap host added to parent")
-        mapView?.onResume()
+        if (mapView == null) ensureMapCreated() else mapView?.onResume()
     }
 
     override fun onRemoveFromParent(parent: android.view.ViewGroup) {
@@ -209,6 +268,10 @@ class KRAmapView(context: Context) : KRView(context) {
         destroyed = true
         eventCallback = null
         mapView?.onDestroy()
+        placeMarkers.clear()
+        currentLocationMarker = null
+        plannedTrack = null
+        actualTrack = null
         mapView = null
         aMap = null
         super.onDestroy()
@@ -233,7 +296,9 @@ class KRAmapView(context: Context) : KRView(context) {
         private const val PROP_PRIVACY_ACCEPTED = "privacyAccepted"
         private const val EVENT_MAP = "onMapEvent"
         private const val DEFAULT_ZOOM = 12f
+        private const val PLANNED_TRACK_WIDTH_PX = 16f
+        private const val PLANNED_TRACK_COLOR = 0xFF8ABFAE.toInt()
         private const val TRACK_WIDTH_PX = 12f
-        private const val TRACK_COLOR = 0xFFFF9F1C.toInt()
+        private const val TRACK_COLOR = 0xFF3FAF8A.toInt()
     }
 }

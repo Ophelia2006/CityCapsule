@@ -22,7 +22,7 @@ fun AppTopBar(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        AppPageTitle(text = title)
+        AppCityTitle(text = title)
         if (!subtitle.isNullOrBlank()) {
             Spacer(Modifier.height(AppTheme.dimensions.spacingSm))
             AppSecondaryText(text = subtitle)

@@ -12,6 +12,7 @@ import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
+import com.tencent.kuikly.compose.ui.draw.shadow
 import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.semantics.Role
 import com.tencent.kuikly.compose.ui.semantics.contentDescription
@@ -72,12 +73,23 @@ fun AppButton(
     val dimensions = AppTheme.dimensions
     val canClick = enabled && !loading
     val palette = resolveAppButtonPalette(AppTheme.colors, variant, canClick)
+    val shape = RoundedCornerShape(dimensions.radiusMd)
+    val containerModifier = modifier
+        .fillMaxWidth()
+        .heightIn(min = dimensions.minTouchTarget)
+        .let { base ->
+            if (variant == AppButtonVariant.TEXT) base else base.shadow(
+                elevation = if (canClick) AppTheme.elevation.raised else AppTheme.elevation.flat,
+                shape = shape,
+                clip = false,
+                ambientColor = AppTheme.colors.scrim.copy(alpha = 0.06f),
+                spotColor = AppTheme.colors.scrim.copy(alpha = 0.10f)
+            )
+        }
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = dimensions.minTouchTarget)
-            .clip(RoundedCornerShape(dimensions.radiusLg))
+        modifier = containerModifier
+            .clip(shape)
             .background(palette.background)
             .semantics {
                 contentDescription = if (loading) loadingText else text

@@ -38,6 +38,22 @@ fun AppPageTitle(
     )
 }
 
+/** Editorial city/journey title used sparingly on memory-led hero surfaces. */
+@Composable
+fun AppCityTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign? = null
+) {
+    Text(
+        text = text,
+        modifier = modifier.semantics { heading() },
+        color = AppTheme.colors.textPrimary,
+        style = AppTheme.typography.cityTitle,
+        textAlign = textAlign
+    )
+}
+
 @Composable
 fun AppSectionTitle(
     text: String,

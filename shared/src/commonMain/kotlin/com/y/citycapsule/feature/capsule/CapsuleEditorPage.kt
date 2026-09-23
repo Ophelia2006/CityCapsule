@@ -169,9 +169,10 @@ private fun CapsuleEditorScreen(
 }
 
 @Composable
-private fun CapsuleEditorContent(
+internal fun CapsuleEditorContent(
     state: CapsuleEditorState,
-    holder: CapsuleEditorStateHolder
+    holder: CapsuleEditorStateHolder,
+    showMoodPicker: Boolean = true
 ) {
     val dimensions = AppTheme.dimensions
     state.notice?.let {
@@ -231,30 +232,32 @@ private fun CapsuleEditorContent(
         enabled = state.status == CapsuleUiStatus.READY
     )
 
-    Spacer(Modifier.height(dimensions.spacingXl))
-    AppSectionTitle("今天感觉怎么样？")
-    Spacer(Modifier.height(dimensions.spacingSm))
-    CapsuleMood.entries.chunked(2).forEach { moods ->
-        Row(modifier = Modifier.fillMaxWidth()) {
-            moods.forEachIndexed { index, mood ->
-                AppChoiceChip(
-                    text = mood.displayName(),
-                    selected = state.draft.mood == mood,
-                    onClick = {
-                        holder.updateMood(if (state.draft.mood == mood) null else mood)
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(
-                            end = if (index == 0) dimensions.spacingXxs
-                            else dimensions.spacingNone
-                        ),
-                    enabled = state.status == CapsuleUiStatus.READY
-                )
+    if (showMoodPicker) {
+        Spacer(Modifier.height(dimensions.spacingXl))
+        AppSectionTitle("今天感觉怎么样？")
+        Spacer(Modifier.height(dimensions.spacingSm))
+        CapsuleMood.entries.chunked(2).forEach { moods ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                moods.forEachIndexed { index, mood ->
+                    AppChoiceChip(
+                        text = mood.displayName(),
+                        selected = state.draft.mood == mood,
+                        onClick = {
+                            holder.updateMood(if (state.draft.mood == mood) null else mood)
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(
+                                end = if (index == 0) dimensions.spacingXxs
+                                else dimensions.spacingNone
+                            ),
+                        enabled = state.status == CapsuleUiStatus.READY
+                    )
+                }
+                if (moods.size == 1) Spacer(Modifier.weight(1f))
             }
-            if (moods.size == 1) Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(dimensions.spacingXxs))
         }
-        Spacer(Modifier.height(dimensions.spacingXxs))
     }
 
     Spacer(Modifier.height(dimensions.spacingXl))
@@ -308,6 +311,107 @@ private fun CapsuleEditorContent(
     )
     Spacer(Modifier.height(dimensions.spacingXxl))
     AppCaptionText("点击右上角“完成”，保存到你的城市记忆。")
+}
+
+/**
+ * Roaming-only editor surface. It intentionally reuses the regular editor holder so media,
+ * drafts, validation and the roaming-session association keep one persistence contract.
+ */
+@Composable
+internal fun RoamingCapsuleEditorModal(
+    visible: Boolean,
+    placeId: String?,
+    roamingSessionId: String?,
+    initialMood: CapsuleMood?,
+    capsuleRepository: CapsuleRepository,
+    placeRepository: LocalPlaceRepository,
+    camera: CameraCapability,
+    photoPicker: PhotoPickerCapability,
+    mediaCleanup: CapsuleMediaCleanup,
+    onDismiss: () -> Unit,
+    onPublished: (CityCapsule) -> Unit
+) {
+    if (!visible || placeId == null || roamingSessionId == null) return
+    var state by remember(placeId, roamingSessionId) { mutableStateOf(CapsuleEditorState()) }
+    val holder = remember(placeId, roamingSessionId) {
+        CapsuleEditorStateHolder(
+            capsuleId = null,
+            placeId = placeId,
+            capsuleRepository = capsuleRepository,
+            placeRepository = placeRepository,
+            mediaCleanup = mediaCleanup,
+            onStateChanged = { state = it },
+            roamingSessionId = roamingSessionId
+        )
+    }
+    LaunchedEffect(holder) { holder.load() }
+    LaunchedEffect(holder, state.status, initialMood) {
+        if (state.status == CapsuleUiStatus.READY && initialMood != null && state.draft.mood != initialMood) {
+            holder.updateMood(initialMood)
+        }
+    }
+
+    AppBottomSheet(
+        visible = true,
+        title = "留下城市碎片",
+        onDismiss = { holder.requestClose(onDismiss) },
+        dismissLabel = null,
+        footer = {
+            AppButton(
+                text = if (state.status == CapsuleUiStatus.SAVING) "保存中…" else "保存到城市记忆",
+                onClick = { holder.publish(onPublished) },
+                enabled = state.status == CapsuleUiStatus.READY
+            )
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            AppButton(
+                text = "取消",
+                onClick = { holder.requestClose(onDismiss) },
+                variant = AppButtonVariant.TEXT,
+                enabled = state.status == CapsuleUiStatus.READY
+            )
+        }
+    ) {
+        when (state.status) {
+            CapsuleUiStatus.LOADING -> LoadingState("正在准备这一刻…")
+            CapsuleUiStatus.NOT_FOUND -> EmptyState("地点不可用", "这个地点可能已经被删除。")
+            CapsuleUiStatus.ERROR -> ErrorState(state.notice ?: "暂时无法打开编辑器。")
+            CapsuleUiStatus.READY, CapsuleUiStatus.SAVING -> CapsuleEditorContent(
+                state = state,
+                holder = holder,
+                showMoodPicker = false
+            )
+        }
+    }
+    AppBottomSheet(
+        visible = state.showMediaSourcePicker,
+        title = "添加照片",
+        onDismiss = holder::dismissMediaSourcePicker,
+        dismissLabel = "取消"
+    ) {
+        AppButton("拍照", { holder.captureImage(camera) }, enabled = state.status == CapsuleUiStatus.READY)
+        Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+        AppButton(
+            "从相册选择",
+            { holder.pickImages(photoPicker) },
+            variant = AppButtonVariant.SECONDARY,
+            enabled = state.status == CapsuleUiStatus.READY
+        )
+    }
+    AppBottomSheet(
+        visible = state.showDiscardConfirmation,
+        title = "要离开这一刻吗？",
+        onDismiss = holder::dismissDiscard,
+        dismissLabel = null,
+        footer = {
+            AppButton("保存草稿并关闭", { holder.saveDraftAndClose(onDismiss) })
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            AppButton("继续编辑", holder::dismissDiscard, variant = AppButtonVariant.SECONDARY)
+            Spacer(Modifier.height(AppTheme.dimensions.spacingXs))
+            AppButton("放弃修改", { holder.discard(onDismiss) }, variant = AppButtonVariant.DANGER)
+        }
+    ) {
+        AppSecondaryText("当前照片和文字可以保存为本机草稿，下次继续编辑。")
+    }
 }
 
 internal fun CapsuleMood.displayName(): String = "$emoji  $displayName"

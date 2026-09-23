@@ -2,6 +2,7 @@ package com.y.citycapsule.designsystem.component
 
 import androidx.compose.runtime.Composable
 import com.tencent.kuikly.compose.foundation.background
+import com.tencent.kuikly.compose.foundation.border
 import com.tencent.kuikly.compose.foundation.clickable
 import com.tencent.kuikly.compose.foundation.layout.Box
 import com.tencent.kuikly.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
+import com.tencent.kuikly.compose.ui.draw.shadow
 import com.y.citycapsule.designsystem.theme.AppTheme
 
 enum class PlaceCardVariant { HERO, COMPACT }
@@ -39,7 +41,24 @@ fun PlaceCard(
     media: (@Composable () -> Unit)? = null
 ) {
     if (variant == PlaceCardVariant.HERO) {
-        Column(modifier.fillMaxWidth().clip(RoundedCornerShape(AppTheme.dimensions.radiusLg)).background(AppTheme.colors.surface).clickable(onClick = onOpen)) {
+        Column(
+            modifier.fillMaxWidth()
+                .shadow(
+                    AppTheme.elevation.raised,
+                    RoundedCornerShape(AppTheme.dimensions.radiusLg),
+                    clip = false,
+                    ambientColor = AppTheme.colors.scrim.copy(alpha = 0.07f),
+                    spotColor = AppTheme.colors.scrim.copy(alpha = 0.11f)
+                )
+                .clip(RoundedCornerShape(AppTheme.dimensions.radiusLg))
+                .background(AppTheme.colors.surface)
+                .border(
+                    AppTheme.dimensions.strokeThin,
+                    AppTheme.colors.divider,
+                    RoundedCornerShape(AppTheme.dimensions.radiusLg)
+                )
+                .clickable(onClick = onOpen)
+        ) {
             Box(Modifier.fillMaxWidth().height(AppTheme.dimensions.placeHeroHeight)) {
                 if (media != null) media() else PlaceMediaFallback(model.fallbackKind)
             }
@@ -69,7 +88,7 @@ private fun PlaceCardText(model: PlaceCardModel, onToggleFavorite: () -> Unit, f
         }
         if (showFavoriteAction) {
             AppIconButton(
-                icon = if (model.favorite) AppIconName.FAVORITE_FILLED else AppIconName.FAVORITE,
+                icon = AppIconName.FAVORITE,
                 contentDescription = if (model.favorite) "移出想去" else "加入想去",
                 onClick = onToggleFavorite,
                 selected = model.favorite,

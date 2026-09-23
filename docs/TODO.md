@@ -2,9 +2,18 @@
 
 ## 当前 P0 / P1 收口（2026-09-03）
 
+- [ ] `[Code Scan][PARTIAL build/device 2026-09-15]` Explore 搜索输入 300ms 合并已写入页面；补跑 shared/Android 单测和 HarmonyOS 构建，并在双端验证连续输入、在线按钮立即点击、清空筛选及返回后状态恢复。当前离线 Gradle 缺少 kotlin-dsl 4.3.0 插件缓存。
+
 以下清单优先于后面的历史待办；历史条目用于追溯，不代表仍未实现。
 
 ### P0
+
+- [x] `[UI/UX Redesign][2026-09-07]` 精简沉浸式漫游底部面板标题区：删除卡片外重复地点名和展开/收起文字，将“当前地点”合并进贴顶的 48dp 拖拽/点击区；释放的纵向空间用于完整显示底部“更新当前位置”。shared 276 项单测与 Android shared 编译通过，双端视觉复验并入下方漫游验收矩阵。
+- [ ] `[UI/UX Redesign]` 在 Android/HarmonyOS 真机逐页对照新视觉基线：Home、Explore、Place Detail、Capsule Editor、Timeline/Gallery、Roaming Root/Session/History、Profile、路线、设置与全部空/错/加载态；重点检查 Serif 字体回退、系统栏、原生地图与 Kuikly 层接缝、图片裁剪和底栏安全区。
+- [ ] `[UI/UX Redesign]` 验收沉浸式漫游会话：Native Map 真正铺满、红色退出确认与归档、地图未同意降级、下一站/附近地点切换、200 米到达、轨迹中断手动到达、想去撤销、Emoji 心情预选、模态编辑器键盘/相机/相册/草稿/发布，以及发布后同一 `roamingSessionId` 回顾闭环。
+- [ ] `[UI/UX Redesign]` 双端真机验证沉浸地图面板拖拽条上滑展开/下滑收起、120dp/420dp 动画无跳变、地点真实封面及类别 fallback 裁剪正确、Marker 选点自动展开、选中地点与到达/想去/记忆操作一致；验证 2–8 点及跨较大城区路线的完整视口、浅薄荷计划线和薄荷实际轨迹在浅色/深色地图上的可读性。
+- [ ] `[Code Scan][P0 device]` 漫游持续定位稳定性复验：Android/HarmonyOS 分别连续运行至少 2 分钟，在多次 15 秒采样间平移、缩放和连续点击不同 Marker；确认地图不再强制回中、Marker 不闪烁重建、地点面板与所选 Marker 一致，暂停/继续后仍保持可交互。
+- [ ] `[Code Scan][P0 device]` 安装 2026-09-03 地图生命周期修复包后，从 Explore 列表切地图、切其他根 Tab 再返回、进入详情再返回各执行 3 次；确认复用过的 Android/HarmonyOS Native wrapper 能重新创建地图，而不是保持空白。Android 本轮 `adb install -r` 被设备端用户拒绝，尚未覆盖安装。
 
 - [x] 修正 AppShell 架构守卫，使其验证当前即时 `scrollToPage`、禁用根手势、无壳内 route replace 的真实约束。
 - [x] 增加 shared → Android → HarmonyOS capability 注册一致性门禁，并覆盖双端高德地图 Native View 注册。
@@ -14,6 +23,8 @@
 - [ ] 按现有验收文档完成 Android/HarmonyOS 真机异常矩阵：权限允许/拒绝/永久拒绝、弱网/断网、定位超时、媒体取消/失败、存储不足、杀进程恢复、地图反复进入退出、旧数据升级、损坏/超大备份。
 
 ### P1
+
+- [ ] `[UI/UX Redesign]` 用真实用户数据完成小屏/平板、浅色/深色、大字体的视觉回归；若发现平台字体或符号字形不一致，只在统一 `AppTypography` / `AppIcon` 边界修复，不在 Feature 页面局部补丁。
 
 - [x] 工程只 include 真实存在的 `androidApp` 与 `shared` Gradle 模块；H5/小程序不再形成幽灵工程声明。
 - [x] Android 图片栈统一为 Glide，移除无代码引用的 Picasso。
@@ -172,3 +183,11 @@
 - [x] 附近确认、显式手动打卡、城市碎片入口和真实总结。
 - [ ] Android/HarmonyOS 完成 P2-7 总验收并留存证据。
 - [ ] 仅在总验收通过后评估“漫游”一级 Tab，不默认增加。
+
+## 跨端业务边界（2026-09-07）
+
+- [x] 将 Android `KuiklyHostActivity` 压缩为生命周期、Kuikly 注册、路由宿主和能力转发。
+- [x] 将 Android 相册/相机、一次性定位、归档选择拆入独立平台 capability host，保持原 wire 协议和共享业务行为。
+- [x] 增加 commonMain 平台 SDK 禁入、Activity 薄宿主及漫游 Reducer 单点写状态门禁。
+- [x] 记录“产品规则进入 commonMain、系统事实留在平台 adapter”的判断标准，见 `PLATFORM_BOUNDARIES.md` 与 ADR-038。
+- [ ] 按现有媒体、定位、数据归档验收文档重跑 Android/HarmonyOS 真机流程；本轮结构重构的 JVM 自动化不能替代系统 Picker、权限和文件流程验收。

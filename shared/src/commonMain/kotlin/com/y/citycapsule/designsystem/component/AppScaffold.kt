@@ -51,7 +51,7 @@ fun AppScaffold(
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(
                     start = dimensions.screenHorizontalPadding,
-                    top = statusBarHeight.dp + dimensions.spacingXxl,
+                    top = statusBarHeight.dp + dimensions.spacingXl,
                     end = dimensions.screenHorizontalPadding,
                     bottom = dimensions.spacingXl
                 )
@@ -98,7 +98,7 @@ fun AppFixedHeaderScaffold(
                     .fillMaxWidth()
                     .padding(
                         start = dimensions.screenHorizontalPadding,
-                        top = statusBarHeight.dp + dimensions.spacingXxl,
+                        top = statusBarHeight.dp + dimensions.spacingXl,
                         end = dimensions.screenHorizontalPadding
                     ),
                 content = header
@@ -162,7 +162,7 @@ fun AppFixedHeaderLazyScaffold(
                     .fillMaxWidth()
                     .padding(
                         start = dimensions.screenHorizontalPadding,
-                        top = statusBarHeight.dp + dimensions.spacingXxl,
+                        top = statusBarHeight.dp + dimensions.spacingXl,
                         end = dimensions.screenHorizontalPadding
                     ),
                 content = header

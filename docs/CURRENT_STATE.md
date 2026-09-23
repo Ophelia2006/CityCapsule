@@ -1,8 +1,16 @@
 # CityCapsule 当前开发状态
 
+> 2026-09-15 Explore 搜索输入增加 300ms 合并窗口：输入框即时显示最新文字，页面定时任务只保留最新一次输入并在停顿后向 PlaceListStore 发送 QueryChanged；点击在线搜索会先发送最新查询再发送搜索 Intent。未改在线请求分页、Repository、存储或平台协议。双端设备输入与返回状态仍待验收。
+
 ## 权威快照（2026-09-03）
 
 > 本节是当前结论；后续按日期保留的段落是开发历史。历史中的“三个根 Tab”“地图/定位/相机未实现”“缩略图未实现”等描述已被当前代码取代，不再代表现状。
+
+- `DONE（共享 UI 代码）/ PARTIAL（双端视觉验收，2026-09-07）`：沉浸式漫游底部面板删除“当前地点/地图已选择”右侧重复的地点名称和“展开/收起”文字，地点名称继续只在下方地点卡展示；拖动条与“当前地点”合并进同一个 48dp 拖拽/点击触控区，可见条贴合面板上边界。由此释放一整行纵向空间，使底部“更新当前位置”回到 420dp 展开面板的可视范围。漫游 State、Marker 选点、拖拽判定和卡片操作未改。
+- `DONE（共享 UI 代码）/ PARTIAL（双端视觉验收）`：共享 Design System 已切换为参考图提炼出的暖白、墨绿、薄荷绿体系，新增 Serif 城市/旅程标题层级，并统一 10/18/24/28dp 圆角和 flat/raised/overlay 阴影层级；按钮、搜索、分段控件、地点 Hero、最近记忆、底栏和弹层使用克制阴影，时间轴与普通列表保持平面。Home、地点详情、城市记忆、漫游根页/会话/回顾与 Profile 已消费同一视觉基线；正式漫游界面不再展示轨迹分片、沙箱等工程术语。业务 Repository、Store、路由、数据协议和平台能力未改。Android shared 编译通过，双端截图对照与真机交互仍待完成。
+- `DONE（Android 代码与自动化）/ PARTIAL（双端真机）`：活动/暂停中的漫游会话改为全屏 Native Map 沉浸页，左上红色圆形退出操作会先确认结束并归档；顶部显示会话/距离，底部浮层显示下一站或附近地点，并保留真实距离、想去、到达、手动降级、撤销和往期记忆功能。心情以 Emoji 横排选择，并作为会话内城市碎片模态编辑器的初始值；编辑器继续复用正式 `CapsuleEditorStateHolder`、相机/相册、草稿、媒体清理和 `roamingSessionId` 协议。shared 272 项测试及 Android Debug APK 构建通过；原生地图与 Kuikly 浮层层级、键盘、小屏高度和 HarmonyOS 行为仍待真机验证。
+- `DONE（代码与 Android 自动化）/ PARTIAL（双端真机）`：沉浸式漫游底部面板支持在拖拽条上向下收起、向上展开，也保留点击切换；面板以主题 300ms 动效在 120dp/420dp 高度间过渡，标题行不再触发误操作。地点卡左侧读取地点自定义封面或有界 POI 图片缓存，加载失败使用类别 fallback。点击路线/附近地点 Marker 会切换当前地点并自动展开面板。路线规划预览相机改为依据完整道路折线计算中心和缩放，修复长路线只显示首点附近的问题。Android/HarmonyOS 计划线统一为浅薄荷绿，实际轨迹由旧琥珀色改为主题薄荷绿。共享测试、Android 宿主测试和 Debug APK 构建通过；双端拖拽手感、图片裁剪、Marker、折线和面板层级仍待真机验收。
+- `DONE（代码与 Android 自动化）/ PARTIAL（设备复验）`：设备日志确认 Android 原生地图已收到带真实 `placeId` 的 Marker 点击，但旧共享页面只写局部 Compose 状态，`RoamingSessionStore` 忽略该事件；现已增加 `SelectMapPlace` Mutation 和可恢复 `selectedMapPlaceId`，面板从 MVI State 读取选中地点。漫游初始视口改为覆盖完整真实计划折线（无折线时覆盖全部 Marker），不再以最后一个“下一站/终点”为中心；GPS 更新不重置相机。另由日志确认 Explore 返回后 Kuikly 会复用 `destroyed=true` 的 Native wrapper，双端 wrapper 现允许重新初始化地图 provider view。共享测试、Android 宿主测试和 Debug APK 构建通过；覆盖安装被设备端用户拒绝，故本轮修复尚未真机复验。HarmonyOS 本机构建仍受 SDK component missing 阻塞。
 
 - `DONE（代码与自动化）`：Android/HarmonyOS 产品能力表均包含 Storage、Theme、Media、Locale、Archive、Location、External Navigation、Place Network、Track 与 Share；shared、Android、HarmonyOS 的模块名注册由 Android JVM 架构守卫共同检查，地图 Native View 也纳入双端注册门禁。
 - `DONE（代码与 Android 验证）`：AppShell 的“探索 / 记录 / 漫游 / 我的”四个根内容常驻，切换使用即时 `scrollToPage`、禁止根手势、重复点击 no-op；陈旧的动画断言已修正。2026-09-03 `:androidApp:testDebugUnitTest :androidApp:assembleDebug` 通过。
@@ -51,7 +59,7 @@
 
 > 2026-08-24 漫游闭环增量：想去地点在路线选点/自由漫游附近列表优先展示；确认到达后从想去移除并可撤销；打卡可精确创建关联 `placeId + roamingSessionId` 的城市碎片；结束会话幂等归档至 `roaming.history`，Record 根页可进入历史列表/详情并打开或补记对应碎片。同时阻止活动会话被新漫游覆盖，路线页改为“继续上次漫游”。备份结构化协议升至 v10 并包含漫游历史。共享层、Android Debug APK 与 HarmonyOS signed HAP 均已构建通过，双端真机验收待执行。状态：`PARTIAL（代码与双端构建完成 / 设备验收未完成）`。
 
-> 2026-08-24 实时漫游地图增量：漫游页会恢复已有轨迹点，每次 15 秒成功采样在沙箱落盘后同步暖橙色折线、当前位置和地图相机；地图最多显示 500 个保首尾抽样点，文件保留全量点。“留下城市碎片”新增选点 Sheet，默认选中当前最近景点，可改选附近/已到达/路线地点，再以 typed `placeId + roamingSessionId` 进入编辑器。shared 253 项单测、Android Debug APK、HarmonyOS ArkTS 编译及 signed HAP 均通过。双端真机还未验收；当前仍是 Page 驱动的前台采样，未实现 Android 前台服务/HarmonyOS 后台长时任务，锁屏或长时离开 App 的无缺口轨迹为 `NOT_STARTED`。
+> 2026-08-24 实时漫游地图增量：漫游页会恢复已有轨迹点，每次 15 秒成功采样在沙箱落盘后同步轨迹折线与当前位置；2026-09-03 已改为会话内只初始化一次地图相机，后续采样不再强制回中。地图最多显示 500 个保首尾抽样点，文件保留全量点。“留下城市碎片”新增选点 Sheet，默认选中当前最近景点，可改选附近/已到达/路线地点，再以 typed `placeId + roamingSessionId` 进入编辑器。当前仍是 Page 驱动的前台采样，未实现 Android 前台服务/HarmonyOS 后台长时任务，锁屏或长时离开 App 的无缺口轨迹为 `NOT_STARTED`。
 
 > 2026-08-20 HarmonyOS 启动闪退修复：Pura 80 faultlogger 明确记录 `SIGABRT`，Kuikly `DefaultRenderNativeContextHandler::CallKotlinMethod` 断言“make sure initKuikly() has been called”。`EntryAbility` 现于 HMRouter 创建首个 Kuikly Host 前同步调用全局 `KuiklyNativeManager.internalDoLoad()`，失败时记录错误并停止加载 UI，避免进入必然 native abort。修复版 signed HAP 已构建并覆盖安装；设备当前锁屏导致 `aa start` 返回 10106102，解锁后的启动/反复冷启动验证待完成。
 
@@ -315,3 +323,10 @@ P0-3A 于 2026-07-29 取代 P0-2 的根 Tab replace：Home/Timeline/Profile type
 - `DONE code+automation/PARTIAL device 2026-08-21`：Explore 顶部粗分类 chips 已改为不进入持久化 schema 的探索主题：城市地标、咖啡、餐厅、博物馆、展览、公园、自然景点、商场街区。主题分别过滤本地名称/标签并触发对应在线关键词查询；高德类型解析优先识别公园、餐饮、文化和购物细类，避免被通用“风景名胜”提前归入城市地标。shared 单测与 HarmonyOS arm64 共享编译通过，双端真实 POI 命中质量与横向滚动仍待真机验收。
 - `FIXED code+automation/PARTIAL device 2026-08-24`：无本地地点的城市此前只有紧凑在线候选，导致西安 Home 缐少主推荐视觉。现在首个真实在线候选使用 Hero 地点卡，其余候选保持紧凑卡；不把在线候选伪装成本地已保存地点。
 - `DONE code+automation/PARTIAL device 2026-08-24`：Home 左上城市选择器支持输入任意城市名。系统通过现有 `PlaceRemoteDataSource` 查询真实 POI，只有返回城市与输入匹配时才以该 POI 坐标建立并持久化动态城市，随后统一刷新 Home/Explore/Map；无网络、无 Key 或无匹配结果时明确报错，不创建虚构城市。shared 单测和 HarmonyOS arm64 native 链接通过，待鸿蒙真机验证输入法、弹窗状态及真实服务响应。
+
+## 跨端业务边界与 Android 薄宿主（2026-09-07）
+
+- `DONE code`：静态审查确认正式业务 UI、模型、Repository、路由语义、地点/碎片/路线/漫游规则均集中在 `commonMain`；Android 未维护第二套业务页面或业务状态。
+- `DONE code`：`KuiklyHostActivity` 从媒体、定位、归档的具体系统实现中拆出，只保留生命周期、Kuikly 注册、路由宿主与转发；新建 `AndroidMediaHost`、`AndroidLocationHost`、`AndroidArchiveHost` 承接 Activity Result 和 Android SDK 细节，Bridge 方法及 wire 协议不变。
+- `DONE automation`：新增 `CrossPlatformBusinessBoundaryGuardTest`，禁止 commonMain 引入平台 SDK、禁止 Activity 重新吸收能力实现，并验证 `RoamingSessionStore` 只经 Mutation/Reducer 写状态。`:androidApp:compileDebugKotlin`、`:androidApp:testDebugUnitTest`、`:shared:testDebugUnitTest` 通过。
+- `NOT RUN`：本轮没有修改 HarmonyOS 源码和 shared 业务源码；HarmonyOS HAP 与双端相机、相册、定位、导入导出真机流程未重新执行，继续沿用各 Capability 验收清单，不据此提升设备完成状态。

@@ -84,7 +84,7 @@ internal fun RecordRootContent(
                 .fillMaxWidth()
                 .padding(
                     start = dimensions.screenHorizontalPadding,
-                    top = statusBarHeight.dp + dimensions.spacingXxl,
+                    top = statusBarHeight.dp + dimensions.spacingXl,
                     end = dimensions.screenHorizontalPadding
                 )
         ) {
